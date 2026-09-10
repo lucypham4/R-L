@@ -1,6 +1,12 @@
 -- Meal Diary — meals table
 -- Run this once in the Supabase SQL editor (or via `supabase db push`)
 -- for a fresh project.
+--
+-- Destructive: drops any existing `meals` table first, so this always
+-- lands on the shape below. Only run this if you don't have real meal
+-- data in that table yet (check row count in the Table Editor first).
+
+drop table if exists public.meals cascade;
 
 create table if not exists public.meals (
   id uuid primary key default gen_random_uuid(),
