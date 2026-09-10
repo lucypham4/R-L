@@ -1,0 +1,60 @@
+.meal-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  text-align: left;
+  gap: 3px;
+  width: 100%;
+  transition: transform var(--dur-move) var(--ease);
+}
+
+.meal-card-image {
+  aspect-ratio: 1 / 1;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: repeating-linear-gradient(
+    45deg,
+    var(--color-surface),
+    var(--color-surface) 10px,
+    var(--color-line) 10px,
+    var(--color-line) 20px
+  );
+  transition: box-shadow var(--dur-move) var(--ease);
+}
+
+.meal-card-image-label {
+  font: 400 0.625rem/1 var(--font-mono);
+  color: var(--color-muted);
+}
+
+.meal-card-name {
+  margin-top: 8px;
+  font: 400 0.9375rem/1.5 var(--font-sans);
+  color: var(--color-ink);
+}
+
+.meal-card-meta {
+  font: 400 0.8125rem/1.5 var(--font-sans);
+  color: var(--color-muted);
+}
+
+.meal-card-date {
+  margin-top: 3px;
+  font: 400 0.6875rem/1.5 var(--font-mono);
+  color: var(--color-disabled);
+}
+
+.meal-card:hover {
+  transform: translateY(-4px);
+}
+
+.meal-card:hover .meal-card-image {
+  box-shadow: var(--shadow-md);
+}
+
+.meal-card:focus-visible .meal-card-image {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}

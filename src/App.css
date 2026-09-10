@@ -1,0 +1,11 @@
+.app-topbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--space-lg) var(--page-margin-sm);
+}
+
+@media (min-width: 768px) {
+  .app-topbar {
+    padding: var(--space-lg) var(--page-margin-md);
+  }
+}

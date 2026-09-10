@@ -1,0 +1,60 @@
+.filter-select {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: var(--filter-height);
+  border: 1px solid var(--color-line);
+  background: var(--color-bg);
+  transition: background var(--dur-color) var(--ease), border-color var(--dur-color) var(--ease);
+}
+
+.filter-select:hover {
+  border-color: var(--color-line-strong);
+}
+
+.filter-select select {
+  appearance: none;
+  background: transparent;
+  border: none;
+  height: 100%;
+  padding: 0 30px 0 15px;
+  font: 400 0.875rem/1 var(--font-sans);
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.filter-select-chevron {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  font: 400 0.6875rem/1 var(--font-sans);
+  color: var(--color-muted);
+}
+
+.filter-select-active {
+  background: var(--color-ink);
+  border-color: var(--color-ink);
+}
+
+.filter-select-active select {
+  color: var(--color-bg);
+  font-weight: 500;
+  padding-right: 34px;
+}
+
+.filter-select-active select option {
+  color: var(--color-ink);
+  background: var(--color-bg);
+}
+
+.filter-select-clear {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-bg);
+  font: 500 0.875rem/1 var(--font-sans);
+  line-height: 1;
+}

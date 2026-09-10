@@ -1,0 +1,136 @@
+let nextId = 7;
+
+export const initialMeals = [
+  {
+    id: 1,
+    name: 'Miso-glazed aubergine',
+    cuisine: 'Japanese',
+    category: 'Dinner',
+    date: '2025-11-14',
+    serves: 2,
+    description:
+      'Charred over coals until the skin collapsed, then brushed with red miso and mirin. Served with rice and a cucumber salad, on the first cold evening of the year.',
+    ingredients: [
+      '1 large aubergine',
+      '2 tbsp mirin',
+      '3 tbsp red miso',
+      '1 tbsp sake',
+      '1 tbsp caster sugar',
+      '2 spring onions',
+      '1 tsp toasted sesame',
+      '200g short-grain rice',
+    ],
+    method: [
+      'Halve the aubergine and score the flesh in a diamond lattice, not quite through the skin.',
+      'Char cut-side down over coals until the flesh collapses and the skin blisters, 12 minutes.',
+      'Whisk miso, mirin, sake and sugar. Brush on thickly and return to the heat until lacquered.',
+      'Scatter spring onion and sesame. Serve with rice, on the first properly cold evening of the year.',
+    ],
+    note: 'grill was too hot — 10 min next time',
+    tags: ['vegetarian', 'grilled', 'weeknight'],
+  },
+  {
+    id: 2,
+    name: 'Cacio e pepe',
+    cuisine: 'Italian',
+    category: 'Dinner',
+    date: '2025-11-02',
+    serves: 2,
+    description:
+      'Three ingredients, no room to hide: Pecorino, black pepper, and pasta water whisked into a sauce that clings to every strand.',
+    ingredients: ['200g tonnarelli', '100g Pecorino Romano', '2 tsp black peppercorns', 'Salt'],
+    method: [
+      'Toast cracked pepper in a dry pan until fragrant.',
+      'Cook pasta short of al dente, reserving the starchy water.',
+      'Off heat, toss pasta with pepper, a splash of water, then Pecorino in stages, tossing constantly.',
+    ],
+    note: '',
+    tags: ['vegetarian', 'quick'],
+  },
+  {
+    id: 3,
+    name: 'Hainanese chicken rice',
+    cuisine: 'Singaporean',
+    category: 'Lunch',
+    date: '2025-10-27',
+    serves: 4,
+    description:
+      'Poached whole chicken, rice cooked in its fat and stock, and three sauces on the side: ginger-scallion, chilli, and dark soy.',
+    ingredients: [
+      '1 whole chicken',
+      '2 cups jasmine rice',
+      'Ginger, garlic, scallion',
+      'Chicken stock',
+      'Cucumber, to serve',
+    ],
+    method: [
+      'Poach the chicken gently in aromatics until just cooked; rest in the broth.',
+      'Fry rice in chicken fat with ginger and garlic, then cook in the poaching stock.',
+      'Carve the chicken over cucumber. Serve with all three sauces.',
+    ],
+    note: '',
+    tags: ['slow-cooked', 'family'],
+  },
+  {
+    id: 4,
+    name: 'Buttermilk pancakes',
+    cuisine: 'American',
+    category: 'Breakfast',
+    date: '2025-10-19',
+    serves: 2,
+    description: 'Thick, tangy, and deliberately a little underdone in the middle. Butter and maple, nothing else.',
+    ingredients: ['1.5 cups flour', '1.25 cups buttermilk', '1 egg', '2 tbsp sugar', 'Baking soda', 'Butter'],
+    method: [
+      'Whisk dry and wet ingredients separately, then combine — a few lumps are fine.',
+      'Cook low and slow on a buttered griddle, flipping once bubbles set.',
+    ],
+    note: 'birthday breakfast',
+    tags: ['vegetarian', 'birthday'],
+  },
+  {
+    id: 5,
+    name: 'Salt-baked sea bream',
+    cuisine: 'Spanish',
+    category: 'Dinner',
+    date: '2025-10-11',
+    serves: 3,
+    description: 'A whole fish sealed in an egg-white salt crust, cracked open tableside for the reveal.',
+    ingredients: ['1 whole sea bream', '1.5kg coarse salt', '3 egg whites', 'Lemon, herbs'],
+    method: [
+      'Stuff the cavity with lemon and herbs.',
+      'Pack in a salt-and-egg-white crust and bake until set.',
+      'Crack the crust at the table and lift the fillets clear.',
+    ],
+    note: '',
+    tags: ['dinner-party'],
+  },
+  {
+    id: 6,
+    name: 'Tarte tatin',
+    cuisine: 'French',
+    category: 'Dessert',
+    date: '2025-10-04',
+    serves: 6,
+    description: 'Apples caramelised in butter and sugar under a puff pastry lid, then flipped.',
+    ingredients: ['6 apples', '100g butter', '150g sugar', '1 sheet puff pastry'],
+    method: [
+      'Caramelise butter and sugar in an ovenproof pan.',
+      'Arrange apples in the caramel, top with pastry, and bake until golden.',
+      'Rest briefly, then invert onto a plate.',
+    ],
+    note: '',
+    tags: ['baking', 'dinner-party'],
+  },
+];
+
+export function createMeal(fields) {
+  return {
+    id: nextId++,
+    ingredients: [],
+    method: [],
+    tags: [],
+    note: '',
+    serves: 2,
+    ...fields,
+  };
+}

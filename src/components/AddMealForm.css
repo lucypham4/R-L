@@ -1,0 +1,120 @@
+.add-meal-card {
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--color-card);
+  border: 1px solid var(--color-line);
+  padding: 32px 28px;
+  box-shadow: var(--shadow-lg);
+}
+
+@media (min-width: 640px) {
+  .add-meal-card {
+    padding: 41px;
+  }
+}
+
+.add-meal-title {
+  font: 400 1.5rem/1.5 var(--font-serif);
+  letter-spacing: -0.02em;
+}
+
+.add-meal-subtitle {
+  margin-top: 4px;
+  font: 400 0.875rem/1.5 var(--font-sans);
+  color: var(--color-muted);
+}
+
+.add-meal-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+  margin-top: var(--space-xl);
+}
+
+.add-meal-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+@media (min-width: 560px) {
+  .add-meal-row {
+    flex-direction: row;
+  }
+
+  .add-meal-row > div {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+.add-meal-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 37px 20px;
+  text-align: center;
+  background: var(--color-card);
+  border: 1px dashed var(--color-line-strong);
+  cursor: pointer;
+  font: 400 0.875rem/1.5 var(--font-sans);
+}
+
+.add-meal-dropzone-hint {
+  font: 400 0.6875rem/1.5 var(--font-mono);
+  color: var(--color-muted);
+}
+
+.add-meal-preview {
+  max-height: 160px;
+  object-fit: contain;
+}
+
+.add-meal-counter {
+  margin-top: 6px;
+  text-align: right;
+  font: 400 0.6875rem/1.5 var(--font-mono);
+  color: var(--color-disabled);
+}
+
+.add-meal-note-input {
+  font-family: var(--font-serif);
+  font-style: italic;
+  color: var(--color-note-ink);
+}
+
+.add-meal-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-height: 60px;
+  padding: 11px;
+  background: var(--color-card);
+  border: 1px solid var(--color-line);
+}
+
+.add-meal-tag-input {
+  flex: 1;
+  min-width: 100px;
+  border: none;
+  background: transparent;
+  font: 400 0.875rem/1.5 var(--font-sans);
+  color: var(--color-ink);
+}
+
+.add-meal-tag-input::placeholder {
+  color: var(--color-disabled);
+}
+
+.add-meal-footer {
+  display: flex;
+  gap: var(--space-md);
+  padding-top: var(--space-lg);
+  border-top: var(--divider);
+}
