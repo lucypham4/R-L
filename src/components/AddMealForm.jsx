@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import Button from './Button';
 import { Label, TextInput, TextArea, ErrorText } from './TextField';
 import Tag from './Tag';
+import { uploadImage, isCloudinaryConfigured } from '../lib/cloudinary';
 import './AddMealForm.css';
 
 const DESCRIPTION_MAX = 400;
@@ -20,12 +21,15 @@ export default function AddMealForm({ cuisines, categories, onSave, onCancel }) 
   const [tags, setTags] = useState([]);
   const [tagDraft, setTagDraft] = useState('');
   const [touched, setTouched] = useState({});
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [status, setStatus] = useState('idle'); // idle | uploading | saving | error
+  const [submitError, setSubmitError] = useState('');
   const fileInputRef = useRef(null);
   const cardRef = useRef(null);
 
   useEffect(() => {
     function onKeyDown(e) {
-      if (e.key === 'Escape') onCancel();
+      if (e.key === 'Escape' && status !== 'uploading' && status !== 'saving') onCancel();
     }
     document.addEventListener('keydown', onKeyDown);
     document.body.style.overflow = 'hidden';
@@ -33,7 +37,7 @@ export default function AddMealForm({ cuisines, categories, onSave, onCancel }) 
       document.removeEventListener('keydown', onKeyDown);
       document.body.style.overflow = '';
     };
-  }, [onCancel]);
+  }, [onCancel, status]);
 
   useEffect(() => {
     if (!photo) {
@@ -65,27 +69,51 @@ export default function AddMealForm({ cuisines, categories, onSave, onCancel }) 
     setTagDraft('');
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     setTouched({ photo: true, name: true, date: true, description: true });
     if (!isValid) return;
 
-    onSave({
-      name: name.trim(),
-      date,
-      cuisine: cuisine.trim(),
-      category: category.trim(),
-      description: description.trim(),
-      ingredients: ingredientsText.split('\n').map((s) => s.trim()).filter(Boolean),
-      method: methodText.split('\n').map((s) => s.trim()).filter(Boolean),
-      note: note.trim(),
-      tags,
-      photoPreview,
-    });
+    setSubmitError('');
+
+    let photoUrl = null;
+    try {
+      if (isCloudinaryConfigured) {
+        setStatus('uploading');
+        setUploadProgress(0);
+        const uploaded = await uploadImage(photo, { onProgress: setUploadProgress });
+        photoUrl = uploaded.url;
+      } else {
+        // No Cloudinary configured — fall back to the local object URL so the
+        // card still renders a photo for this session (won't persist on reload).
+        photoUrl = photoPreview;
+      }
+
+      setStatus('saving');
+      await onSave({
+        name: name.trim(),
+        date,
+        cuisine: cuisine.trim(),
+        category: category.trim(),
+        description: description.trim(),
+        ingredients: ingredientsText.split('\n').map((s) => s.trim()).filter(Boolean),
+        method: methodText.split('\n').map((s) => s.trim()).filter(Boolean),
+        note: note.trim(),
+        tags,
+        photoUrl,
+      });
+      setStatus('idle');
+    } catch (err) {
+      setStatus('error');
+      setSubmitError(err.message || 'Something went wrong saving this meal.');
+    }
   }
 
+  const isSaving = status === 'uploading' || status === 'saving';
+  const saveLabel = status === 'uploading' ? `Uploading… ${Math.round(uploadProgress * 100)}%` : status === 'saving' ? 'Saving…' : 'Save meal';
+
   return (
-    <div className="modal-overlay" onMouseDown={(e) => e.target === e.currentTarget && onCancel()}>
+    <div className="modal-overlay" onMouseDown={(e) => e.target === e.currentTarget && !isSaving && onCancel()}>
       <div className="add-meal-card" ref={cardRef} role="dialog" aria-modal="true" aria-label="Add a meal">
         <h2 className="add-meal-title">Add a meal</h2>
         <p className="add-meal-subtitle">Only Lucy sees this.</p>
@@ -283,11 +311,13 @@ export default function AddMealForm({ cuisines, categories, onSave, onCancel }) 
             </div>
           </div>
 
+          {submitError && <ErrorText>{submitError}</ErrorText>}
+
           <div className="add-meal-footer">
-            <Button type="submit" variant="primary">
-              Save meal
+            <Button type="submit" variant="primary" disabled={isSaving}>
+              {saveLabel}
             </Button>
-            <Button type="button" variant="secondary" onClick={onCancel}>
+            <Button type="button" variant="secondary" onClick={onCancel} disabled={isSaving}>
               Cancel
             </Button>
           </div>

@@ -45,7 +45,11 @@ export default function MealDetailModal({ meal, index, total, onClose }) {
           <h2 className="modal-plate-name">{meal.name}</h2>
           <div className="modal-rule" />
           <div className="modal-plate-image">
-            <span>food cutout · full res</span>
+            {meal.photoUrl ? (
+              <img src={meal.photoUrl} alt={`${meal.name}, ${meal.cuisine} ${meal.category}`} className="modal-plate-photo" />
+            ) : (
+              <span>food cutout · full res</span>
+            )}
           </div>
           <div className="modal-plate-footer">Meal Diary · {monthFormatter.format(date)}</div>
         </div>

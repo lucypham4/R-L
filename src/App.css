@@ -1,11 +1,29 @@
 .app-topbar {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
   padding: var(--space-lg) var(--page-margin-sm);
 }
 
 @media (min-width: 768px) {
   .app-topbar {
     padding: var(--space-lg) var(--page-margin-md);
+  }
+}
+
+.app-config-notice {
+  font: 400 0.75rem/1.5 var(--font-mono);
+  color: var(--color-muted);
+}
+
+.app-config-error {
+  color: var(--color-danger);
+  padding: 0 var(--page-margin-sm);
+}
+
+@media (min-width: 768px) {
+  .app-config-error {
+    padding: 0 var(--page-margin-md);
   }
 }

@@ -9,8 +9,14 @@ export function formatMealDate(iso) {
 export default function MealCard({ meal, onOpen }) {
   return (
     <button type="button" className="meal-card" onClick={() => onOpen(meal)}>
-      <span className="meal-card-image" aria-hidden="true">
-        <span className="meal-card-image-label">food cutout · 1:1</span>
+      <span className="meal-card-image">
+        {meal.photoUrl ? (
+          <img src={meal.photoUrl} alt={`${meal.name}, ${meal.cuisine} ${meal.category}`} className="meal-card-photo" />
+        ) : (
+          <span className="meal-card-image-label" aria-hidden="true">
+            food cutout · 1:1
+          </span>
+        )}
       </span>
       <span className="meal-card-name">{meal.name}</span>
       <span className="meal-card-meta">

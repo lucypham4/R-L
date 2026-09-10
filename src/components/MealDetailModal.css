@@ -94,6 +94,12 @@
   );
 }
 
+.modal-plate-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .modal-plate-image span {
   font: 400 0.6875rem/1 var(--font-mono);
   color: var(--color-muted);
