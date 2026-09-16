@@ -7,8 +7,8 @@ import SignInScreen from './components/SignInScreen';
 import ChooseUsername from './components/ChooseUsername';
 import OnboardingTour from './components/OnboardingTour';
 import PublicChefPage from './components/PublicChefPage';
-import ThemeToggle from './components/ThemeToggle';
 import BottomNav from './components/BottomNav';
+import ProfileMenu from './components/ProfileMenu';
 import { isSupabaseConfigured } from './lib/supabase';
 import { isCloudinaryConfigured } from './lib/cloudinary';
 import { fetchMeals, insertMeal } from './lib/mealsApi';
@@ -175,6 +175,15 @@ function AdminApp() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  function handleToggleTheme() {
+    setTheme((t) => (t === 'light' ? 'dark' : 'light'));
+  }
+
+  function handleRequestSignIn() {
+    setSignInMode('signin');
+    setShowSignIn(true);
+  }
+
   async function handleAddMeal(fields) {
     if (isSupabaseConfigured && session) {
       const meal = await insertMeal(fields, session.user.id);
@@ -228,30 +237,16 @@ function AdminApp() {
           </p>
         )}
         <div className="app-topbar-actions">
-          {publicUrl && (
-            <a className="app-account-btn" href={publicUrl} target="_blank" rel="noreferrer">
-              View public page ↗
-            </a>
-          )}
-          {session ? (
-            <button type="button" className="app-account-btn" onClick={() => signOut()}>
-              Sign out ({session.user.email})
-            </button>
-          ) : (
-            isSupabaseConfigured && (
-              <button
-                type="button"
-                className="app-account-btn"
-                onClick={() => {
-                  setSignInMode('signin');
-                  setShowSignIn(true);
-                }}
-              >
-                Sign in for multi-device access
-              </button>
-            )
-          )}
-          <ThemeToggle theme={theme} onToggle={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))} />
+          <ProfileMenu
+            placement="below"
+            isSupabaseConfigured={isSupabaseConfigured}
+            session={session}
+            publicUrl={publicUrl}
+            theme={theme}
+            onToggleTheme={handleToggleTheme}
+            onSignIn={handleRequestSignIn}
+            onSignOut={signOut}
+          />
         </div>
       </div>
 
@@ -278,7 +273,13 @@ function AdminApp() {
       <BottomNav
         onHome={handleNavHome}
         onAdd={() => setShowAddForm(true)}
-        onToggleTheme={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}
+        isSupabaseConfigured={isSupabaseConfigured}
+        session={session}
+        publicUrl={publicUrl}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
+        onSignIn={handleRequestSignIn}
+        onSignOut={signOut}
       />
     </div>
   );

@@ -44,7 +44,7 @@ function buildSteps(publicUrl) {
     {
       icon: 'book',
       title: 'Every dish, remembered',
-      body: 'A photo, a date, a note to remember.',
+      body: 'Document all your proudest dishes.',
       artLabel: 'Cover illustration',
       artHint: '16:9 · ≥1600px wide',
     },
