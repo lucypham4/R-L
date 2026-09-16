@@ -37,7 +37,7 @@ export default function ChooseUsername({ userId, onCreated }) {
       const available = await isSlugAvailable(cleanSlug);
       if (!available) {
         setStatus('error');
-        setError(`${window.location.origin}/${cleanSlug} is taken — try another.`);
+        setError(`${window.location.origin}/${cleanSlug} is taken. Try another.`);
         return;
       }
       const profile = await createChefProfile({
@@ -59,7 +59,7 @@ export default function ChooseUsername({ userId, onCreated }) {
       <div className="signin-card">
         <p className="signin-eyebrow">Meal Diary</p>
         <h1 className="signin-title">Set up your page</h1>
-        <p className="signin-subtitle">This is what clients will see and share.</p>
+        <p className="signin-subtitle">Clients will see this page.</p>
 
         <form className="signin-form" onSubmit={handleSubmit}>
           <div>
@@ -89,7 +89,7 @@ export default function ChooseUsername({ userId, onCreated }) {
               placeholder="lucy-pham"
               required
             />
-            <HelpText>Your public page will be {previewUrl} — choose carefully, this can't be changed later.</HelpText>
+            <HelpText>Your page will be {previewUrl}. Choose carefully.</HelpText>
           </div>
 
           {status === 'error' && <ErrorText>{error}</ErrorText>}

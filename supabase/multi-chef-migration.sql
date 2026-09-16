@@ -1,8 +1,8 @@
--- Multi-chef migration — turns this from one shared diary into a platform
+-- Multi-chef migration, turns this from one shared diary into a platform
 -- where every chef gets their own isolated meals and a public page at
 -- /<slug>. Run this once. It supersedes phase2-auth-policies.sql's read
--- restriction — reads need to be public again so anyone can view a
--- chef's page — so run this even if you already ran that file.
+-- restriction, reads need to be public again so anyone can view a
+-- chef's page, so run this even if you already ran that file.
 
 -- Each chef's public profile: page slug + display name.
 create table if not exists public.chefs (

@@ -1,6 +1,6 @@
 /**
  * Builds a single, dependency-free HTML file that renders a read-only
- * portfolio gallery from a snapshot of meals — no React, no build step,
+ * portfolio gallery from a snapshot of meals. No React, no build step,
  * no backend calls at view time. Meant to be uploaded as-is to any static
  * host (Vercel, Netlify, GitHub Pages, S3...).
  */

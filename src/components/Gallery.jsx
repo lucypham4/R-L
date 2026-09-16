@@ -76,7 +76,19 @@ export default function Gallery({
       </div>
 
       {filtered.length === 0 ? (
-        <p className="gallery-empty">No meals match those filters.</p>
+        meals.length === 0 ? (
+          <div className="gallery-empty-state">
+            <h2 className="gallery-empty-title">Add your first dish</h2>
+            <p className="gallery-empty-body">Start with a photo.</p>
+            {onAddMeal && (
+              <Button variant="primary" onClick={onAddMeal}>
+                + Add meal
+              </Button>
+            )}
+          </div>
+        ) : (
+          <p className="gallery-empty">No meals match those filters.</p>
+        )
       ) : (
         <div className="gallery-grid">
           {filtered.map((meal) => (

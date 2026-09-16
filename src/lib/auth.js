@@ -15,7 +15,7 @@ export async function getSession() {
 
 export async function signIn(email, password) {
   if (!isSupabaseConfigured) {
-    throw new Error('Supabase is not configured — sign-in is unavailable in demo mode.');
+    throw new Error('Supabase is not configured. Sign-in is unavailable in demo mode.');
   }
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw error;
@@ -24,12 +24,12 @@ export async function signIn(email, password) {
 
 /**
  * Returns the new session, or null if Supabase is configured to require
- * email confirmation first (Auth → Settings → "Confirm email") — in that
+ * email confirmation first (Auth → Settings → "Confirm email"). In that
  * case there's no session until the user clicks the link in their inbox.
  */
 export async function signUp(email, password) {
   if (!isSupabaseConfigured) {
-    throw new Error('Supabase is not configured — sign-up is unavailable in demo mode.');
+    throw new Error('Supabase is not configured. Sign-up is unavailable in demo mode.');
   }
   const { data, error } = await supabase.auth.signUp({ email, password });
   if (error) throw error;
@@ -40,11 +40,11 @@ export async function signUp(email, password) {
  * Re-sends the signup confirmation email. Needed because Supabase won't
  * send a fresh one if you sign up again with an email that already has a
  * pending, unconfirmed account (e.g. after mistyping the password the
- * first time) — this is the only way to get another copy.
+ * first time). This is the only way to get another copy.
  */
 export async function resendConfirmation(email) {
   if (!isSupabaseConfigured) {
-    throw new Error('Supabase is not configured — this is unavailable in demo mode.');
+    throw new Error('Supabase is not configured. This is unavailable in demo mode.');
   }
   const { error } = await supabase.auth.resend({ type: 'signup', email });
   if (error) throw error;

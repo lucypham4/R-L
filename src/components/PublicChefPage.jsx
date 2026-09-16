@@ -79,7 +79,7 @@ export default function PublicChefPage({ slug }) {
     return (
       <div className="public-chef-missing">
         <p className="public-chef-missing-title">No chef at this page</p>
-        <p className="public-chef-missing-body">Double-check the link — this page name doesn't exist.</p>
+        <p className="public-chef-missing-body">Double-check the link.</p>
       </div>
     );
   }

@@ -91,7 +91,7 @@ export default function AddMealForm({ cuisines, categories, onSave, onCancel }) 
     try {
       const fileToUpload = photoMode === 'sketch' ? await sketchRef.current.getBlob() : photo;
       if (photoMode === 'sketch' && !fileToUpload) {
-        throw new Error('Could not read the sketch — try drawing again.');
+        throw new Error('Could not read the sketch. Try drawing again.');
       }
 
       if (isCloudinaryConfigured) {
@@ -100,7 +100,7 @@ export default function AddMealForm({ cuisines, categories, onSave, onCancel }) 
         const uploaded = await uploadImage(fileToUpload, { onProgress: setUploadProgress });
         photoUrl = uploaded.url;
       } else {
-        // No Cloudinary configured — fall back to a local object URL so the
+        // No Cloudinary configured, fall back to a local object URL so the
         // card still renders a photo for this session (won't persist on reload).
         photoUrl = URL.createObjectURL(fileToUpload);
       }
@@ -132,7 +132,7 @@ export default function AddMealForm({ cuisines, categories, onSave, onCancel }) 
     <div className="modal-overlay" onMouseDown={(e) => e.target === e.currentTarget && !isSaving && onCancel()}>
       <div className="add-meal-card" ref={cardRef} role="dialog" aria-modal="true" aria-label="Add a meal">
         <h2 className="add-meal-title">Add a meal</h2>
-        <p className="add-meal-subtitle">Only Lucy sees this.</p>
+        <p className="add-meal-subtitle">Only you see this.</p>
 
         <form className="add-meal-form" onSubmit={handleSubmit} noValidate>
           <div>
@@ -316,11 +316,11 @@ export default function AddMealForm({ cuisines, categories, onSave, onCancel }) 
             <TextArea
               id="meal-method"
               rows={3}
-              placeholder="One step per line — numbered automatically on the card"
+              placeholder="One step per line, numbered automatically"
               value={methodText}
               onChange={(e) => setMethodText(e.target.value)}
             />
-            <p className="field-help">Left blank, the recipe card prints the description alone and drops the numbered block.</p>
+            <p className="field-help">Otherwise the card just shows the description.</p>
           </div>
 
           <div>
@@ -331,14 +331,11 @@ export default function AddMealForm({ cuisines, categories, onSave, onCancel }) 
               id="meal-note"
               className="add-meal-note-input"
               maxLength={90}
-              placeholder="grill was too hot — 10 min next time"
+              placeholder="grill was too hot, 10 min next time"
               value={note}
               onChange={(e) => setNote(e.target.value)}
             />
-            <p className="field-help">
-              The margin note, printed in italic and tilted on the card, the way a correction gets scribbled on a recipe after
-              cooking it. One line, 90 characters.
-            </p>
+            <p className="field-help">Printed in italic on the card.</p>
           </div>
 
           <div>

@@ -44,30 +44,28 @@ function buildSteps(publicUrl) {
     {
       icon: 'book',
       title: 'Every dish, remembered',
-      body: "A photo, a date, a note about what you'd do differently next time — the way you'd actually talk about the food you cook, kept somewhere real.",
+      body: 'A photo, a date, a note to remember.',
       artLabel: 'Cover illustration',
       artHint: '16:9 · ≥1600px wide',
     },
     {
       icon: 'camera',
       title: 'Log it your way',
-      body: "Snap a photo, or skip the camera entirely and sketch the plate with the pen tool — either one lands on the card the same way.",
+      body: 'Snap a photo, or sketch it instead.',
       artLabel: 'Add-meal illustration',
       artHint: '1:1 · ≥800px',
     },
     {
       icon: 'grid',
       title: 'Watch it grow',
-      body: "Every meal adds to the archive. Flip back through it by cuisine, category, or year as it slowly fills in.",
+      body: 'Every meal adds to your archive.',
       artLabel: 'Growing-archive illustration',
       artHint: '1:1 · ≥800px',
     },
     {
       icon: 'share',
       title: 'Share it when you’re ready',
-      body: publicUrl
-        ? `Your public page is already live at ${publicUrl} — share it with clients any time, no sign-in needed on their end.`
-        : "Download a shareable copy any time from Download copy. Sign in later if you'd like a live public page and access from another device — that's optional, never required.",
+      body: publicUrl ? `Your page is already live at ${publicUrl}.` : 'Download a copy any time. Sign in later for a live page.',
       artLabel: 'Share illustration',
       artHint: '1:1 · ≥800px',
     },
@@ -81,8 +79,8 @@ export default function OnboardingTour({ onDone, publicUrl }) {
   const current = STEPS[step];
 
   return (
-    <div className="onboarding-overlay">
-      <div className="onboarding-card" role="dialog" aria-modal="true" aria-label="Welcome to Meal Diary">
+    <div className="onboarding-screen">
+      <div className="onboarding-card">
         <button type="button" className="onboarding-skip" onClick={onDone}>
           Skip
         </button>

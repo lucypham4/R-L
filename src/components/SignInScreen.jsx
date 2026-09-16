@@ -43,7 +43,7 @@ export default function SignInScreen({ initialMode = 'signin', onGuest }) {
       if (isSignUp) {
         const session = await signUp(email.trim(), password);
         if (!session) {
-          // Email confirmation is required — no session yet.
+          // Email confirmation is required, no session yet.
           setConfirmNotice('Check your email for a confirmation link, then sign in below.');
           setMode('signin');
           setPassword('');
@@ -64,9 +64,7 @@ export default function SignInScreen({ initialMode = 'signin', onGuest }) {
         <p className="signin-eyebrow">Meal Diary</p>
         <h1 className="signin-title">{isSignUp ? 'Create your account' : 'Sign in'}</h1>
         <p className="signin-subtitle">
-          {isSignUp
-            ? "Optional — an account gets you a live public page and access from more than one device. Your diary works fine without one."
-            : 'Sign in for a live public page and access from another device.'}
+          {isSignUp ? 'Optional. Get a public page and multi-device access.' : 'For a public page and multi-device access.'}
         </p>
 
         <form className="signin-form" onSubmit={handleSubmit}>
@@ -122,7 +120,7 @@ export default function SignInScreen({ initialMode = 'signin', onGuest }) {
         {!isSignUp && (
           <div className="signin-resend">
             {resendStatus === 'sent' ? (
-              <p className="signin-notice">Confirmation email resent — check your inbox.</p>
+              <p className="signin-notice">Confirmation email resent. Check your inbox.</p>
             ) : (
               <button type="button" className="signin-resend-link" onClick={handleResend} disabled={resendStatus === 'sending'}>
                 {resendStatus === 'sending' ? 'Sending…' : "Didn't get a confirmation email? Resend"}
@@ -134,7 +132,7 @@ export default function SignInScreen({ initialMode = 'signin', onGuest }) {
 
         {onGuest && (
           <button type="button" className="signin-guest-link" onClick={onGuest}>
-            Not now — continue without an account
+            Not now, continue without an account
           </button>
         )}
       </div>

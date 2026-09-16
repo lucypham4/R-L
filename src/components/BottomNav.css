@@ -1,0 +1,61 @@
+.bottom-nav {
+  display: none;
+}
+
+/* Phone breakpoint only, per the design system: a persistent floating
+   glass pill. The one deliberate exception to --radius: 0 in the app. */
+@media (max-width: 640px) {
+  .bottom-nav {
+    display: flex;
+    position: fixed;
+    left: 50%;
+    bottom: max(16px, env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    z-index: 40;
+    width: 194px;
+    height: 60px;
+    padding: 3px;
+    gap: 4px;
+    background: rgba(250, 249, 246, 0.78);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 32px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .bottom-nav {
+    background: rgba(20, 19, 17, 0.78);
+  }
+}
+
+:root[data-theme='dark'] .bottom-nav {
+  background: rgba(20, 19, 17, 0.78);
+}
+
+.bottom-nav-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border-radius: 28px;
+  color: var(--color-muted);
+}
+
+.bottom-nav-tab svg {
+  width: 22px;
+  height: 22px;
+}
+
+.bottom-nav-tab span {
+  font: 400 0.5625rem/1 var(--font-mono);
+  letter-spacing: 0.02em;
+}
+
+.bottom-nav-tab-active {
+  background: #ffffff;
+  color: var(--color-accent);
+}

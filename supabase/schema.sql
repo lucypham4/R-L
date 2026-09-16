@@ -1,4 +1,4 @@
--- Meal Diary — meals table
+-- Meal Diary, meals table
 -- Run this once in the Supabase SQL editor (or via `supabase db push`)
 -- for a fresh project.
 --
@@ -29,7 +29,7 @@ create index if not exists meals_date_idx on public.meals (date desc);
 alter table public.meals enable row level security;
 
 -- Phase 1 has no user accounts yet, so these policies are intentionally
--- open — anyone with the anon key can read and add meals. Once Lucy and
+-- open, anyone with the anon key can read and add meals. Once Lucy and
 -- her partner have accounts, run phase2-auth-policies.sql to restrict
 -- inserts to `auth.role() = 'authenticated'`.
 drop policy if exists "Public read access" on public.meals;

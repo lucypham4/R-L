@@ -8,6 +8,7 @@ import ChooseUsername from './components/ChooseUsername';
 import OnboardingTour from './components/OnboardingTour';
 import PublicChefPage from './components/PublicChefPage';
 import ThemeToggle from './components/ThemeToggle';
+import BottomNav from './components/BottomNav';
 import { isSupabaseConfigured } from './lib/supabase';
 import { isCloudinaryConfigured } from './lib/cloudinary';
 import { fetchMeals, insertMeal } from './lib/mealsApi';
@@ -20,7 +21,7 @@ function hasSeenOnboarding(key) {
   try {
     return localStorage.getItem(`onboarding-seen-${key}`) === '1';
   } catch {
-    return true; // storage blocked — don't force the tour on every load
+    return true; // storage blocked, don't force the tour on every load
   }
 }
 
@@ -28,7 +29,7 @@ function markOnboardingSeen(key) {
   try {
     localStorage.setItem(`onboarding-seen-${key}`, '1');
   } catch {
-    // storage blocked — nothing to persist, tour just won't be remembered
+    // storage blocked, nothing to persist, tour just won't be remembered
   }
 }
 
@@ -48,7 +49,7 @@ function AdminApp() {
   // An account is entirely optional: without one, meals persist to this
   // browser only (localMeals.js). Signing in is an opt-in upgrade for a
   // live public page and access from more than one device.
-  // Starts from local storage regardless of Supabase config — if a session
+  // Starts from local storage regardless of Supabase config. If a session
   // turns out to exist, the fetch effect below replaces this with their
   // cloud meals once it resolves.
   const [meals, setMeals] = useState(() => loadLocalMeals());
@@ -94,7 +95,7 @@ function AdminApp() {
   }, []);
 
   // A signed-in account needs a chef profile (display name + page slug)
-  // before it can use the app — new sign-ups get sent through
+  // before it can use the app, new sign-ups get sent through
   // ChooseUsername. Nothing here runs for the (default) no-account case.
   useEffect(() => {
     if (!session) {
@@ -117,7 +118,7 @@ function AdminApp() {
     };
   }, [session]);
 
-  // First-time welcome tour — once per account if signed in, otherwise
+  // First-time welcome tour, once per account if signed in, otherwise
   // once per device/browser. Runs either way; no account required.
   useEffect(() => {
     if (session && !chefProfile) return; // still setting up the account
@@ -167,6 +168,13 @@ function AdminApp() {
     setOpenMealId(null);
   }
 
+  function handleNavHome() {
+    setShowAddForm(false);
+    setShowPublish(false);
+    closeMeal();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   async function handleAddMeal(fields) {
     if (isSupabaseConfigured && session) {
       const meal = await insertMeal(fields, session.user.id);
@@ -199,12 +207,24 @@ function AdminApp() {
 
   const publicUrl = chefProfile ? `${window.location.origin}/${chefProfile.slug}` : null;
 
+  if (showOnboarding) {
+    return (
+      <OnboardingTour
+        publicUrl={publicUrl}
+        onDone={() => {
+          markOnboardingSeen(session ? session.user.id : 'local');
+          setShowOnboarding(false);
+        }}
+      />
+    );
+  }
+
   return (
     <div>
       <div className="app-topbar">
         {!isCloudinaryConfigured && (
           <p className="app-config-notice">
-            Cloudinary is not configured — photos won't survive a page reload, even though meals do. See .env.example.
+            Cloudinary isn't configured. Photos won't survive a reload.
           </p>
         )}
         <div className="app-topbar-actions">
@@ -255,15 +275,11 @@ function AdminApp() {
 
       {showPublish && <PublishModal meals={sortedMeals} onClose={() => setShowPublish(false)} />}
 
-      {showOnboarding && (
-        <OnboardingTour
-          publicUrl={publicUrl}
-          onDone={() => {
-            markOnboardingSeen(session ? session.user.id : 'local');
-            setShowOnboarding(false);
-          }}
-        />
-      )}
+      <BottomNav
+        onHome={handleNavHome}
+        onAdd={() => setShowAddForm(true)}
+        onToggleTheme={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}
+      />
     </div>
   );
 }

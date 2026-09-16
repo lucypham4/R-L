@@ -58,10 +58,7 @@ export default function PublishModal({ meals, onClose }) {
         </button>
 
         <h2 className="publish-title">Download a static copy</h2>
-        <p className="publish-subtitle">
-          Your public page is already live and always current — this bundles a snapshot into one HTML file instead,
-          useful for an offline copy or hosting the gallery somewhere else entirely.
-        </p>
+        <p className="publish-subtitle">A snapshot file, for an offline copy or hosting elsewhere.</p>
 
         <div className="publish-toggle">
           <label>
@@ -99,10 +96,7 @@ export default function PublishModal({ meals, onClose }) {
               <strong>{mealsToPublish.length}</strong> meal{mealsToPublish.length === 1 ? '' : 's'} exported as{' '}
               <code>meal-diary-portfolio.html</code>.
             </p>
-            <p className="publish-next-step">
-              This file just downloaded to your computer. Your live public page doesn't need this — it's already
-              up to date — but you can upload this file anywhere else you'd like a copy hosted.
-            </p>
+            <p className="publish-next-step">Downloaded. Upload it anywhere you'd like a copy hosted.</p>
             <Button type="button" variant="secondary" onClick={handleGenerate}>
               Download again
             </Button>

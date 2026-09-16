@@ -42,7 +42,7 @@ export async function uploadImage(file, { onProgress } = {}) {
       }
     };
 
-    xhr.onerror = () => reject(new Error('Cloudinary upload failed — network error'));
+    xhr.onerror = () => reject(new Error('Cloudinary upload failed, network error'));
     xhr.send(formData);
   });
 

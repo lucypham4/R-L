@@ -31,7 +31,7 @@ export default function MealDetailModal({ meal, index, total, onClose, sharePath
       try {
         await navigator.share({ title: meal.name, url: shareUrl });
       } catch {
-        // User cancelled the native share sheet — not an error.
+        // User cancelled the native share sheet, not an error.
       }
     } else if (navigator.clipboard) {
       await navigator.clipboard.writeText(shareUrl);
