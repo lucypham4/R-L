@@ -8,25 +8,25 @@ import ChooseUsername from './components/ChooseUsername';
 import OnboardingTour from './components/OnboardingTour';
 import PublicChefPage from './components/PublicChefPage';
 import ThemeToggle from './components/ThemeToggle';
-import { initialMeals, createMeal } from './data/meals';
 import { isSupabaseConfigured } from './lib/supabase';
 import { isCloudinaryConfigured } from './lib/cloudinary';
 import { fetchMeals, insertMeal } from './lib/mealsApi';
 import { fetchChefProfile } from './lib/chefsApi';
 import { getSession, onAuthChange, signOut } from './lib/auth';
+import { loadLocalMeals, saveLocalMeals, createLocalMeal } from './lib/localMeals';
 import './App.css';
 
-function hasSeenOnboarding(userId) {
+function hasSeenOnboarding(key) {
   try {
-    return localStorage.getItem(`onboarding-seen-${userId}`) === '1';
+    return localStorage.getItem(`onboarding-seen-${key}`) === '1';
   } catch {
     return true; // storage blocked — don't force the tour on every load
   }
 }
 
-function markOnboardingSeen(userId) {
+function markOnboardingSeen(key) {
   try {
-    localStorage.setItem(`onboarding-seen-${userId}`, '1');
+    localStorage.setItem(`onboarding-seen-${key}`, '1');
   } catch {
     // storage blocked — nothing to persist, tour just won't be remembered
   }
@@ -45,19 +45,25 @@ export default function App() {
 }
 
 function AdminApp() {
-  const [meals, setMeals] = useState(isSupabaseConfigured ? [] : initialMeals);
+  // An account is entirely optional: without one, meals persist to this
+  // browser only (localMeals.js). Signing in is an opt-in upgrade for a
+  // live public page and access from more than one device.
+  // Starts from local storage regardless of Supabase config — if a session
+  // turns out to exist, the fetch effect below replaces this with their
+  // cloud meals once it resolves.
+  const [meals, setMeals] = useState(() => loadLocalMeals());
   const [loadError, setLoadError] = useState('');
   const [openMealId, setOpenMealId] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [showPublish, setShowPublish] = useState(false);
+  const [showSignIn, setShowSignIn] = useState(false);
+  const [signInMode, setSignInMode] = useState('signin');
   const [session, setSession] = useState(null);
   const [sessionChecked, setSessionChecked] = useState(!isSupabaseConfigured);
   const [chefProfile, setChefProfile] = useState(null);
   const [chefProfileChecked, setChefProfileChecked] = useState(!isSupabaseConfigured);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [theme, setTheme] = useState('light');
-  const [guestMode, setGuestMode] = useState(false);
-  const [signInMode, setSignInMode] = useState('signin');
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -87,12 +93,13 @@ function AdminApp() {
     return onAuthChange(setSession);
   }, []);
 
-  // Every account needs a chef profile (display name + page slug) before
-  // they can use the app — new sign-ups get sent through ChooseUsername.
+  // A signed-in account needs a chef profile (display name + page slug)
+  // before it can use the app — new sign-ups get sent through
+  // ChooseUsername. Nothing here runs for the (default) no-account case.
   useEffect(() => {
     if (!session) {
       setChefProfile(null);
-      setChefProfileChecked(!isSupabaseConfigured);
+      setChefProfileChecked(true);
       return;
     }
     let cancelled = false;
@@ -110,11 +117,12 @@ function AdminApp() {
     };
   }, [session]);
 
-  // Show the first-time welcome tour once per account, right after their
-  // chef profile exists.
+  // First-time welcome tour — once per account if signed in, otherwise
+  // once per device/browser. Runs either way; no account required.
   useEffect(() => {
-    if (!session || !chefProfile) return;
-    if (!hasSeenOnboarding(session.user.id)) setShowOnboarding(true);
+    if (session && !chefProfile) return; // still setting up the account
+    const key = session ? session.user.id : 'local';
+    if (!hasSeenOnboarding(key)) setShowOnboarding(true);
   }, [session, chefProfile]);
 
   useEffect(() => {
@@ -133,11 +141,6 @@ function AdminApp() {
       cancelled = true;
     };
   }, [session]);
-
-  // Guests browse sample data, read-only — no account, nothing persisted.
-  useEffect(() => {
-    if (guestMode) setMeals(initialMeals);
-  }, [guestMode]);
 
   const sortedMeals = useMemo(
     () => [...meals].sort((a, b) => new Date(b.date) - new Date(a.date)),
@@ -165,37 +168,32 @@ function AdminApp() {
   }
 
   async function handleAddMeal(fields) {
-    if (isSupabaseConfigured) {
+    if (isSupabaseConfigured && session) {
       const meal = await insertMeal(fields, session.user.id);
       setMeals((prev) => [meal, ...prev]);
     } else {
-      setMeals((prev) => [createMeal(fields), ...prev]);
+      setMeals((prev) => {
+        const next = [createLocalMeal(fields), ...prev];
+        saveLocalMeals(next);
+        return next;
+      });
     }
     setShowAddForm(false);
   }
 
-  // Everyone hitting the admin app (root path) needs an account — the
-  // public, read-only page for each chef is /<slug> (see PublicChefPage).
-  // Guests can look around read-only on sample data instead, with no
-  // account and nothing saved.
   if (isSupabaseConfigured && !sessionChecked) {
     return null;
   }
 
-  if (isSupabaseConfigured && !session && !guestMode) {
-    return (
-      <SignInScreen
-        initialMode={signInMode}
-        onGuest={() => setGuestMode(true)}
-      />
-    );
+  if (showSignIn && !session) {
+    return <SignInScreen initialMode={signInMode} onGuest={() => setShowSignIn(false)} />;
   }
 
-  if (isSupabaseConfigured && !guestMode && !chefProfileChecked) {
+  if (session && !chefProfileChecked) {
     return null;
   }
 
-  if (isSupabaseConfigured && !guestMode && !chefProfile) {
+  if (session && !chefProfile) {
     return <ChooseUsername userId={session.user.id} onCreated={setChefProfile} />;
   }
 
@@ -204,40 +202,34 @@ function AdminApp() {
   return (
     <div>
       <div className="app-topbar">
-        {(!isSupabaseConfigured || !isCloudinaryConfigured) && (
+        {!isCloudinaryConfigured && (
           <p className="app-config-notice">
-            {!isSupabaseConfigured && !isCloudinaryConfigured
-              ? 'Supabase and Cloudinary are not configured — running on local demo data. See .env.example.'
-              : !isSupabaseConfigured
-              ? 'Supabase is not configured — running on local demo data. See .env.example.'
-              : 'Cloudinary is not configured — new photos stay local to this session. See .env.example.'}
+            Cloudinary is not configured — photos won't survive a page reload, even though meals do. See .env.example.
           </p>
         )}
         <div className="app-topbar-actions">
-          {guestMode && (
-            <>
-              <span className="app-guest-badge">Browsing as guest — sample data, nothing saved</span>
-              <button
-                type="button"
-                className="app-account-btn"
-                onClick={() => {
-                  setSignInMode('signup');
-                  setGuestMode(false);
-                }}
-              >
-                Sign up
-              </button>
-            </>
-          )}
           {publicUrl && (
             <a className="app-account-btn" href={publicUrl} target="_blank" rel="noreferrer">
               View public page ↗
             </a>
           )}
-          {session && (
+          {session ? (
             <button type="button" className="app-account-btn" onClick={() => signOut()}>
               Sign out ({session.user.email})
             </button>
+          ) : (
+            isSupabaseConfigured && (
+              <button
+                type="button"
+                className="app-account-btn"
+                onClick={() => {
+                  setSignInMode('signin');
+                  setShowSignIn(true);
+                }}
+              >
+                Sign in for multi-device access
+              </button>
+            )
           )}
           <ThemeToggle theme={theme} onToggle={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))} />
         </div>
@@ -245,13 +237,7 @@ function AdminApp() {
 
       {loadError && <p className="app-config-notice app-config-error">{loadError}</p>}
 
-      <Gallery
-        meals={sortedMeals}
-        onOpenMeal={handleOpenMeal}
-        onAddMeal={guestMode ? undefined : () => setShowAddForm(true)}
-        onPublishSite={guestMode ? undefined : () => setShowPublish(true)}
-        tagline={guestMode ? 'Sample data · sign up to start your own' : undefined}
-      />
+      <Gallery meals={sortedMeals} onOpenMeal={handleOpenMeal} onAddMeal={() => setShowAddForm(true)} onPublishSite={() => setShowPublish(true)} />
 
       {openMeal && (
         <MealDetailModal
@@ -273,7 +259,7 @@ function AdminApp() {
         <OnboardingTour
           publicUrl={publicUrl}
           onDone={() => {
-            if (session) markOnboardingSeen(session.user.id);
+            markOnboardingSeen(session ? session.user.id : 'local');
             setShowOnboarding(false);
           }}
         />

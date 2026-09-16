@@ -2,26 +2,73 @@ import { useState } from 'react';
 import Button from './Button';
 import './OnboardingTour.css';
 
+const ICONS = {
+  book: (
+    <path d="M12 5.5c-1.6-1.1-4.2-1.6-6.5-1.3v14c2.3-.3 4.9.2 6.5 1.3 1.6-1.1 4.2-1.6 6.5-1.3v-14c-2.3-.3-4.9.2-6.5 1.3zM12 5.5v14" />
+  ),
+  camera: (
+    <>
+      <rect x="3" y="7" width="18" height="13" rx="2" />
+      <path d="M8 7l1.4-2.5h5.2L16 7" />
+      <circle cx="12" cy="13.5" r="3.4" />
+    </>
+  ),
+  grid: (
+    <>
+      <rect x="3" y="3" width="6" height="6" rx="1" />
+      <rect x="9.5" y="3" width="6" height="6" rx="1" fillOpacity="0.15" fill="currentColor" />
+      <rect x="16" y="3" width="5" height="6" rx="1" />
+      <rect x="3" y="9.5" width="6" height="6" rx="1" fillOpacity="0.15" fill="currentColor" />
+      <rect x="9.5" y="9.5" width="6" height="6" rx="1" />
+      <rect x="3" y="16" width="6" height="5" rx="1" fillOpacity="0.15" fill="currentColor" />
+    </>
+  ),
+  share: (
+    <>
+      <path d="M12 3v11M12 3l-4 4M12 3l4 4" />
+      <path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" />
+    </>
+  ),
+};
+
+function Icon({ name }) {
+  return (
+    <svg className="onboarding-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {ICONS[name]}
+    </svg>
+  );
+}
+
 function buildSteps(publicUrl) {
   return [
     {
-      title: 'Welcome to your kitchen notebook',
-      body: "This is where every dish you cook lives — photographed, dated, and noted the way you'd actually talk about it. Only you can add to it.",
+      icon: 'book',
+      title: 'Every dish, remembered',
+      body: "A photo, a date, a note about what you'd do differently next time — the way you'd actually talk about the food you cook, kept somewhere real.",
       artLabel: 'Cover illustration',
       artHint: '16:9 · ≥1600px wide',
     },
     {
-      title: 'Log a dish, your way',
-      body: 'Add a photo, or skip the camera and sketch it with the pen tool instead — either one uploads the same way.',
+      icon: 'camera',
+      title: 'Log it your way',
+      body: "Snap a photo, or skip the camera entirely and sketch the plate with the pen tool — either one lands on the card the same way.",
       artLabel: 'Add-meal illustration',
       artHint: '1:1 · ≥800px',
     },
     {
-      title: 'Your public page is already live',
+      icon: 'grid',
+      title: 'Watch it grow',
+      body: "Every meal adds to the archive. Flip back through it by cuisine, category, or year as it slowly fills in.",
+      artLabel: 'Growing-archive illustration',
+      artHint: '1:1 · ≥800px',
+    },
+    {
+      icon: 'share',
+      title: 'Share it when you’re ready',
       body: publicUrl
-        ? `Clients can browse your meals — no sign-in, no admin controls — at ${publicUrl}. It updates the moment you add something.`
-        : 'Clients can browse your meals at your own public page — no sign-in, no admin controls. It updates the moment you add something.',
-      artLabel: 'Public page illustration',
+        ? `Your public page is already live at ${publicUrl} — share it with clients any time, no sign-in needed on their end.`
+        : "Download a shareable copy any time from Download copy. Sign in later if you'd like a live public page and access from another device — that's optional, never required.",
+      artLabel: 'Share illustration',
       artHint: '1:1 · ≥800px',
     },
   ];
@@ -40,13 +87,14 @@ export default function OnboardingTour({ onDone, publicUrl }) {
           Skip
         </button>
 
+        <Icon name={current.icon} />
+        <h2 className="onboarding-title">{current.title}</h2>
+        <p className="onboarding-body">{current.body}</p>
+
         <div className="onboarding-art" aria-hidden="true">
           <span className="onboarding-art-label">{current.artLabel}</span>
           <span className="onboarding-art-hint">{current.artHint}</span>
         </div>
-
-        <h2 className="onboarding-title">{current.title}</h2>
-        <p className="onboarding-body">{current.body}</p>
 
         <div className="onboarding-dots">
           {STEPS.map((s, i) => (
@@ -65,7 +113,7 @@ export default function OnboardingTour({ onDone, publicUrl }) {
             variant="primary"
             onClick={() => (isLast ? onDone() : setStep((s) => s + 1))}
           >
-            {isLast ? 'Get started' : 'Next'}
+            {isLast ? "Let's cook" : 'Next'}
           </Button>
         </div>
       </div>

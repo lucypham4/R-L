@@ -1,14 +1,15 @@
 # R-L
 
-A meal-logging platform for any chef — a React + Vite app implementing the
-Meal Diary design system, backed by Supabase (data + auth) and Cloudinary
+A meal-logging app for any chef — a React + Vite app implementing the Meal
+Diary design system, backed by Supabase (data + auth) and Cloudinary
 (photos).
 
-Any chef can create an account. Signing in at the root URL is your private
-admin view — only you can see and add your own meals there. Every chef also
-gets a live, public, read-only page at `/<your-page-name>` that anyone can
-browse with no account — that's what you share with clients, and it updates
-the moment you add a meal.
+**An account is entirely optional.** Open the app and you're straight into
+your own diary — meals persist to that browser via `localStorage`, no
+sign-up required. Creating an account is an opt-in upgrade for two things:
+a live, public, read-only page at `/<your-page-name>` you can hand to
+clients, and access to your diary from more than one device (local-only
+data stays on that one browser).
 
 ## Local development
 
@@ -17,9 +18,10 @@ npm install
 npm run dev
 ```
 
-Without any environment variables set, the app runs on local demo data and
-newly added meals live only in memory for that session — a banner at the
-top of the page says so, and there's no sign-in screen in this mode.
+Works immediately with no environment variables — meals persist to that
+browser's `localStorage` and photos fall back to local blob URLs (see
+below). Configuring Supabase and Cloudinary makes signing in for a public
+page and cross-device access possible on top of that.
 
 ## Wiring up Supabase and Cloudinary
 
@@ -46,33 +48,41 @@ top of the page says so, and there's no sign-in screen in this mode.
 | `VITE_CLOUDINARY_CLOUD_NAME` | Cloudinary → Dashboard |
 | `VITE_CLOUDINARY_UPLOAD_PRESET` | Cloudinary → Settings → Upload → your unsigned preset's name |
 
-Both integrations degrade independently: if only Supabase is configured,
-photos stay as local blob URLs for the session; if only Cloudinary is
-configured, uploads go live but meals aren't persisted.
+Without Cloudinary, photos still work locally (a blob URL) but won't
+survive a page reload, even though the meal itself does. Without Supabase,
+the app just stays in local-only mode permanently — signing in for a
+public page or multi-device access needs it configured.
 
 Note: every chef on a given deployment shares the same Cloudinary account
 and upload quota — there's no per-chef Cloudinary isolation yet.
 
-### Accounts and public pages
+### Signing in (optional)
 
-Sign-up is open — anyone can create an account from the sign-in screen's
-"New chef? Create an account" link. There's no admin approval step.
+A "Sign in for multi-device access" link sits in the top bar whenever
+Supabase is configured — nothing forces you through it. Sign-up is open
+from there ("New chef? Create an account"), no admin approval step.
 
 1. First sign-in (or right after signing up, if your Supabase project
    doesn't require email confirmation) prompts for a name and a page name
    — the page name becomes the `/<slug>` in your public URL and can't be
    changed later, so choose deliberately.
-2. After that, a short skippable welcome tour runs once
-   (`src/components/OnboardingTour.jsx`), with placeholder art slots you
-   can swap for real illustrations whenever they're ready.
-3. From then on, signing in goes straight to your own gallery. "View
-   public page ↗" in the top bar opens your `/<slug>` page — that's the
-   link to actually share.
+2. From then on, signing in goes straight to your own cloud-backed
+   gallery, separate from whatever's in that browser's local storage.
+   "View public page ↗" in the top bar opens your `/<slug>` page — that's
+   the link to actually share.
 
-If your Supabase project has "Confirm email" turned on (Authentication →
-Settings), new sign-ups won't get a session until they click the link in
-their inbox — the sign-in screen tells them to check their email and
-switches back to the sign-in form.
+There's currently no way to import your local-only meals into an account
+you create afterward — they're two separate stores. If your Supabase
+project has "Confirm email" turned on (Authentication → Settings), new
+sign-ups won't get a session until they click the link in their inbox —
+the sign-in screen tells them to check their email and switches back to
+the sign-in form.
+
+### Onboarding
+
+A short, skippable welcome tour (`src/components/OnboardingTour.jsx`) runs
+once per browser (or once per account, if signed in), with placeholder art
+slots — swap them for real illustrations whenever they're ready.
 
 ### iOS App Store transition
 

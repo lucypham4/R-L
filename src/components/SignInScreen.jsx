@@ -65,8 +65,8 @@ export default function SignInScreen({ initialMode = 'signin', onGuest }) {
         <h1 className="signin-title">{isSignUp ? 'Create your account' : 'Sign in'}</h1>
         <p className="signin-subtitle">
           {isSignUp
-            ? 'A private space to log every dish you cook, with a public page you can share.'
-            : 'Sign in to your kitchen notebook.'}
+            ? "Optional — an account gets you a live public page and access from more than one device. Your diary works fine without one."
+            : 'Sign in for a live public page and access from another device.'}
         </p>
 
         <form className="signin-form" onSubmit={handleSubmit}>
@@ -134,7 +134,7 @@ export default function SignInScreen({ initialMode = 'signin', onGuest }) {
 
         {onGuest && (
           <button type="button" className="signin-guest-link" onClick={onGuest}>
-            Just looking? Continue as guest
+            Not now — continue without an account
           </button>
         )}
       </div>
