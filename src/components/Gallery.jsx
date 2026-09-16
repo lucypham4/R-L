@@ -4,7 +4,7 @@ import FilterSelect from './FilterSelect';
 import MealCard from './MealCard';
 import './Gallery.css';
 
-export default function Gallery({ meals, onOpenMeal, onAddMeal }) {
+export default function Gallery({ meals, onOpenMeal, onAddMeal, onPublishSite }) {
   const [cuisine, setCuisine] = useState('');
   const [category, setCategory] = useState('');
   const [year, setYear] = useState('');
@@ -38,9 +38,14 @@ export default function Gallery({ meals, onOpenMeal, onAddMeal }) {
           <h1 className="gallery-title">Meal Diary</h1>
           <p className="gallery-tagline">Private chef · portfolio &amp; archive</p>
         </div>
-        <Button variant="secondary" onClick={onAddMeal}>
-          + Add meal
-        </Button>
+        <div className="gallery-header-actions">
+          <Button variant="ghost" onClick={onPublishSite}>
+            Publish site
+          </Button>
+          <Button variant="secondary" onClick={onAddMeal}>
+            + Add meal
+          </Button>
+        </div>
       </header>
 
       <div className="gallery-filters">

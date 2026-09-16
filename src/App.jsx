@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Gallery from './components/Gallery';
 import MealDetailModal from './components/MealDetailModal';
 import AddMealForm from './components/AddMealForm';
+import PublishModal from './components/PublishModal';
 import ThemeToggle from './components/ThemeToggle';
 import { initialMeals, createMeal } from './data/meals';
 import { isSupabaseConfigured } from './lib/supabase';
@@ -14,6 +15,7 @@ export default function App() {
   const [loadError, setLoadError] = useState('');
   const [openMealId, setOpenMealId] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showPublish, setShowPublish] = useState(false);
   const [theme, setTheme] = useState('light');
 
   useEffect(() => {
@@ -75,7 +77,12 @@ export default function App() {
 
       {loadError && <p className="app-config-notice app-config-error">{loadError}</p>}
 
-      <Gallery meals={sortedMeals} onOpenMeal={(meal) => setOpenMealId(meal.id)} onAddMeal={() => setShowAddForm(true)} />
+      <Gallery
+        meals={sortedMeals}
+        onOpenMeal={(meal) => setOpenMealId(meal.id)}
+        onAddMeal={() => setShowAddForm(true)}
+        onPublishSite={() => setShowPublish(true)}
+      />
 
       {openMeal && (
         <MealDetailModal
@@ -89,6 +96,8 @@ export default function App() {
       {showAddForm && (
         <AddMealForm cuisines={cuisines} categories={categories} onSave={handleAddMeal} onCancel={() => setShowAddForm(false)} />
       )}
+
+      {showPublish && <PublishModal meals={sortedMeals} onClose={() => setShowPublish(false)} />}
     </div>
   );
 }

@@ -29,6 +29,12 @@
   border-bottom: var(--divider);
 }
 
+.gallery-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
 .gallery-title {
   font: 400 2.125rem/1.1 var(--font-serif);
   letter-spacing: -0.02em;
