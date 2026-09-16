@@ -1,0 +1,32 @@
+.sketch-canvas-wrap {
+  position: relative;
+}
+
+.sketch-canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-height: 260px;
+  background: #faf9f6;
+  border: 1px dashed var(--color-line-strong);
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.sketch-canvas-clear {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 5px 10px;
+  background: var(--color-card);
+  border: 1px solid var(--color-line);
+  font: 400 0.6875rem/1.5 var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.sketch-canvas-clear:hover {
+  border-color: var(--color-line-strong);
+  color: var(--color-ink);
+}

@@ -15,7 +15,7 @@ export async function uploadImage(file, { onProgress } = {}) {
   }
 
   const formData = new FormData();
-  formData.append('file', file);
+  formData.append('file', file, file.name || 'sketch.png');
   formData.append('upload_preset', uploadPreset);
 
   const result = await new Promise((resolve, reject) => {

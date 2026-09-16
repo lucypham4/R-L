@@ -2,14 +2,18 @@ import { useEffect, useRef, useState } from 'react';
 import Button from './Button';
 import { Label, TextInput, TextArea, ErrorText } from './TextField';
 import Tag from './Tag';
+import SketchCanvas from './SketchCanvas';
 import { uploadImage, isCloudinaryConfigured } from '../lib/cloudinary';
 import './AddMealForm.css';
 
 const DESCRIPTION_MAX = 400;
 
 export default function AddMealForm({ cuisines, categories, onSave, onCancel }) {
+  const [photoMode, setPhotoMode] = useState('upload'); // upload | sketch
   const [photo, setPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
+  const [hasSketch, setHasSketch] = useState(false);
+  const sketchRef = useRef(null);
   const [name, setName] = useState('');
   const [date, setDate] = useState('');
   const [cuisine, setCuisine] = useState('');
@@ -50,7 +54,14 @@ export default function AddMealForm({ cuisines, categories, onSave, onCancel }) 
   }, [photo]);
 
   const errors = {
-    photo: !photo ? 'A photo is required' : '',
+    photo:
+      photoMode === 'sketch'
+        ? !hasSketch
+          ? 'A sketch is required'
+          : ''
+        : !photo
+        ? 'A photo is required'
+        : '',
     name: !name.trim() ? 'A name is required' : '',
     date: !date ? 'A date is required' : '',
     description: !description.trim() ? 'A description is required' : '',
@@ -78,15 +89,20 @@ export default function AddMealForm({ cuisines, categories, onSave, onCancel }) 
 
     let photoUrl = null;
     try {
+      const fileToUpload = photoMode === 'sketch' ? await sketchRef.current.getBlob() : photo;
+      if (photoMode === 'sketch' && !fileToUpload) {
+        throw new Error('Could not read the sketch — try drawing again.');
+      }
+
       if (isCloudinaryConfigured) {
         setStatus('uploading');
         setUploadProgress(0);
-        const uploaded = await uploadImage(photo, { onProgress: setUploadProgress });
+        const uploaded = await uploadImage(fileToUpload, { onProgress: setUploadProgress });
         photoUrl = uploaded.url;
       } else {
-        // No Cloudinary configured — fall back to the local object URL so the
+        // No Cloudinary configured — fall back to a local object URL so the
         // card still renders a photo for this session (won't persist on reload).
-        photoUrl = photoPreview;
+        photoUrl = URL.createObjectURL(fileToUpload);
       }
 
       setStatus('saving');
@@ -123,35 +139,73 @@ export default function AddMealForm({ cuisines, categories, onSave, onCancel }) 
             <Label htmlFor="photo" required>
               Photo
             </Label>
-            <div
-              className="add-meal-dropzone"
-              role="button"
-              tabIndex={0}
-              onClick={() => fileInputRef.current?.click()}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click();
-              }}
-            >
-              {photoPreview ? (
-                <img src={photoPreview} alt="" className="add-meal-preview" />
-              ) : (
-                <>
-                  <p>Drop a background-removed PNG</p>
-                  <p className="add-meal-dropzone-hint">or click to browse · square crop, ≥1400px</p>
-                </>
-              )}
+            <div className="add-meal-mode-toggle" role="tablist" aria-label="Photo source">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={photoMode === 'upload'}
+                className={`add-meal-mode-btn ${photoMode === 'upload' ? 'add-meal-mode-btn-active' : ''}`}
+                onClick={() => {
+                  setPhotoMode('upload');
+                  markTouched('photo');
+                }}
+              >
+                Photo
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={photoMode === 'sketch'}
+                className={`add-meal-mode-btn ${photoMode === 'sketch' ? 'add-meal-mode-btn-active' : ''}`}
+                onClick={() => {
+                  setPhotoMode('sketch');
+                  markTouched('photo');
+                }}
+              >
+                Sketch
+              </button>
             </div>
-            <input
-              ref={fileInputRef}
-              id="photo"
-              type="file"
-              accept="image/png,image/jpeg"
-              className="visually-hidden"
-              onChange={(e) => {
-                setPhoto(e.target.files?.[0] ?? null);
-                markTouched('photo');
-              }}
-            />
+            {photoMode === 'upload' ? (
+              <>
+                <div
+                  className="add-meal-dropzone"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => fileInputRef.current?.click()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click();
+                  }}
+                >
+                  {photoPreview ? (
+                    <img src={photoPreview} alt="" className="add-meal-preview" />
+                  ) : (
+                    <>
+                      <p>Drop a background-removed PNG</p>
+                      <p className="add-meal-dropzone-hint">or click to browse · square crop, ≥1400px</p>
+                    </>
+                  )}
+                </div>
+                <input
+                  ref={fileInputRef}
+                  id="photo"
+                  type="file"
+                  accept="image/png,image/jpeg"
+                  className="visually-hidden"
+                  onChange={(e) => {
+                    setPhoto(e.target.files?.[0] ?? null);
+                    markTouched('photo');
+                  }}
+                />
+              </>
+            ) : (
+              <SketchCanvas
+                ref={sketchRef}
+                onChange={(drawn) => {
+                  setHasSketch(drawn);
+                  markTouched('photo');
+                }}
+              />
+            )}
             {touched.photo && <ErrorText>{errors.photo}</ErrorText>}
           </div>
 
