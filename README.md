@@ -56,6 +56,24 @@ partner), not open registration, so there's no sign-up form.
 Without Supabase configured, the app stays in demo mode and editing is
 open to everyone, same as before.
 
+### iOS App Store transition
+
+The `ios/` folder is a Capacitor-wrapped native shell around this same web
+app — `npx cap add ios` already scaffolded it, so the JS-side setup is
+done. Everything past this point needs a Mac, which this environment
+doesn't have:
+
+1. On a Mac, install Xcode and CocoaPods, then `git pull` this repo.
+2. `npm install && npm run cap:sync` (builds the web app and copies it
+   into the native shell).
+3. `npm run cap:open:ios` to open the project in Xcode.
+4. In Xcode: sign in with an Apple Developer Program account ($99/year),
+   set a real bundle identifier under Signing & Capabilities (the
+   placeholder in `capacitor.config.json` is `com.mealdiary.app` — change
+   it to match your account before submitting), and run on a simulator or
+   device to test.
+5. Archive and submit through App Store Connect once it looks right.
+
 ### Security notes
 
 - The anon key and the Cloudinary cloud name/preset are public-by-design —
