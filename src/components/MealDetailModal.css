@@ -205,6 +205,20 @@
   color: var(--color-muted);
 }
 
+.modal-share {
+  padding: 6px 10px;
+  border: 1px solid var(--color-line);
+  font: 400 0.625rem/1 var(--font-mono);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.modal-share:hover {
+  border-color: var(--color-line-strong);
+  color: var(--color-ink);
+}
+
 .modal-index {
   margin-left: auto;
   font: 400 0.625rem/1 var(--font-mono);

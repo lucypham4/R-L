@@ -31,6 +31,21 @@ export default function App() {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
+  // Shareable meal links: `?meal=<id>` opens that meal directly, and
+  // browser back/forward closes/reopens it via popstate.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const initialMealId = params.get('meal');
+    if (initialMealId) setOpenMealId(initialMealId);
+
+    function onPopState() {
+      const p = new URLSearchParams(window.location.search);
+      setOpenMealId(p.get('meal'));
+    }
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     getSession()
@@ -64,8 +79,22 @@ export default function App() {
   const cuisines = useMemo(() => Array.from(new Set(meals.map((m) => m.cuisine))).sort(), [meals]);
   const categories = useMemo(() => Array.from(new Set(meals.map((m) => m.category))).sort(), [meals]);
 
-  const openIndex = sortedMeals.findIndex((m) => m.id === openMealId);
+  const openIndex = sortedMeals.findIndex((m) => String(m.id) === String(openMealId));
   const openMeal = openIndex >= 0 ? sortedMeals[openIndex] : null;
+
+  function handleOpenMeal(meal) {
+    const url = new URL(window.location);
+    url.searchParams.set('meal', meal.id);
+    window.history.pushState({}, '', url);
+    setOpenMealId(meal.id);
+  }
+
+  function closeMeal() {
+    const url = new URL(window.location);
+    url.searchParams.delete('meal');
+    window.history.pushState({}, '', url);
+    setOpenMealId(null);
+  }
 
   async function handleAddMeal(fields) {
     if (isSupabaseConfigured) {
@@ -108,7 +137,7 @@ export default function App() {
 
       <Gallery
         meals={sortedMeals}
-        onOpenMeal={(meal) => setOpenMealId(meal.id)}
+        onOpenMeal={handleOpenMeal}
         onAddMeal={() => setShowAddForm(true)}
         onPublishSite={() => setShowPublish(true)}
         canEdit={canEdit}
@@ -120,7 +149,7 @@ export default function App() {
           meal={openMeal}
           index={sortedMeals.length - openIndex}
           total={sortedMeals.length}
-          onClose={() => setOpenMealId(null)}
+          onClose={closeMeal}
         />
       )}
 

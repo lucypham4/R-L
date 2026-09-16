@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import './MealDetailModal.css';
 
 const monthFormatter = new Intl.DateTimeFormat('en-GB', { month: 'short', year: 'numeric' });
@@ -6,6 +6,7 @@ const fullDateFormatter = new Intl.DateTimeFormat('en-GB', { day: 'numeric', mon
 
 export default function MealDetailModal({ meal, index, total, onClose }) {
   const closeRef = useRef(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     closeRef.current?.focus();
@@ -23,6 +24,21 @@ export default function MealDetailModal({ meal, index, total, onClose }) {
   if (!meal) return null;
 
   const date = new Date(meal.date);
+
+  async function handleShare() {
+    const shareUrl = `${window.location.origin}${window.location.pathname}?meal=${meal.id}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: meal.name, url: shareUrl });
+      } catch {
+        // User cancelled the native share sheet — not an error.
+      }
+    } else if (navigator.clipboard) {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }
 
   return (
     <div className="modal-overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
@@ -94,6 +110,9 @@ export default function MealDetailModal({ meal, index, total, onClose }) {
                 </span>
               ))}
             </div>
+            <button type="button" className="modal-share" onClick={handleShare}>
+              {copied ? 'Link copied' : 'Share'}
+            </button>
             <span className="modal-index">
               No. {index} of {total}
             </span>
