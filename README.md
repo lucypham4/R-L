@@ -40,6 +40,22 @@ Both integrations degrade independently: if only Supabase is configured,
 photos stay as local blob URLs for the session; if only Cloudinary is
 configured, uploads go live but meals aren't persisted.
 
+### Sign-in (Phase 2)
+
+Once Supabase is configured, "+ Add meal" and "Publish site" are gated
+behind sign-in — this app has exactly two intended users (Lucy and her
+partner), not open registration, so there's no sign-up form.
+
+1. In Supabase → Authentication → Users → Add user, create an account for
+   each person (email + password).
+2. Run `supabase/phase2-auth-policies.sql` once to restrict inserts to
+   signed-in users (reads stay public — the gallery is still meant to be
+   browsed by anyone with the link).
+3. Click "Sign in" in the app's top bar and use those credentials.
+
+Without Supabase configured, the app stays in demo mode and editing is
+open to everyone, same as before.
+
 ### Security notes
 
 - The anon key and the Cloudinary cloud name/preset are public-by-design —

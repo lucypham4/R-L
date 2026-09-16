@@ -17,6 +17,25 @@
   color: var(--color-muted);
 }
 
+.app-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-left: auto;
+}
+
+.app-account-btn {
+  font: 400 0.75rem/1.5 var(--font-mono);
+  letter-spacing: 0.04em;
+  color: var(--color-muted);
+  border-bottom: 1px solid transparent;
+}
+
+.app-account-btn:hover {
+  color: var(--color-ink);
+  border-bottom-color: var(--color-line-strong);
+}
+
 .app-config-error {
   color: var(--color-danger);
   padding: 0 var(--page-margin-sm);

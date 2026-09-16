@@ -28,11 +28,10 @@ create index if not exists meals_date_idx on public.meals (date desc);
 
 alter table public.meals enable row level security;
 
--- Phase 1 has no user accounts yet (the brief calls for simple password
--- login before Phase 2's per-user auth), so these policies are
--- intentionally open — anyone with the anon key can read and add meals.
--- Tighten this once auth lands: e.g. restrict insert/update/delete to
--- `auth.role() = 'authenticated'` or a specific user id.
+-- Phase 1 has no user accounts yet, so these policies are intentionally
+-- open — anyone with the anon key can read and add meals. Once Lucy and
+-- her partner have accounts, run phase2-auth-policies.sql to restrict
+-- inserts to `auth.role() = 'authenticated'`.
 drop policy if exists "Public read access" on public.meals;
 create policy "Public read access"
   on public.meals for select
