@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Button from './Button';
 import { Label, TextInput, ErrorText } from './TextField';
-import { signIn, signUp } from '../lib/auth';
+import { signIn, signUp, resendConfirmation } from '../lib/auth';
 import './SignInScreen.css';
 
 export default function SignInScreen() {
@@ -11,9 +11,28 @@ export default function SignInScreen() {
   const [status, setStatus] = useState('idle'); // idle | working | error
   const [error, setError] = useState('');
   const [confirmNotice, setConfirmNotice] = useState('');
+  const [resendStatus, setResendStatus] = useState('idle'); // idle | sending | sent | error
+  const [resendError, setResendError] = useState('');
 
   const isSignUp = mode === 'signup';
   const isWorking = status === 'working';
+
+  async function handleResend() {
+    if (!email.trim()) {
+      setResendStatus('error');
+      setResendError('Enter your email above first.');
+      return;
+    }
+    setResendStatus('sending');
+    setResendError('');
+    try {
+      await resendConfirmation(email.trim());
+      setResendStatus('sent');
+    } catch (err) {
+      setResendStatus('error');
+      setResendError(err.message || 'Could not resend the email.');
+    }
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -99,6 +118,19 @@ export default function SignInScreen() {
         >
           {isSignUp ? 'Already have an account? Sign in' : 'New chef? Create an account'}
         </button>
+
+        {!isSignUp && (
+          <div className="signin-resend">
+            {resendStatus === 'sent' ? (
+              <p className="signin-notice">Confirmation email resent — check your inbox.</p>
+            ) : (
+              <button type="button" className="signin-resend-link" onClick={handleResend} disabled={resendStatus === 'sending'}>
+                {resendStatus === 'sending' ? 'Sending…' : "Didn't get a confirmation email? Resend"}
+              </button>
+            )}
+            {resendStatus === 'error' && <p className="signin-notice signin-notice-error">{resendError}</p>}
+          </div>
+        )}
       </div>
     </div>
   );

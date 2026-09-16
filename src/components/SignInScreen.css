@@ -57,3 +57,22 @@
 .signin-switch:hover {
   color: var(--color-ink);
 }
+
+.signin-resend {
+  margin-top: var(--space-md);
+  text-align: center;
+}
+
+.signin-resend-link {
+  font: 400 0.75rem/1.5 var(--font-mono);
+  letter-spacing: 0.02em;
+  color: var(--color-disabled);
+}
+
+.signin-resend-link:hover {
+  color: var(--color-muted);
+}
+
+.signin-notice-error {
+  color: var(--color-danger);
+}

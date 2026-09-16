@@ -36,6 +36,20 @@ export async function signUp(email, password) {
   return data.session;
 }
 
+/**
+ * Re-sends the signup confirmation email. Needed because Supabase won't
+ * send a fresh one if you sign up again with an email that already has a
+ * pending, unconfirmed account (e.g. after mistyping the password the
+ * first time) — this is the only way to get another copy.
+ */
+export async function resendConfirmation(email) {
+  if (!isSupabaseConfigured) {
+    throw new Error('Supabase is not configured — this is unavailable in demo mode.');
+  }
+  const { error } = await supabase.auth.resend({ type: 'signup', email });
+  if (error) throw error;
+}
+
 export async function signOut() {
   if (!isSupabaseConfigured) return;
   const { error } = await supabase.auth.signOut();
