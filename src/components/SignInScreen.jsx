@@ -1,36 +1,54 @@
 import { useState } from 'react';
 import Button from './Button';
 import { Label, TextInput, ErrorText } from './TextField';
-import { signIn } from '../lib/auth';
+import { signIn, signUp } from '../lib/auth';
 import './SignInScreen.css';
 
-export default function SignInScreen({ onSignedIn = () => {} }) {
+export default function SignInScreen() {
+  const [mode, setMode] = useState('signin'); // signin | signup
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [status, setStatus] = useState('idle'); // idle | signing-in | error
+  const [status, setStatus] = useState('idle'); // idle | working | error
   const [error, setError] = useState('');
+  const [confirmNotice, setConfirmNotice] = useState('');
+
+  const isSignUp = mode === 'signup';
+  const isWorking = status === 'working';
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
-    setStatus('signing-in');
+    setConfirmNotice('');
+    setStatus('working');
     try {
-      await signIn(email.trim(), password);
-      onSignedIn();
+      if (isSignUp) {
+        const session = await signUp(email.trim(), password);
+        if (!session) {
+          // Email confirmation is required — no session yet.
+          setConfirmNotice('Check your email for a confirmation link, then sign in below.');
+          setMode('signin');
+          setPassword('');
+        }
+      } else {
+        await signIn(email.trim(), password);
+      }
+      setStatus('idle');
     } catch (err) {
       setStatus('error');
-      setError(err.message || 'Could not sign in.');
+      setError(err.message || 'Something went wrong.');
     }
   }
-
-  const isSigningIn = status === 'signing-in';
 
   return (
     <div className="signin-screen">
       <div className="signin-card">
         <p className="signin-eyebrow">Meal Diary</p>
-        <h1 className="signin-title">Sign in</h1>
-        <p className="signin-subtitle">For Lucy and her partner only — accounts are set up ahead of time.</p>
+        <h1 className="signin-title">{isSignUp ? 'Create your account' : 'Sign in'}</h1>
+        <p className="signin-subtitle">
+          {isSignUp
+            ? 'A private space to log every dish you cook, with a public page you can share.'
+            : 'Sign in to your kitchen notebook.'}
+        </p>
 
         <form className="signin-form" onSubmit={handleSubmit}>
           <div>
@@ -54,21 +72,33 @@ export default function SignInScreen({ onSignedIn = () => {} }) {
             <TextInput
               id="signin-password"
               type="password"
-              autoComplete="current-password"
+              autoComplete={isSignUp ? 'new-password' : 'current-password'}
+              minLength={6}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
             />
           </div>
 
+          {confirmNotice && <p className="signin-notice">{confirmNotice}</p>}
           {status === 'error' && <ErrorText>{error}</ErrorText>}
 
-          <Button type="submit" variant="primary" disabled={isSigningIn}>
-            {isSigningIn ? 'Signing in…' : 'Sign in'}
+          <Button type="submit" variant="primary" disabled={isWorking}>
+            {isWorking ? (isSignUp ? 'Creating account…' : 'Signing in…') : isSignUp ? 'Create account' : 'Sign in'}
           </Button>
         </form>
 
-        <p className="signin-footnote">Looking for the recipes? The public gallery lives on its own published site.</p>
+        <button
+          type="button"
+          className="signin-switch"
+          onClick={() => {
+            setMode(isSignUp ? 'signin' : 'signup');
+            setError('');
+            setConfirmNotice('');
+          }}
+        >
+          {isSignUp ? 'Already have an account? Sign in' : 'New chef? Create an account'}
+        </button>
       </div>
     </div>
   );

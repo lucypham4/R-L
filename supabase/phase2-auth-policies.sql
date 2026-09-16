@@ -1,3 +1,9 @@
+-- SUPERSEDED by multi-chef-migration.sql — the app moved from "two known
+-- people" to open sign-up with a public page per chef, which needs public
+-- reads back. Run multi-chef-migration.sql instead (safe to run even if
+-- you already ran this file — it re-opens reads and re-scopes writes to
+-- each chef's own rows). Kept here for history only.
+--
 -- Phase 2 — tighten meals RLS now that Lucy and her partner sign in.
 -- Run this once, after creating their two accounts in the Supabase
 -- dashboard (Authentication → Users → Add user). Additive only — it does

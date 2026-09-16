@@ -29,6 +29,7 @@
   letter-spacing: 0.04em;
   color: var(--color-muted);
   border-bottom: 1px solid transparent;
+  text-decoration: none;
 }
 
 .app-account-btn:hover {

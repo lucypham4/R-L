@@ -4,7 +4,14 @@ import FilterSelect from './FilterSelect';
 import MealCard from './MealCard';
 import './Gallery.css';
 
-export default function Gallery({ meals, onOpenMeal, onAddMeal, onPublishSite }) {
+export default function Gallery({
+  meals,
+  onOpenMeal,
+  onAddMeal,
+  onPublishSite,
+  title = 'Meal Diary',
+  tagline = 'Private chef · portfolio & archive',
+}) {
   const [cuisine, setCuisine] = useState('');
   const [category, setCategory] = useState('');
   const [year, setYear] = useState('');
@@ -35,17 +42,23 @@ export default function Gallery({ meals, onOpenMeal, onAddMeal, onPublishSite })
     <div className="gallery">
       <header className="gallery-header">
         <div>
-          <h1 className="gallery-title">Meal Diary</h1>
-          <p className="gallery-tagline">Private chef · portfolio &amp; archive</p>
+          <h1 className="gallery-title">{title}</h1>
+          <p className="gallery-tagline">{tagline}</p>
         </div>
-        <div className="gallery-header-actions">
-          <Button variant="ghost" onClick={onPublishSite}>
-            Publish site
-          </Button>
-          <Button variant="secondary" onClick={onAddMeal}>
-            + Add meal
-          </Button>
-        </div>
+        {(onAddMeal || onPublishSite) && (
+          <div className="gallery-header-actions">
+            {onPublishSite && (
+              <Button variant="ghost" onClick={onPublishSite}>
+                Download copy
+              </Button>
+            )}
+            {onAddMeal && (
+              <Button variant="secondary" onClick={onAddMeal}>
+                + Add meal
+              </Button>
+            )}
+          </div>
+        )}
       </header>
 
       <div className="gallery-filters">

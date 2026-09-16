@@ -2,29 +2,34 @@ import { useState } from 'react';
 import Button from './Button';
 import './OnboardingTour.css';
 
-const STEPS = [
-  {
-    title: 'Welcome to your kitchen notebook',
-    body: "This is where every dish you cook lives — photographed, dated, and noted the way you'd actually talk about it. Just you and your partner can add to it.",
-    artLabel: 'Cover illustration',
-    artHint: '16:9 · ≥1600px wide',
-  },
-  {
-    title: 'Log a dish, your way',
-    body: 'Add a photo, or skip the camera and sketch it with the pen tool instead — either one uploads the same way.',
-    artLabel: 'Add-meal illustration',
-    artHint: '1:1 · ≥800px',
-  },
-  {
-    title: 'Share it on your terms',
-    body: 'Publish site bundles your meals into a public gallery you control — a separate, read-only page for clients, with no sign-in and no admin controls.',
-    artLabel: 'Publish illustration',
-    artHint: '1:1 · ≥800px',
-  },
-];
+function buildSteps(publicUrl) {
+  return [
+    {
+      title: 'Welcome to your kitchen notebook',
+      body: "This is where every dish you cook lives — photographed, dated, and noted the way you'd actually talk about it. Only you can add to it.",
+      artLabel: 'Cover illustration',
+      artHint: '16:9 · ≥1600px wide',
+    },
+    {
+      title: 'Log a dish, your way',
+      body: 'Add a photo, or skip the camera and sketch it with the pen tool instead — either one uploads the same way.',
+      artLabel: 'Add-meal illustration',
+      artHint: '1:1 · ≥800px',
+    },
+    {
+      title: 'Your public page is already live',
+      body: publicUrl
+        ? `Clients can browse your meals — no sign-in, no admin controls — at ${publicUrl}. It updates the moment you add something.`
+        : 'Clients can browse your meals at your own public page — no sign-in, no admin controls. It updates the moment you add something.',
+      artLabel: 'Public page illustration',
+      artHint: '1:1 · ≥800px',
+    },
+  ];
+}
 
-export default function OnboardingTour({ onDone }) {
+export default function OnboardingTour({ onDone, publicUrl }) {
   const [step, setStep] = useState(0);
+  const STEPS = buildSteps(publicUrl);
   const isLast = step === STEPS.length - 1;
   const current = STEPS[step];
 

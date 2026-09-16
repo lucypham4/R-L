@@ -1,10 +1,10 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 
 /**
- * Phase 2 auth: Lucy and her partner each sign in with their own Supabase
- * account (created ahead of time via the Supabase dashboard — Authentication
- * → Users → Add user). There is no public sign-up here on purpose; this app
- * has exactly two intended users, not an open registration flow.
+ * Open sign-up: any chef can create their own account and gets an
+ * isolated set of meals plus a public page at /<slug> (see chefsApi.js).
+ * Row-level security (multi-chef-migration.sql) scopes writes to
+ * auth.uid(), so a new account can never see or touch another chef's data.
  */
 export async function getSession() {
   if (!isSupabaseConfigured) return null;
@@ -18,6 +18,20 @@ export async function signIn(email, password) {
     throw new Error('Supabase is not configured — sign-in is unavailable in demo mode.');
   }
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) throw error;
+  return data.session;
+}
+
+/**
+ * Returns the new session, or null if Supabase is configured to require
+ * email confirmation first (Auth → Settings → "Confirm email") — in that
+ * case there's no session until the user clicks the link in their inbox.
+ */
+export async function signUp(email, password) {
+  if (!isSupabaseConfigured) {
+    throw new Error('Supabase is not configured — sign-up is unavailable in demo mode.');
+  }
+  const { data, error } = await supabase.auth.signUp({ email, password });
   if (error) throw error;
   return data.session;
 }

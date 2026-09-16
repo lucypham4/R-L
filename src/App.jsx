@@ -4,12 +4,15 @@ import MealDetailModal from './components/MealDetailModal';
 import AddMealForm from './components/AddMealForm';
 import PublishModal from './components/PublishModal';
 import SignInScreen from './components/SignInScreen';
+import ChooseUsername from './components/ChooseUsername';
 import OnboardingTour from './components/OnboardingTour';
+import PublicChefPage from './components/PublicChefPage';
 import ThemeToggle from './components/ThemeToggle';
 import { initialMeals, createMeal } from './data/meals';
 import { isSupabaseConfigured } from './lib/supabase';
 import { isCloudinaryConfigured } from './lib/cloudinary';
 import { fetchMeals, insertMeal } from './lib/mealsApi';
+import { fetchChefProfile } from './lib/chefsApi';
 import { getSession, onAuthChange, signOut } from './lib/auth';
 import './App.css';
 
@@ -30,6 +33,18 @@ function markOnboardingSeen(userId) {
 }
 
 export default function App() {
+  // Every chef's public page lives at /<slug>; anything else is the
+  // private admin app. No router library needed for one path segment.
+  const slug = window.location.pathname.replace(/^\/+|\/+$/g, '');
+
+  if (slug) {
+    return <PublicChefPage slug={slug} />;
+  }
+
+  return <AdminApp />;
+}
+
+function AdminApp() {
   const [meals, setMeals] = useState(isSupabaseConfigured ? [] : initialMeals);
   const [loadError, setLoadError] = useState('');
   const [openMealId, setOpenMealId] = useState(null);
@@ -37,6 +52,8 @@ export default function App() {
   const [showPublish, setShowPublish] = useState(false);
   const [session, setSession] = useState(null);
   const [sessionChecked, setSessionChecked] = useState(!isSupabaseConfigured);
+  const [chefProfile, setChefProfile] = useState(null);
+  const [chefProfileChecked, setChefProfileChecked] = useState(!isSupabaseConfigured);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [theme, setTheme] = useState('light');
 
@@ -68,17 +85,41 @@ export default function App() {
     return onAuthChange(setSession);
   }, []);
 
-  // Show the first-time welcome tour once per account, right after sign-in.
+  // Every account needs a chef profile (display name + page slug) before
+  // they can use the app — new sign-ups get sent through ChooseUsername.
   useEffect(() => {
-    if (!session) return;
-    if (!hasSeenOnboarding(session.user.id)) setShowOnboarding(true);
+    if (!session) {
+      setChefProfile(null);
+      setChefProfileChecked(!isSupabaseConfigured);
+      return;
+    }
+    let cancelled = false;
+    setChefProfileChecked(false);
+    fetchChefProfile(session.user.id)
+      .then((profile) => {
+        if (!cancelled) setChefProfile(profile);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setChefProfileChecked(true);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [session]);
 
+  // Show the first-time welcome tour once per account, right after their
+  // chef profile exists.
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
+    if (!session || !chefProfile) return;
+    if (!hasSeenOnboarding(session.user.id)) setShowOnboarding(true);
+  }, [session, chefProfile]);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !session) return;
     let cancelled = false;
 
-    fetchMeals()
+    fetchMeals(session.user.id)
       .then((rows) => {
         if (!cancelled) setMeals(rows);
       })
@@ -89,7 +130,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [session]);
 
   const sortedMeals = useMemo(
     () => [...meals].sort((a, b) => new Date(b.date) - new Date(a.date)),
@@ -118,7 +159,7 @@ export default function App() {
 
   async function handleAddMeal(fields) {
     if (isSupabaseConfigured) {
-      const meal = await insertMeal(fields);
+      const meal = await insertMeal(fields, session.user.id);
       setMeals((prev) => [meal, ...prev]);
     } else {
       setMeals((prev) => [createMeal(fields), ...prev]);
@@ -126,9 +167,8 @@ export default function App() {
     setShowAddForm(false);
   }
 
-  // This app is the private admin tool now — everyone lands on a sign-in
-  // screen when Supabase is configured. The public, read-only gallery is
-  // whatever static site gets published separately via "Publish site".
+  // Everyone hitting the admin app (root path) needs an account — the
+  // public, read-only page for each chef is /<slug> (see PublicChefPage).
   if (isSupabaseConfigured && !sessionChecked) {
     return null;
   }
@@ -136,6 +176,16 @@ export default function App() {
   if (isSupabaseConfigured && !session) {
     return <SignInScreen />;
   }
+
+  if (isSupabaseConfigured && !chefProfileChecked) {
+    return null;
+  }
+
+  if (isSupabaseConfigured && !chefProfile) {
+    return <ChooseUsername userId={session.user.id} onCreated={setChefProfile} />;
+  }
+
+  const publicUrl = chefProfile ? `${window.location.origin}/${chefProfile.slug}` : null;
 
   return (
     <div>
@@ -150,6 +200,11 @@ export default function App() {
           </p>
         )}
         <div className="app-topbar-actions">
+          {publicUrl && (
+            <a className="app-account-btn" href={publicUrl} target="_blank" rel="noreferrer">
+              View public page ↗
+            </a>
+          )}
           {session && (
             <button type="button" className="app-account-btn" onClick={() => signOut()}>
               Sign out ({session.user.email})
@@ -174,6 +229,7 @@ export default function App() {
           index={sortedMeals.length - openIndex}
           total={sortedMeals.length}
           onClose={closeMeal}
+          sharePath={chefProfile ? `/${chefProfile.slug}` : '/'}
         />
       )}
 
@@ -185,6 +241,7 @@ export default function App() {
 
       {showOnboarding && (
         <OnboardingTour
+          publicUrl={publicUrl}
           onDone={() => {
             if (session) markOnboardingSeen(session.user.id);
             setShowOnboarding(false);

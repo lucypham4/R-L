@@ -57,9 +57,10 @@ export default function PublishModal({ meals, onClose }) {
           ×
         </button>
 
-        <h2 className="publish-title">Publish site</h2>
+        <h2 className="publish-title">Download a static copy</h2>
         <p className="publish-subtitle">
-          Bundle the gallery into a single, read-only HTML file — no admin controls, no login.
+          Your public page is already live and always current — this bundles a snapshot into one HTML file instead,
+          useful for an offline copy or hosting the gallery somewhere else entirely.
         </p>
 
         <div className="publish-toggle">
@@ -99,9 +100,8 @@ export default function PublishModal({ meals, onClose }) {
               <code>meal-diary-portfolio.html</code>.
             </p>
             <p className="publish-next-step">
-              This file just downloaded to your computer. Upload it as-is to any static host — Vercel, Netlify,
-              GitHub Pages — to make it live. Automatic one-click deploy needs a hosting API token, which isn't set
-              up yet — tell me which host you'd like to use and I can wire that up next.
+              This file just downloaded to your computer. Your live public page doesn't need this — it's already
+              up to date — but you can upload this file anywhere else you'd like a copy hosted.
             </p>
             <Button type="button" variant="secondary" onClick={handleGenerate}>
               Download again

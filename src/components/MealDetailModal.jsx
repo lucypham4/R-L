@@ -4,7 +4,7 @@ import './MealDetailModal.css';
 const monthFormatter = new Intl.DateTimeFormat('en-GB', { month: 'short', year: 'numeric' });
 const fullDateFormatter = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
-export default function MealDetailModal({ meal, index, total, onClose }) {
+export default function MealDetailModal({ meal, index, total, onClose, sharePath = window.location.pathname }) {
   const closeRef = useRef(null);
   const [copied, setCopied] = useState(false);
 
@@ -26,7 +26,7 @@ export default function MealDetailModal({ meal, index, total, onClose }) {
   const date = new Date(meal.date);
 
   async function handleShare() {
-    const shareUrl = `${window.location.origin}${window.location.pathname}?meal=${meal.id}`;
+    const shareUrl = `${window.location.origin}${sharePath}?meal=${meal.id}`;
     if (navigator.share) {
       try {
         await navigator.share({ title: meal.name, url: shareUrl });
