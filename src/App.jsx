@@ -56,6 +56,8 @@ function AdminApp() {
   const [chefProfileChecked, setChefProfileChecked] = useState(!isSupabaseConfigured);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [theme, setTheme] = useState('light');
+  const [guestMode, setGuestMode] = useState(false);
+  const [signInMode, setSignInMode] = useState('signin');
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -132,6 +134,11 @@ function AdminApp() {
     };
   }, [session]);
 
+  // Guests browse sample data, read-only — no account, nothing persisted.
+  useEffect(() => {
+    if (guestMode) setMeals(initialMeals);
+  }, [guestMode]);
+
   const sortedMeals = useMemo(
     () => [...meals].sort((a, b) => new Date(b.date) - new Date(a.date)),
     [meals]
@@ -169,19 +176,26 @@ function AdminApp() {
 
   // Everyone hitting the admin app (root path) needs an account — the
   // public, read-only page for each chef is /<slug> (see PublicChefPage).
+  // Guests can look around read-only on sample data instead, with no
+  // account and nothing saved.
   if (isSupabaseConfigured && !sessionChecked) {
     return null;
   }
 
-  if (isSupabaseConfigured && !session) {
-    return <SignInScreen />;
+  if (isSupabaseConfigured && !session && !guestMode) {
+    return (
+      <SignInScreen
+        initialMode={signInMode}
+        onGuest={() => setGuestMode(true)}
+      />
+    );
   }
 
-  if (isSupabaseConfigured && !chefProfileChecked) {
+  if (isSupabaseConfigured && !guestMode && !chefProfileChecked) {
     return null;
   }
 
-  if (isSupabaseConfigured && !chefProfile) {
+  if (isSupabaseConfigured && !guestMode && !chefProfile) {
     return <ChooseUsername userId={session.user.id} onCreated={setChefProfile} />;
   }
 
@@ -200,6 +214,21 @@ function AdminApp() {
           </p>
         )}
         <div className="app-topbar-actions">
+          {guestMode && (
+            <>
+              <span className="app-guest-badge">Browsing as guest — sample data, nothing saved</span>
+              <button
+                type="button"
+                className="app-account-btn"
+                onClick={() => {
+                  setSignInMode('signup');
+                  setGuestMode(false);
+                }}
+              >
+                Sign up
+              </button>
+            </>
+          )}
           {publicUrl && (
             <a className="app-account-btn" href={publicUrl} target="_blank" rel="noreferrer">
               View public page ↗
@@ -219,8 +248,9 @@ function AdminApp() {
       <Gallery
         meals={sortedMeals}
         onOpenMeal={handleOpenMeal}
-        onAddMeal={() => setShowAddForm(true)}
-        onPublishSite={() => setShowPublish(true)}
+        onAddMeal={guestMode ? undefined : () => setShowAddForm(true)}
+        onPublishSite={guestMode ? undefined : () => setShowPublish(true)}
+        tagline={guestMode ? 'Sample data · sign up to start your own' : undefined}
       />
 
       {openMeal && (

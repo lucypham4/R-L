@@ -4,8 +4,8 @@ import { Label, TextInput, ErrorText } from './TextField';
 import { signIn, signUp, resendConfirmation } from '../lib/auth';
 import './SignInScreen.css';
 
-export default function SignInScreen() {
-  const [mode, setMode] = useState('signin'); // signin | signup
+export default function SignInScreen({ initialMode = 'signin', onGuest }) {
+  const [mode, setMode] = useState(initialMode); // signin | signup
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [status, setStatus] = useState('idle'); // idle | working | error
@@ -130,6 +130,12 @@ export default function SignInScreen() {
             )}
             {resendStatus === 'error' && <p className="signin-notice signin-notice-error">{resendError}</p>}
           </div>
+        )}
+
+        {onGuest && (
+          <button type="button" className="signin-guest-link" onClick={onGuest}>
+            Just looking? Continue as guest
+          </button>
         )}
       </div>
     </div>

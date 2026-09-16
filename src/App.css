@@ -24,6 +24,14 @@
   margin-left: auto;
 }
 
+.app-guest-badge {
+  font: 400 0.6875rem/1.5 var(--font-mono);
+  letter-spacing: 0.04em;
+  color: var(--color-accent);
+  padding: 4px 9px;
+  border: 1px solid var(--color-accent);
+}
+
 .app-account-btn {
   font: 400 0.75rem/1.5 var(--font-mono);
   letter-spacing: 0.04em;
