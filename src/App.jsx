@@ -3,7 +3,8 @@ import Gallery from './components/Gallery';
 import MealDetailModal from './components/MealDetailModal';
 import AddMealForm from './components/AddMealForm';
 import PublishModal from './components/PublishModal';
-import LoginModal from './components/LoginModal';
+import SignInScreen from './components/SignInScreen';
+import OnboardingTour from './components/OnboardingTour';
 import ThemeToggle from './components/ThemeToggle';
 import { initialMeals, createMeal } from './data/meals';
 import { isSupabaseConfigured } from './lib/supabase';
@@ -12,20 +13,32 @@ import { fetchMeals, insertMeal } from './lib/mealsApi';
 import { getSession, onAuthChange, signOut } from './lib/auth';
 import './App.css';
 
+function hasSeenOnboarding(userId) {
+  try {
+    return localStorage.getItem(`onboarding-seen-${userId}`) === '1';
+  } catch {
+    return true; // storage blocked — don't force the tour on every load
+  }
+}
+
+function markOnboardingSeen(userId) {
+  try {
+    localStorage.setItem(`onboarding-seen-${userId}`, '1');
+  } catch {
+    // storage blocked — nothing to persist, tour just won't be remembered
+  }
+}
+
 export default function App() {
   const [meals, setMeals] = useState(isSupabaseConfigured ? [] : initialMeals);
   const [loadError, setLoadError] = useState('');
   const [openMealId, setOpenMealId] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [showPublish, setShowPublish] = useState(false);
-  const [showLogin, setShowLogin] = useState(false);
   const [session, setSession] = useState(null);
+  const [sessionChecked, setSessionChecked] = useState(!isSupabaseConfigured);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [theme, setTheme] = useState('light');
-
-  // In demo mode (no Supabase) editing stays open to everyone, matching the
-  // app's pre-auth behavior. Once Supabase is configured, adding meals and
-  // publishing the site are gated to Lucy and her partner's own accounts.
-  const canEdit = !isSupabaseConfigured || Boolean(session);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -50,9 +63,16 @@ export default function App() {
     if (!isSupabaseConfigured) return;
     getSession()
       .then(setSession)
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setSessionChecked(true));
     return onAuthChange(setSession);
   }, []);
+
+  // Show the first-time welcome tour once per account, right after sign-in.
+  useEffect(() => {
+    if (!session) return;
+    if (!hasSeenOnboarding(session.user.id)) setShowOnboarding(true);
+  }, [session]);
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -106,6 +126,17 @@ export default function App() {
     setShowAddForm(false);
   }
 
+  // This app is the private admin tool now — everyone lands on a sign-in
+  // screen when Supabase is configured. The public, read-only gallery is
+  // whatever static site gets published separately via "Publish site".
+  if (isSupabaseConfigured && !sessionChecked) {
+    return null;
+  }
+
+  if (isSupabaseConfigured && !session) {
+    return <SignInScreen />;
+  }
+
   return (
     <div>
       <div className="app-topbar">
@@ -119,16 +150,11 @@ export default function App() {
           </p>
         )}
         <div className="app-topbar-actions">
-          {isSupabaseConfigured &&
-            (session ? (
-              <button type="button" className="app-account-btn" onClick={() => signOut()}>
-                Sign out ({session.user.email})
-              </button>
-            ) : (
-              <button type="button" className="app-account-btn" onClick={() => setShowLogin(true)}>
-                Sign in
-              </button>
-            ))}
+          {session && (
+            <button type="button" className="app-account-btn" onClick={() => signOut()}>
+              Sign out ({session.user.email})
+            </button>
+          )}
           <ThemeToggle theme={theme} onToggle={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))} />
         </div>
       </div>
@@ -140,8 +166,6 @@ export default function App() {
         onOpenMeal={handleOpenMeal}
         onAddMeal={() => setShowAddForm(true)}
         onPublishSite={() => setShowPublish(true)}
-        canEdit={canEdit}
-        onRequestSignIn={() => setShowLogin(true)}
       />
 
       {openMeal && (
@@ -159,7 +183,14 @@ export default function App() {
 
       {showPublish && <PublishModal meals={sortedMeals} onClose={() => setShowPublish(false)} />}
 
-      {showLogin && <LoginModal onSignedIn={() => setShowLogin(false)} onCancel={() => setShowLogin(false)} />}
+      {showOnboarding && (
+        <OnboardingTour
+          onDone={() => {
+            if (session) markOnboardingSeen(session.user.id);
+            setShowOnboarding(false);
+          }}
+        />
+      )}
     </div>
   );
 }

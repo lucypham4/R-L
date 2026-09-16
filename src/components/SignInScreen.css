@@ -1,0 +1,47 @@
+.signin-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xl);
+  background: var(--color-bg);
+}
+
+.signin-card {
+  width: 100%;
+  max-width: 380px;
+}
+
+.signin-eyebrow {
+  font: 500 0.6875rem/1 var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+
+.signin-title {
+  margin: 12px 0 0;
+  font: 400 2.125rem/1.1 var(--font-serif);
+  letter-spacing: -0.02em;
+}
+
+.signin-subtitle {
+  margin-top: 8px;
+  font: 400 0.875rem/1.5 var(--font-sans);
+  color: var(--color-muted);
+}
+
+.signin-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  margin-top: var(--space-2xl);
+}
+
+.signin-footnote {
+  margin-top: var(--space-xl);
+  padding-top: var(--space-lg);
+  border-top: var(--divider);
+  font: 400 0.75rem/1.5 var(--font-mono);
+  color: var(--color-disabled);
+}

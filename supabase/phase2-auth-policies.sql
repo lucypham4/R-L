@@ -3,11 +3,18 @@
 -- dashboard (Authentication → Users → Add user). Additive only — it does
 -- not touch existing rows or the table shape, unlike schema.sql.
 --
--- Reads stay public (the portfolio is meant to be browsed by anyone with
--- the link); only adding meals now requires a signed-in session.
+-- The app itself is fully private now (everyone hits a sign-in screen),
+-- and the public gallery is a separate static export that doesn't call
+-- Supabase at view time — so there's no more reason for anon reads either.
+-- Both read and write now require a signed-in session.
+
+drop policy if exists "Public read access" on public.meals;
+drop policy if exists "Authenticated read access" on public.meals;
+create policy "Authenticated read access"
+  on public.meals for select
+  using (auth.role() = 'authenticated');
 
 drop policy if exists "Public insert access" on public.meals;
-
 drop policy if exists "Authenticated insert access" on public.meals;
 create policy "Authenticated insert access"
   on public.meals for insert
