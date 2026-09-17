@@ -115,7 +115,10 @@ export default function PublishModal({ meals, onClose }) {
               <strong>{mealsToPublish.length}</strong> meal{mealsToPublish.length === 1 ? '' : 's'} exported as{' '}
               <code>meal-diary-portfolio.html</code>.
             </p>
-            <p className="publish-next-step">Downloaded. Upload it anywhere you'd like a copy hosted.</p>
+            <p className="publish-next-step">
+              Downloaded, or opened in a new tab if your browser can't download it directly — from there, use
+              Share to save a copy. Upload it anywhere you'd like a copy hosted.
+            </p>
             <Button type="button" variant="secondary" onClick={handleGenerate}>
               Download again
             </Button>

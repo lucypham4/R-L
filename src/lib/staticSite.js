@@ -59,14 +59,20 @@ export function downloadStaticSite(html, filename = 'meal-diary-portfolio.html')
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
+  // Some browsers (notably iOS Safari) don't honour `download` for a
+  // navigable type like text/html and fall back to just navigating to
+  // the href; target="_blank" keeps that from replacing the app tab.
+  a.target = '_blank';
+  a.rel = 'noopener';
   document.body.appendChild(a);
   a.click();
   a.remove();
-  // Safari (notably iOS) doesn't honour `download` for a navigable type
-  // like text/html and instead asynchronously navigates the tab to the
-  // blob URL. Revoking it right away can win that race and leave the new
-  // tab loading a URL that no longer resolves to anything, i.e. blank.
-  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  // Revoking the object URL is a courtesy, not a requirement — the browser
+  // frees it when the document goes away regardless. Doing it immediately
+  // risks winning a race against a browser that navigates to the blob
+  // asynchronously instead of actually downloading it, which would load a
+  // dead URL and show a blank page. It's not worth that risk for a
+  // one-off, user-triggered export, so we simply don't bother revoking it.
 }
 
 function escapeHtml(str) {
