@@ -53,26 +53,39 @@ ${SITE_CSS}
 `;
 }
 
+function isIPhoneOrIPod() {
+  return /iPhone|iPod/.test(navigator.userAgent);
+}
+
 export function downloadStaticSite(html, filename = 'meal-diary-portfolio.html') {
   const blob = new Blob([html], { type: 'text/html' });
+
+  if (isIPhoneOrIPod()) {
+    // iOS Safari doesn't support downloading blob: URLs — opening one in
+    // a new tab loads with no content. The proven workaround (the same
+    // one FileSaver.js uses for Safari) is to open a blank tab
+    // synchronously, inside this click handler so Safari doesn't treat it
+    // as a blocked popup, then point it at a data: URI — which Safari can
+    // render directly — once the blob has been read. The user can then
+    // use Share > Save to Files from there.
+    const popup = window.open('', '_blank');
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result;
+      if (popup) popup.location.href = dataUrl;
+      else window.location.href = dataUrl;
+    };
+    reader.readAsDataURL(blob);
+    return;
+  }
+
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
-  // Some browsers (notably iOS Safari) don't honour `download` for a
-  // navigable type like text/html and fall back to just navigating to
-  // the href; target="_blank" keeps that from replacing the app tab.
-  a.target = '_blank';
-  a.rel = 'noopener';
   document.body.appendChild(a);
   a.click();
   a.remove();
-  // Revoking the object URL is a courtesy, not a requirement — the browser
-  // frees it when the document goes away regardless. Doing it immediately
-  // risks winning a race against a browser that navigates to the blob
-  // asynchronously instead of actually downloading it, which would load a
-  // dead URL and show a blank page. It's not worth that risk for a
-  // one-off, user-triggered export, so we simply don't bother revoking it.
 }
 
 function escapeHtml(str) {
