@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import Button from './Button';
-import FilterSelect from './FilterSelect';
+import FilterSheet from './FilterSheet';
 import MealCard from './MealCard';
 import './Gallery.css';
 
@@ -8,13 +8,14 @@ export default function Gallery({
   meals,
   onOpenMeal,
   onAddMeal,
-  onPublishSite,
   title = 'Meal Diary',
   tagline = 'Private chef · portfolio & archive',
 }) {
+  const [search, setSearch] = useState('');
   const [cuisine, setCuisine] = useState('');
   const [category, setCategory] = useState('');
   const [year, setYear] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
 
   const cuisines = useMemo(() => uniqueSorted(meals.map((m) => m.cuisine)), [meals]);
   const categories = useMemo(() => uniqueSorted(meals.map((m) => m.category)), [meals]);
@@ -23,10 +24,19 @@ export default function Gallery({
     [meals]
   );
 
+  const query = search.trim().toLowerCase();
+
   const filtered = meals.filter((m) => {
     if (cuisine && m.cuisine !== cuisine) return false;
     if (category && m.category !== category) return false;
     if (year && String(new Date(m.date).getFullYear()) !== year) return false;
+    if (query) {
+      const haystack = [m.name, m.cuisine, m.category, m.description, ...(m.ingredients || [])]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      if (!haystack.includes(query)) return false;
+    }
     return true;
   });
 
@@ -45,35 +55,50 @@ export default function Gallery({
           <h1 className="gallery-title">{title}</h1>
           <p className="gallery-tagline">{tagline}</p>
         </div>
-        {(onAddMeal || onPublishSite) && (
-          <div className="gallery-header-actions">
-            {onPublishSite && (
-              <Button variant="ghost" onClick={onPublishSite}>
-                Download copy
-              </Button>
-            )}
-            {onAddMeal && (
-              <Button variant="secondary" onClick={onAddMeal}>
-                + Add meal
-              </Button>
-            )}
-          </div>
-        )}
       </header>
 
-      <div className="gallery-filters">
-        <FilterSelect label="Cuisine" value={cuisine} options={cuisines} onChange={setCuisine} onClear={() => setCuisine('')} />
-        <FilterSelect label="Category" value={category} options={categories} onChange={setCategory} onClear={() => setCategory('')} />
-        <FilterSelect label="Year" value={year} options={years} onChange={setYear} onClear={() => setYear('')} />
-        {hasActiveFilters && (
-          <Button variant="ghost" onClick={clearFilters}>
-            Clear
-          </Button>
-        )}
+      <div className="gallery-search-row">
+        <div className="gallery-search-field">
+          <SearchIcon />
+          <input
+            type="search"
+            className="gallery-search-input"
+            placeholder="Search meals…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            aria-label="Search meals"
+          />
+          <button
+            type="button"
+            className={`gallery-filter-btn ${hasActiveFilters ? 'gallery-filter-btn-active' : ''}`}
+            onClick={() => setShowFilters(true)}
+            aria-label="Open filters"
+          >
+            <FilterIcon />
+            {hasActiveFilters && <span className="gallery-filter-dot" aria-hidden="true" />}
+          </button>
+        </div>
         <span className="gallery-count">
           {filtered.length} of {meals.length} meals
         </span>
       </div>
+
+      {showFilters && (
+        <FilterSheet
+          cuisine={cuisine}
+          category={category}
+          year={year}
+          cuisines={cuisines}
+          categories={categories}
+          years={years}
+          onChangeCuisine={setCuisine}
+          onChangeCategory={setCategory}
+          onChangeYear={setYear}
+          hasActiveFilters={hasActiveFilters}
+          onClearAll={clearFilters}
+          onClose={() => setShowFilters(false)}
+        />
+      )}
 
       {filtered.length === 0 ? (
         meals.length === 0 ? (
@@ -102,4 +127,23 @@ export default function Gallery({
 
 function uniqueSorted(values) {
   return Array.from(new Set(values)).sort();
+}
+
+function SearchIcon() {
+  return (
+    <svg className="gallery-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="11" cy="11" r="7" />
+      <path d="M21 21l-4.35-4.35" />
+    </svg>
+  );
+}
+
+function FilterIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 6h16" />
+      <path d="M7 12h10" />
+      <path d="M10 18h4" />
+    </svg>
+  );
 }

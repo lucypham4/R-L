@@ -2,6 +2,20 @@
   min-height: 100vh;
   background: var(--color-bg);
   padding: var(--space-xl) var(--page-margin-sm) var(--space-4xl);
+  animation: settings-enter var(--dur-move) var(--ease);
+}
+
+@keyframes settings-enter {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-page {
+    animation: none;
+  }
 }
 
 @media (min-width: 768px) {
