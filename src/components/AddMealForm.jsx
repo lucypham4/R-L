@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import Button from './Button';
 import { Label, TextInput, TextArea, ErrorText } from './TextField';
-import Tag from './Tag';
 import SketchCanvas from './SketchCanvas';
+import BubbleSelect from './BubbleSelect';
+import IngredientBubbles from './IngredientBubbles';
 import { uploadImage, isCloudinaryConfigured } from '../lib/cloudinary';
 import './AddMealForm.css';
 
 const DESCRIPTION_MAX = 400;
 
-export default function AddMealForm({ cuisines, categories, onSave, onCancel }) {
+export default function AddMealForm({ onSave, onCancel }) {
   const [photoMode, setPhotoMode] = useState('upload'); // upload | sketch
   const [photo, setPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
@@ -19,11 +20,9 @@ export default function AddMealForm({ cuisines, categories, onSave, onCancel }) 
   const [cuisine, setCuisine] = useState('');
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
-  const [ingredientsText, setIngredientsText] = useState('');
+  const [ingredients, setIngredients] = useState([]);
   const [methodText, setMethodText] = useState('');
   const [note, setNote] = useState('');
-  const [tags, setTags] = useState([]);
-  const [tagDraft, setTagDraft] = useState('');
   const [touched, setTouched] = useState({});
   const [uploadProgress, setUploadProgress] = useState(0);
   const [status, setStatus] = useState('idle'); // idle | uploading | saving | error
@@ -72,14 +71,6 @@ export default function AddMealForm({ cuisines, categories, onSave, onCancel }) 
     setTouched((t) => ({ ...t, [field]: true }));
   }
 
-  function addTag() {
-    const value = tagDraft.trim();
-    if (value && !tags.includes(value)) {
-      setTags([...tags, value]);
-    }
-    setTagDraft('');
-  }
-
   async function handleSubmit(e) {
     e.preventDefault();
     setTouched({ photo: true, name: true, date: true, description: true });
@@ -112,10 +103,9 @@ export default function AddMealForm({ cuisines, categories, onSave, onCancel }) 
         cuisine: cuisine.trim(),
         category: category.trim(),
         description: description.trim(),
-        ingredients: ingredientsText.split('\n').map((s) => s.trim()).filter(Boolean),
+        ingredients,
         method: methodText.split('\n').map((s) => s.trim()).filter(Boolean),
         note: note.trim(),
-        tags,
         photoUrl,
       });
       setStatus('idle');
@@ -216,7 +206,7 @@ export default function AddMealForm({ cuisines, categories, onSave, onCancel }) 
               </Label>
               <TextInput
                 id="meal-name"
-                placeholder="Miso-glazed aubergine"
+                placeholder="Meal name (required)"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 onBlur={() => markTouched('name')}
@@ -240,41 +230,14 @@ export default function AddMealForm({ cuisines, categories, onSave, onCancel }) 
             </div>
           </div>
 
-          <div className="add-meal-row">
-            <div>
-              <Label htmlFor="meal-cuisine" optional>
-                Cuisine
-              </Label>
-              <TextInput
-                id="meal-cuisine"
-                list="cuisine-options"
-                placeholder="Select cuisine"
-                value={cuisine}
-                onChange={(e) => setCuisine(e.target.value)}
-              />
-              <datalist id="cuisine-options">
-                {cuisines.map((c) => (
-                  <option key={c} value={c} />
-                ))}
-              </datalist>
-            </div>
-            <div>
-              <Label htmlFor="meal-category" optional>
-                Category
-              </Label>
-              <TextInput
-                id="meal-category"
-                list="category-options"
-                placeholder="Select category"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-              />
-              <datalist id="category-options">
-                {categories.map((c) => (
-                  <option key={c} value={c} />
-                ))}
-              </datalist>
-            </div>
+          <div>
+            <Label optional>Category</Label>
+            <BubbleSelect kind="category" value={category} onChange={setCategory} />
+          </div>
+
+          <div>
+            <Label optional>Cuisine</Label>
+            <BubbleSelect kind="cuisine" value={cuisine} onChange={setCuisine} />
           </div>
 
           <div>
@@ -297,16 +260,8 @@ export default function AddMealForm({ cuisines, categories, onSave, onCancel }) 
           </div>
 
           <div>
-            <Label htmlFor="meal-ingredients" optional>
-              Ingredients
-            </Label>
-            <TextArea
-              id="meal-ingredients"
-              rows={3}
-              placeholder="One per line"
-              value={ingredientsText}
-              onChange={(e) => setIngredientsText(e.target.value)}
-            />
+            <Label optional>Ingredients</Label>
+            <IngredientBubbles value={ingredients} onChange={setIngredients} />
           </div>
 
           <div>
@@ -331,35 +286,10 @@ export default function AddMealForm({ cuisines, categories, onSave, onCancel }) 
               id="meal-note"
               className="add-meal-note-input"
               maxLength={90}
-              placeholder="grill was too hot, 10 min next time"
+              placeholder="optional note you'd tell future chefs"
               value={note}
               onChange={(e) => setNote(e.target.value)}
             />
-            <p className="field-help">Printed in italic on the card.</p>
-          </div>
-
-          <div>
-            <Label optional>Tags</Label>
-            <div className="add-meal-tags">
-              {tags.map((tag) => (
-                <Tag key={tag} removable onRemove={() => setTags(tags.filter((t) => t !== tag))}>
-                  {tag}
-                </Tag>
-              ))}
-              <input
-                className="add-meal-tag-input"
-                placeholder="Add tag…"
-                value={tagDraft}
-                onChange={(e) => setTagDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ',') {
-                    e.preventDefault();
-                    addTag();
-                  }
-                }}
-                onBlur={addTag}
-              />
-            </div>
           </div>
 
           {submitError && <ErrorText>{submitError}</ErrorText>}

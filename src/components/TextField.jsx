@@ -35,12 +35,7 @@ export function TextArea({ id, error, className = '', ...props }) {
 
 export function ErrorText({ children }) {
   if (!children) return null;
-  return (
-    <p className="field-error">
-      <span aria-hidden="true">! </span>
-      {children}
-    </p>
-  );
+  return <p className="field-error">{children}</p>;
 }
 
 export function HelpText({ children }) {

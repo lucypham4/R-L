@@ -1,8 +1,4 @@
 .app-topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-md);
   padding: var(--space-lg) var(--page-margin-sm);
 }
 
@@ -15,13 +11,6 @@
 .app-config-notice {
   font: 400 0.75rem/1.5 var(--font-mono);
   color: var(--color-muted);
-}
-
-.app-topbar-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  margin-left: auto;
 }
 
 .app-config-error {

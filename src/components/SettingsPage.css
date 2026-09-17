@@ -1,0 +1,79 @@
+.settings-page {
+  min-height: 100vh;
+  background: var(--color-bg);
+  padding: var(--space-xl) var(--page-margin-sm) var(--space-4xl);
+}
+
+@media (min-width: 768px) {
+  .settings-page {
+    padding-left: var(--page-margin-md);
+    padding-right: var(--page-margin-md);
+  }
+}
+
+.settings-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding-bottom: var(--space-xl);
+  margin-bottom: var(--space-xl);
+  border-bottom: var(--divider);
+}
+
+.settings-back {
+  align-self: flex-start;
+  font: 400 0.75rem/1.5 var(--font-mono);
+  letter-spacing: 0.04em;
+  color: var(--color-muted);
+}
+
+.settings-back:hover {
+  color: var(--color-ink);
+}
+
+.settings-title {
+  font: 400 2.125rem/1.1 var(--font-serif);
+  letter-spacing: -0.02em;
+}
+
+.settings-section {
+  max-width: 480px;
+  padding-bottom: var(--space-xl);
+  margin-bottom: var(--space-xl);
+  border-bottom: var(--divider);
+}
+
+.settings-section:last-child {
+  border-bottom: none;
+}
+
+.settings-section-title {
+  font: 400 1.125rem/1.4 var(--font-serif);
+  margin-bottom: var(--space-md);
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.settings-row-body {
+  color: var(--color-muted);
+  font: 400 0.875rem/1.5 var(--font-sans);
+  margin-bottom: var(--space-md);
+}
+
+.settings-email {
+  font: 400 0.8125rem/1.5 var(--font-mono);
+  color: var(--color-muted);
+  margin-bottom: var(--space-sm);
+}
+
+.settings-link {
+  display: block;
+  margin-bottom: var(--space-md);
+  font: 400 0.875rem/1.5 var(--font-sans);
+  color: var(--color-accent);
+}

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import './Bubbles.css';
 import './MealDetailModal.css';
 
-const monthFormatter = new Intl.DateTimeFormat('en-GB', { month: 'short', year: 'numeric' });
 const fullDateFormatter = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
 export default function MealDetailModal({ meal, index, total, onClose, sharePath = window.location.pathname }) {
@@ -58,8 +58,6 @@ export default function MealDetailModal({ meal, index, total, onClose, sharePath
             <span className="modal-plate-count">{total}</span>
           </div>
           <div className="modal-rule" />
-          <h2 className="modal-plate-name">{meal.name}</h2>
-          <div className="modal-rule" />
           <div className="modal-plate-image">
             {meal.photoUrl ? (
               <img src={meal.photoUrl} alt={`${meal.name}, ${meal.cuisine} ${meal.category}`} className="modal-plate-photo" />
@@ -67,27 +65,29 @@ export default function MealDetailModal({ meal, index, total, onClose, sharePath
               <span>food cutout · full res</span>
             )}
           </div>
-          <div className="modal-plate-footer">Meal Diary · {monthFormatter.format(date)}</div>
         </div>
 
         <div className="modal-text">
           <h2 className="modal-text-name">{meal.name}</h2>
+          {meal.description && <p className="modal-description">{meal.description}</p>}
           <p className="modal-text-sub">
             {meal.cuisine} · {fullDateFormatter.format(date)} · Serves {meal.serves}
           </p>
 
           {meal.ingredients.length > 0 && (
             <>
-              <ul className="modal-ingredients">
+              <div className="bubble-row modal-ingredients">
                 {meal.ingredients.map((ing) => (
-                  <li key={ing}>{ing}</li>
+                  <span key={ing} className="bubble">
+                    {ing}
+                  </span>
                 ))}
-              </ul>
+              </div>
               <div className="modal-rule" />
             </>
           )}
 
-          {meal.method.length > 0 ? (
+          {meal.method.length > 0 && (
             <ol className="modal-method">
               {meal.method.map((step, i) => (
                 <li key={i}>
@@ -96,20 +96,11 @@ export default function MealDetailModal({ meal, index, total, onClose, sharePath
                 </li>
               ))}
             </ol>
-          ) : (
-            <p className="modal-description">{meal.description}</p>
           )}
 
           {meal.note && <p className="modal-note">{meal.note}</p>}
 
           <div className="modal-footer">
-            <div className="modal-tags">
-              {meal.tags.map((tag) => (
-                <span key={tag} className="modal-tag">
-                  {tag}
-                </span>
-              ))}
-            </div>
             <button type="button" className="modal-share" onClick={handleShare}>
               {copied ? 'Link copied' : 'Share'}
             </button>

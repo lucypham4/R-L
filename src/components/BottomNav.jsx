@@ -1,9 +1,14 @@
-import ProfileMenu from './ProfileMenu';
 import './BottomNav.css';
 
 const ICONS = {
   home: <path d="M3 11l9-7 9 7M5 10v10h5v-6h4v6h5V10" />,
   add: <path d="M12 5v14M5 12h14" />,
+  profile: (
+    <>
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M4.5 20c1.5-4 5-6 7.5-6s6 2 7.5 6" />
+    </>
+  ),
 };
 
 function Icon({ name }) {
@@ -14,17 +19,7 @@ function Icon({ name }) {
   );
 }
 
-export default function BottomNav({
-  onHome,
-  onAdd,
-  isSupabaseConfigured,
-  session,
-  publicUrl,
-  theme,
-  onToggleTheme,
-  onSignIn,
-  onSignOut,
-}) {
+export default function BottomNav({ onHome, onAdd, onProfile }) {
   return (
     <nav className="bottom-nav" aria-label="Primary">
       <button type="button" className="bottom-nav-tab bottom-nav-tab-active" onClick={onHome}>
@@ -35,18 +30,10 @@ export default function BottomNav({
         <Icon name="add" />
         <span>Add</span>
       </button>
-      <ProfileMenu
-        placement="above"
-        triggerClassName="bottom-nav-tab"
-        triggerLabel="Profile"
-        isSupabaseConfigured={isSupabaseConfigured}
-        session={session}
-        publicUrl={publicUrl}
-        theme={theme}
-        onToggleTheme={onToggleTheme}
-        onSignIn={onSignIn}
-        onSignOut={onSignOut}
-      />
+      <button type="button" className="bottom-nav-tab" onClick={onProfile}>
+        <Icon name="profile" />
+        <span>Profile</span>
+      </button>
     </nav>
   );
 }

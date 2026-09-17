@@ -14,13 +14,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: repeating-linear-gradient(
-    45deg,
-    var(--color-surface),
-    var(--color-surface) 10px,
-    var(--color-line) 10px,
-    var(--color-line) 20px
-  );
+  background: transparent;
   transition: box-shadow var(--dur-move) var(--ease);
 }
 

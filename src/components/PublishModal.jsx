@@ -88,7 +88,7 @@ export default function PublishModal({ meals, onClose }) {
           </ul>
         )}
 
-        {status === 'error' && <p className="publish-error">! {error}</p>}
+        {status === 'error' && <p className="publish-error">{error}</p>}
 
         {status === 'done' ? (
           <div className="publish-done">

@@ -113,30 +113,6 @@
   color: var(--color-note-ink);
 }
 
-.add-meal-tags {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  min-height: 60px;
-  padding: 11px;
-  background: var(--color-card);
-  border: 1px solid var(--color-line);
-}
-
-.add-meal-tag-input {
-  flex: 1;
-  min-width: 100px;
-  border: none;
-  background: transparent;
-  font: 400 0.875rem/1.5 var(--font-sans);
-  color: var(--color-ink);
-}
-
-.add-meal-tag-input::placeholder {
-  color: var(--color-disabled);
-}
-
 .add-meal-footer {
   display: flex;
   gap: var(--space-md);

@@ -8,7 +8,7 @@ import ChooseUsername from './components/ChooseUsername';
 import OnboardingTour from './components/OnboardingTour';
 import PublicChefPage from './components/PublicChefPage';
 import BottomNav from './components/BottomNav';
-import ProfileMenu from './components/ProfileMenu';
+import SettingsPage from './components/SettingsPage';
 import { isSupabaseConfigured } from './lib/supabase';
 import { isCloudinaryConfigured } from './lib/cloudinary';
 import { fetchMeals, insertMeal } from './lib/mealsApi';
@@ -64,6 +64,7 @@ function AdminApp() {
   const [chefProfile, setChefProfile] = useState(null);
   const [chefProfileChecked, setChefProfileChecked] = useState(!isSupabaseConfigured);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [theme, setTheme] = useState('light');
 
   useEffect(() => {
@@ -148,9 +149,6 @@ function AdminApp() {
     [meals]
   );
 
-  const cuisines = useMemo(() => Array.from(new Set(meals.map((m) => m.cuisine))).sort(), [meals]);
-  const categories = useMemo(() => Array.from(new Set(meals.map((m) => m.category))).sort(), [meals]);
-
   const openIndex = sortedMeals.findIndex((m) => String(m.id) === String(openMealId));
   const openMeal = openIndex >= 0 ? sortedMeals[openIndex] : null;
 
@@ -228,27 +226,28 @@ function AdminApp() {
     );
   }
 
+  if (showSettings) {
+    return (
+      <SettingsPage
+        onBack={() => setShowSettings(false)}
+        isSupabaseConfigured={isSupabaseConfigured}
+        session={session}
+        publicUrl={publicUrl}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
+        onSignIn={handleRequestSignIn}
+        onSignOut={signOut}
+      />
+    );
+  }
+
   return (
     <div>
-      <div className="app-topbar">
-        {!isCloudinaryConfigured && (
-          <p className="app-config-notice">
-            Cloudinary isn't configured. Photos won't survive a reload.
-          </p>
-        )}
-        <div className="app-topbar-actions">
-          <ProfileMenu
-            placement="below"
-            isSupabaseConfigured={isSupabaseConfigured}
-            session={session}
-            publicUrl={publicUrl}
-            theme={theme}
-            onToggleTheme={handleToggleTheme}
-            onSignIn={handleRequestSignIn}
-            onSignOut={signOut}
-          />
+      {!isCloudinaryConfigured && (
+        <div className="app-topbar">
+          <p className="app-config-notice">Cloudinary isn't configured. Photos won't survive a reload.</p>
         </div>
-      </div>
+      )}
 
       {loadError && <p className="app-config-notice app-config-error">{loadError}</p>}
 
@@ -265,22 +264,12 @@ function AdminApp() {
       )}
 
       {showAddForm && (
-        <AddMealForm cuisines={cuisines} categories={categories} onSave={handleAddMeal} onCancel={() => setShowAddForm(false)} />
+        <AddMealForm onSave={handleAddMeal} onCancel={() => setShowAddForm(false)} />
       )}
 
       {showPublish && <PublishModal meals={sortedMeals} onClose={() => setShowPublish(false)} />}
 
-      <BottomNav
-        onHome={handleNavHome}
-        onAdd={() => setShowAddForm(true)}
-        isSupabaseConfigured={isSupabaseConfigured}
-        session={session}
-        publicUrl={publicUrl}
-        theme={theme}
-        onToggleTheme={handleToggleTheme}
-        onSignIn={handleRequestSignIn}
-        onSignOut={signOut}
-      />
+      <BottomNav onHome={handleNavHome} onAdd={() => setShowAddForm(true)} onProfile={() => setShowSettings(true)} />
     </div>
   );
 }
