@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import Button from './Button';
+import { Label } from './TextField';
 import { generateStaticSiteHtml, downloadStaticSite } from '../lib/staticSite';
 import './PublishModal.css';
 
 export default function PublishModal({ meals, onClose }) {
   const [includeAll, setIncludeAll] = useState(true);
   const [selectedIds, setSelectedIds] = useState(() => new Set(meals.map((m) => m.id)));
+  const [theme, setTheme] = useState('light');
   const [status, setStatus] = useState('idle'); // idle | generating | done | error
   const [error, setError] = useState('');
   const closeRef = useRef(null);
@@ -41,7 +43,7 @@ export default function PublishModal({ meals, onClose }) {
       if (mealsToPublish.length === 0) {
         throw new Error('Choose at least one meal to include.');
       }
-      const html = generateStaticSiteHtml(mealsToPublish, { siteTitle: 'Meal Diary' });
+      const html = generateStaticSiteHtml(mealsToPublish, { siteTitle: 'Meal Diary', theme });
       downloadStaticSite(html);
       setStatus('done');
     } catch (err) {
@@ -60,15 +62,32 @@ export default function PublishModal({ meals, onClose }) {
         <h2 className="publish-title">Download a static copy</h2>
         <p className="publish-subtitle">A snapshot file, for an offline copy or hosting elsewhere.</p>
 
-        <div className="publish-toggle">
-          <label>
-            <input type="radio" checked={includeAll} onChange={() => setIncludeAll(true)} />
-            Include all meals ({meals.length})
-          </label>
-          <label>
-            <input type="radio" checked={!includeAll} onChange={() => setIncludeAll(false)} />
-            Choose meals
-          </label>
+        <div className="publish-section">
+          <Label>Meals to include</Label>
+          <div className="publish-toggle">
+            <label>
+              <input type="radio" checked={includeAll} onChange={() => setIncludeAll(true)} />
+              Include all meals ({meals.length})
+            </label>
+            <label>
+              <input type="radio" checked={!includeAll} onChange={() => setIncludeAll(false)} />
+              Choose meals
+            </label>
+          </div>
+        </div>
+
+        <div className="publish-section">
+          <Label>Appearance</Label>
+          <div className="publish-toggle">
+            <label>
+              <input type="radio" checked={theme === 'light'} onChange={() => setTheme('light')} />
+              Light mode
+            </label>
+            <label>
+              <input type="radio" checked={theme === 'dark'} onChange={() => setTheme('dark')} />
+              Dark mode
+            </label>
+          </div>
         </div>
 
         {!includeAll && (

@@ -4,7 +4,7 @@
  * no backend calls at view time. Meant to be uploaded as-is to any static
  * host (Vercel, Netlify, GitHub Pages, S3...).
  */
-export function generateStaticSiteHtml(meals, { siteTitle = 'Meal Diary' } = {}) {
+export function generateStaticSiteHtml(meals, { siteTitle = 'Meal Diary', theme = 'light' } = {}) {
   const safeMeals = meals.map((m) => ({
     id: m.id,
     name: m.name,
@@ -23,8 +23,10 @@ export function generateStaticSiteHtml(meals, { siteTitle = 'Meal Diary' } = {})
   // Escape `</script>` so the embedded JSON can't break out of its tag.
   const dataJson = JSON.stringify(safeMeals).replace(/</g, '\\u003c');
 
+  const safeTheme = theme === 'dark' ? 'dark' : 'light';
+
   return `<!doctype html>
-<html lang="en">
+<html lang="en" data-theme="${safeTheme}">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -60,7 +62,11 @@ export function downloadStaticSite(html, filename = 'meal-diary-portfolio.html')
   document.body.appendChild(a);
   a.click();
   a.remove();
-  URL.revokeObjectURL(url);
+  // Safari (notably iOS) doesn't honour `download` for a navigable type
+  // like text/html and instead asynchronously navigates the tab to the
+  // blob URL. Revoking it right away can win that race and leave the new
+  // tab loading a URL that no longer resolves to anything, i.e. blank.
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
 function escapeHtml(str) {
@@ -80,16 +86,14 @@ const SITE_CSS = `
   --font-sans: 'Instrument Sans', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-bg: #141311;
-    --color-surface: #211f1c;
-    --color-line: #33312b;
-    --color-ink: #f3f1eb;
-    --color-muted: #a6a198;
-    --color-disabled: #5a564e;
-    --color-accent: #f26d62;
-  }
+:root[data-theme="dark"] {
+  --color-bg: #141311;
+  --color-surface: #211f1c;
+  --color-line: #33312b;
+  --color-ink: #f3f1eb;
+  --color-muted: #a6a198;
+  --color-disabled: #5a564e;
+  --color-accent: #f26d62;
 }
 * { box-sizing: border-box; }
 body {

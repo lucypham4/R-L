@@ -21,11 +21,14 @@
   color: var(--color-muted);
 }
 
+.publish-section {
+  margin-top: var(--space-xl);
+}
+
 .publish-toggle {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-top: var(--space-xl);
   font: 400 0.875rem/1.5 var(--font-sans);
 }
 
