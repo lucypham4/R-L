@@ -1,10 +1,19 @@
 /**
  * Builds a single, dependency-free HTML file that renders a read-only
  * portfolio gallery from a snapshot of meals. No React, no build step,
- * no backend calls at view time. Meant to be uploaded as-is to any static
- * host (Vercel, Netlify, GitHub Pages, S3...).
+ * no backend calls, and — deliberately — no JavaScript at view time: the
+ * gallery and every recipe are baked into plain markup, and the "modal"
+ * detail view is a pure CSS :target overlay. That's what makes it survive
+ * places that render HTML/CSS but never run scripts, like iOS's Quick
+ * Look document preview (what actually opens when a downloaded .html file
+ * is tapped on an iPhone) — a script-driven version renders nothing there.
+ * Meant to be uploaded as-is to any static host too (Vercel, Netlify,
+ * GitHub Pages, S3...), where it works the same way.
  */
 export function generateStaticSiteHtml(meals, { siteTitle = 'Meal Diary', theme = 'light' } = {}) {
+  const dateFmt = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const safeTheme = theme === 'dark' ? 'dark' : 'light';
+
   const safeMeals = meals.map((m) => ({
     id: m.id,
     name: m.name,
@@ -16,14 +25,11 @@ export function generateStaticSiteHtml(meals, { siteTitle = 'Meal Diary', theme 
     ingredients: m.ingredients || [],
     method: m.method || [],
     note: m.note || '',
-    tags: m.tags || [],
     photoUrl: m.photoUrl || null,
   }));
 
-  // Escape `</script>` so the embedded JSON can't break out of its tag.
-  const dataJson = JSON.stringify(safeMeals).replace(/</g, '\\u003c');
-
-  const safeTheme = theme === 'dark' ? 'dark' : 'light';
+  const cardsHtml = safeMeals.map((meal) => mealCardHtml(meal, dateFmt)).join('\n');
+  const modalsHtml = safeMeals.map((meal) => mealModalHtml(meal, dateFmt)).join('\n');
 
   return `<!doctype html>
 <html lang="en" data-theme="${safeTheme}">
@@ -43,41 +49,104 @@ ${SITE_CSS}
     <h1>${escapeHtml(siteTitle)}</h1>
     <p class="site-tagline">A running portfolio of home-cooked plates.</p>
   </header>
-  <main class="gallery-grid" id="grid"></main>
-  <div id="modal-root"></div>
-
-  <script type="application/json" id="meals-data">${dataJson}</script>
-  <script>${SITE_JS}</script>
+  <main class="gallery-grid">
+${cardsHtml}
+  </main>
+${modalsHtml}
 </body>
 </html>
 `;
 }
 
+function mealCardHtml(meal, dateFmt) {
+  const alt = escapeHtml(`${meal.name}, ${meal.cuisine} ${meal.category}`);
+  const image = meal.photoUrl
+    ? `<img src="${escapeAttr(meal.photoUrl)}" alt="${alt}" loading="lazy" />`
+    : '';
+  return `    <a href="#meal-${escapeAttr(meal.id)}" class="meal-card">
+      <span class="meal-card-image">${image}</span>
+      <span class="meal-card-name">${escapeHtml(meal.name)}</span>
+      <span class="meal-card-meta">${escapeHtml(meal.cuisine)} · ${escapeHtml(meal.category)}</span>
+      <span class="meal-card-date">${escapeHtml(dateFmt.format(new Date(meal.date)))}</span>
+    </a>`;
+}
+
+function mealModalHtml(meal, dateFmt) {
+  const photo = meal.photoUrl
+    ? `<img src="${escapeAttr(meal.photoUrl)}" class="modal-photo" alt="${escapeAttr(meal.name)}" />`
+    : '';
+
+  const subParts = [meal.cuisine, dateFmt.format(new Date(meal.date))];
+  if (meal.serves) subParts.push(`Serves ${meal.serves}`);
+  const sub = subParts.map(escapeHtml).join(' · ');
+
+  const description = meal.description ? `<p class="modal-description">${escapeHtml(meal.description)}</p>` : '';
+
+  const ingredients = meal.ingredients.length
+    ? `<div class="bubble-row">${meal.ingredients.map((ing) => `<span class="bubble">${escapeHtml(ing)}</span>`).join('')}</div>`
+    : '';
+
+  const method = meal.method.length
+    ? `<ol class="modal-method">${meal.method.map((step) => `<li>${escapeHtml(step)}</li>`).join('')}</ol>`
+    : '';
+
+  const note = meal.note ? `<p class="modal-note">${escapeHtml(meal.note)}</p>` : '';
+
+  return `  <div class="modal-overlay" id="meal-${escapeAttr(meal.id)}">
+    <div class="modal-card" role="dialog" aria-label="${escapeAttr(meal.name)}">
+      <a href="#_" class="modal-close" aria-label="Close">×</a>
+      ${photo}
+      <h2 class="modal-name">${escapeHtml(meal.name)}</h2>
+      ${description}
+      <p class="modal-sub">${sub}</p>
+      ${ingredients}
+      ${method}
+      ${note}
+    </div>
+  </div>`;
+}
+
+function isIPhoneOrIPod() {
+  return /iPhone|iPod/.test(navigator.userAgent);
+}
+
 export function downloadStaticSite(html, filename = 'meal-diary-portfolio.html') {
   const blob = new Blob([html], { type: 'text/html' });
+
+  if (isIPhoneOrIPod()) {
+    // iOS Safari doesn't support downloading blob: URLs — opening one in
+    // a new tab loads with no content. The proven workaround (the same
+    // one FileSaver.js uses for Safari) is to open a blank tab
+    // synchronously, inside this click handler so Safari doesn't treat it
+    // as a blocked popup, then point it at a data: URI — which Safari can
+    // render directly — once the blob has been read. The user can then
+    // use Share > Save to Files from there.
+    const popup = window.open('', '_blank');
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result;
+      if (popup) popup.location.href = dataUrl;
+      else window.location.href = dataUrl;
+    };
+    reader.readAsDataURL(blob);
+    return;
+  }
+
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
-  // Some browsers (notably iOS Safari) don't honour `download` for a
-  // navigable type like text/html and fall back to just navigating to
-  // the href; target="_blank" keeps that from replacing the app tab.
-  a.target = '_blank';
-  a.rel = 'noopener';
   document.body.appendChild(a);
   a.click();
   a.remove();
-  // Revoking the object URL is a courtesy, not a requirement — the browser
-  // frees it when the document goes away regardless. Doing it immediately
-  // risks winning a race against a browser that navigates to the blob
-  // asynchronously instead of actually downloading it, which would load a
-  // dead URL and show a blank page. It's not worth that risk for a
-  // one-off, user-triggered export, so we simply don't bother revoking it.
 }
 
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
+
+// Same escaping is safe inside a "..." attribute value too.
+const escapeAttr = escapeHtml;
 
 const SITE_CSS = `
 :root {
@@ -143,14 +212,11 @@ body {
   text-align: left;
   gap: 3px;
   width: 100%;
-  background: none;
-  border: none;
-  padding: 0;
-  font-family: inherit;
+  text-decoration: none;
   color: inherit;
-  cursor: pointer;
 }
 .meal-card-image {
+  display: block;
   aspect-ratio: 1 / 1;
   width: 100%;
   overflow: hidden;
@@ -161,12 +227,14 @@ body {
 .meal-card-meta { color: var(--color-muted); font-size: 0.8125rem; }
 .meal-card-date { margin-top: 3px; font: 400 0.6875rem/1.5 var(--font-mono); color: var(--color-disabled); }
 .modal-overlay {
+  display: none;
   position: fixed; inset: 0;
   background: rgba(20, 19, 17, 0.55);
-  display: flex; align-items: center; justify-content: center;
+  align-items: center; justify-content: center;
   padding: 20px;
   z-index: 10;
 }
+.modal-overlay:target { display: flex; }
 .modal-card {
   background: var(--color-bg);
   max-width: 640px;
@@ -179,125 +247,26 @@ body {
 }
 .modal-close {
   position: absolute; top: 16px; right: 16px;
-  background: none; border: none; font-size: 1.5rem; line-height: 1; cursor: pointer; color: var(--color-ink);
+  display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px;
+  background: var(--color-bg); border: 1px solid var(--color-line);
+  font-size: 1.25rem; line-height: 1; text-decoration: none; color: var(--color-ink);
 }
 .modal-photo { width: 100%; aspect-ratio: 1/1; object-fit: cover; margin-bottom: 20px; }
 .modal-name { font: 400 1.75rem/1.2 var(--font-serif); margin: 0 0 4px; }
+.modal-description { margin: 0 0 12px; }
 .modal-sub { color: var(--color-muted); margin: 0 0 20px; }
+.bubble-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 20px; }
+.bubble {
+  display: inline-flex; align-items: center;
+  padding: 6px 14px;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  font-size: 0.8125rem;
+}
 .modal-method { padding-left: 0; list-style: none; margin: 0 0 16px; }
 .modal-method li { display: flex; gap: 8px; margin-bottom: 8px; }
+.modal-method li::before { content: counter(list-item) '.'; counter-increment: list-item; flex-shrink: 0; color: var(--color-muted); }
+.modal-method { counter-reset: list-item; }
 .modal-note { font-style: italic; color: var(--color-accent); }
-.hidden { display: none; }
-`;
-
-const SITE_JS = `
-const meals = JSON.parse(document.getElementById('meals-data').textContent);
-const grid = document.getElementById('grid');
-const modalRoot = document.getElementById('modal-root');
-const dateFmt = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-
-meals.forEach((meal) => {
-  const card = document.createElement('button');
-  card.type = 'button';
-  card.className = 'meal-card';
-
-  const imageWrap = document.createElement('span');
-  imageWrap.className = 'meal-card-image';
-  if (meal.photoUrl) {
-    const img = document.createElement('img');
-    img.src = meal.photoUrl;
-    img.alt = meal.name + ', ' + meal.cuisine + ' ' + meal.category;
-    imageWrap.appendChild(img);
-  }
-  card.appendChild(imageWrap);
-
-  const name = document.createElement('span');
-  name.className = 'meal-card-name';
-  name.textContent = meal.name;
-  card.appendChild(name);
-
-  const meta = document.createElement('span');
-  meta.className = 'meal-card-meta';
-  meta.textContent = meal.cuisine + ' \\u00b7 ' + meal.category;
-  card.appendChild(meta);
-
-  const date = document.createElement('span');
-  date.className = 'meal-card-date';
-  date.textContent = dateFmt.format(new Date(meal.date));
-  card.appendChild(date);
-
-  card.addEventListener('click', () => openModal(meal));
-  grid.appendChild(card);
-});
-
-function openModal(meal) {
-  const overlay = document.createElement('div');
-  overlay.className = 'modal-overlay';
-  overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) closeModal(); });
-
-  const card = document.createElement('div');
-  card.className = 'modal-card';
-  card.setAttribute('role', 'dialog');
-  card.setAttribute('aria-modal', 'true');
-
-  const close = document.createElement('button');
-  close.type = 'button';
-  close.className = 'modal-close';
-  close.setAttribute('aria-label', 'Close');
-  close.textContent = '\\u00d7';
-  close.addEventListener('click', closeModal);
-  card.appendChild(close);
-
-  if (meal.photoUrl) {
-    const img = document.createElement('img');
-    img.src = meal.photoUrl;
-    img.className = 'modal-photo';
-    img.alt = meal.name;
-    card.appendChild(img);
-  }
-
-  const name = document.createElement('h2');
-  name.className = 'modal-name';
-  name.textContent = meal.name;
-  card.appendChild(name);
-
-  const sub = document.createElement('p');
-  sub.className = 'modal-sub';
-  sub.textContent = meal.cuisine + ' \\u00b7 ' + dateFmt.format(new Date(meal.date)) + ' \\u00b7 Serves ' + meal.serves;
-  card.appendChild(sub);
-
-  if (meal.method && meal.method.length) {
-    const ol = document.createElement('ol');
-    ol.className = 'modal-method';
-    meal.method.forEach((step) => {
-      const li = document.createElement('li');
-      li.textContent = step;
-      ol.appendChild(li);
-    });
-    card.appendChild(ol);
-  } else if (meal.description) {
-    const p = document.createElement('p');
-    p.textContent = meal.description;
-    card.appendChild(p);
-  }
-
-  if (meal.note) {
-    const note = document.createElement('p');
-    note.className = 'modal-note';
-    note.textContent = meal.note;
-    card.appendChild(note);
-  }
-
-  overlay.appendChild(card);
-  modalRoot.appendChild(overlay);
-  close.focus();
-
-  function onKeyDown(e) { if (e.key === 'Escape') closeModal(); }
-  document.addEventListener('keydown', onKeyDown);
-
-  function closeModal() {
-    document.removeEventListener('keydown', onKeyDown);
-    overlay.remove();
-  }
-}
 `;
