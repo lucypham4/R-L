@@ -107,7 +107,7 @@
 }
 
 .modal-text-name {
-  text-align: center;
+  text-align: left;
   font: 700 1.25rem/1.5 var(--font-serif);
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -115,7 +115,7 @@
 
 .modal-text-sub {
   margin-top: 8px;
-  text-align: center;
+  text-align: left;
   font: 400 0.6875rem/1.5 var(--font-mono);
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -154,12 +154,13 @@
 }
 
 .modal-note {
-  margin: 28px auto 0;
+  margin: 28px 0 0;
   max-width: 320px;
   font: italic 400 1.1875rem/1.5 var(--font-serif);
   color: var(--color-note-ink);
-  text-align: center;
+  text-align: left;
   transform: rotate(-2.5deg);
+  transform-origin: left top;
 }
 
 .modal-footer {

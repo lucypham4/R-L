@@ -10,6 +10,7 @@ export default function SettingsPage({
   onToggleTheme,
   onSignIn,
   onSignOut,
+  onDownloadCopy,
 }) {
   return (
     <div className="settings-page">
@@ -29,6 +30,16 @@ export default function SettingsPage({
           </Button>
         </div>
       </section>
+
+      {onDownloadCopy && (
+        <section className="settings-section">
+          <h2 className="settings-section-title">Export</h2>
+          <p className="settings-row-body">Download a static, offline copy of your meal diary.</p>
+          <Button variant="secondary" onClick={onDownloadCopy}>
+            Download copy
+          </Button>
+        </section>
+      )}
 
       {isSupabaseConfigured && (
         <section className="settings-section">
