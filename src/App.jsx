@@ -228,16 +228,20 @@ function AdminApp() {
 
   if (showSettings) {
     return (
-      <SettingsPage
-        onBack={() => setShowSettings(false)}
-        isSupabaseConfigured={isSupabaseConfigured}
-        session={session}
-        publicUrl={publicUrl}
-        theme={theme}
-        onToggleTheme={handleToggleTheme}
-        onSignIn={handleRequestSignIn}
-        onSignOut={signOut}
-      />
+      <>
+        <SettingsPage
+          onBack={() => setShowSettings(false)}
+          isSupabaseConfigured={isSupabaseConfigured}
+          session={session}
+          publicUrl={publicUrl}
+          theme={theme}
+          onToggleTheme={handleToggleTheme}
+          onSignIn={handleRequestSignIn}
+          onSignOut={signOut}
+          onDownloadCopy={() => setShowPublish(true)}
+        />
+        {showPublish && <PublishModal meals={sortedMeals} onClose={() => setShowPublish(false)} />}
+      </>
     );
   }
 
@@ -251,7 +255,7 @@ function AdminApp() {
 
       {loadError && <p className="app-config-notice app-config-error">{loadError}</p>}
 
-      <Gallery meals={sortedMeals} onOpenMeal={handleOpenMeal} onAddMeal={() => setShowAddForm(true)} onPublishSite={() => setShowPublish(true)} />
+      <Gallery meals={sortedMeals} onOpenMeal={handleOpenMeal} onAddMeal={() => setShowAddForm(true)} />
 
       {openMeal && (
         <MealDetailModal

@@ -35,12 +35,6 @@
   border-bottom: var(--divider);
 }
 
-.gallery-header-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-}
-
 .gallery-title {
   font: 400 2.125rem/1.1 var(--font-serif);
   letter-spacing: -0.02em;
@@ -52,7 +46,7 @@
   color: var(--color-muted);
 }
 
-.gallery-filters {
+.gallery-search-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -62,8 +56,83 @@
   border-bottom: var(--divider);
 }
 
+.gallery-search-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 260px;
+  max-width: 420px;
+  height: 44px;
+  border: 1px solid var(--color-line);
+  background: var(--color-bg);
+  transition: border-color var(--dur-color) var(--ease);
+}
+
+.gallery-search-field:focus-within {
+  border-color: var(--color-line-strong);
+}
+
+.gallery-search-icon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-left: 14px;
+  color: var(--color-muted);
+}
+
+.gallery-search-input {
+  flex: 1;
+  height: 100%;
+  min-width: 0;
+  padding: 0 8px 0 10px;
+  border: none;
+  background: transparent;
+  font: 400 0.875rem/1 var(--font-sans);
+  color: var(--color-ink);
+}
+
+.gallery-search-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+}
+
+.gallery-filter-btn {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-left: 1px solid var(--color-line);
+  color: var(--color-muted);
+}
+
+.gallery-filter-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.gallery-filter-btn:hover {
+  color: var(--color-ink);
+  background: var(--color-surface);
+}
+
+.gallery-filter-btn-active {
+  color: var(--color-ink);
+  background: var(--color-surface);
+}
+
+.gallery-filter-dot {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+
 .gallery-count {
-  margin-left: auto;
   font: var(--text-meta);
   letter-spacing: var(--text-meta-ls);
   text-transform: uppercase;
