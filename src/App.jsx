@@ -271,8 +271,6 @@ function AdminApp() {
         <AddMealForm onSave={handleAddMeal} onCancel={() => setShowAddForm(false)} />
       )}
 
-      {showPublish && <PublishModal meals={sortedMeals} onClose={() => setShowPublish(false)} />}
-
       <BottomNav onHome={handleNavHome} onAdd={() => setShowAddForm(true)} onProfile={() => setShowSettings(true)} />
     </div>
   );
