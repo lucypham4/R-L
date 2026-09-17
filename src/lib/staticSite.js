@@ -106,36 +106,19 @@ function mealModalHtml(meal, dateFmt) {
   </div>`;
 }
 
-function isIPhoneOrIPod() {
-  return /iPhone|iPod/.test(navigator.userAgent);
-}
-
 export function downloadStaticSite(html, filename = 'meal-diary-portfolio.html') {
   const blob = new Blob([html], { type: 'text/html' });
-
-  if (isIPhoneOrIPod()) {
-    // iOS Safari doesn't support downloading blob: URLs — opening one in
-    // a new tab loads with no content. The proven workaround (the same
-    // one FileSaver.js uses for Safari) is to open a blank tab
-    // synchronously, inside this click handler so Safari doesn't treat it
-    // as a blocked popup, then point it at a data: URI — which Safari can
-    // render directly — once the blob has been read. The user can then
-    // use Share > Save to Files from there.
-    const popup = window.open('', '_blank');
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result;
-      if (popup) popup.location.href = dataUrl;
-      else window.location.href = dataUrl;
-    };
-    reader.readAsDataURL(blob);
-    return;
-  }
-
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
+  // No target="_blank" and no popup: blob: URLs are scoped to the
+  // document that created them, and opening one in a separate browsing
+  // context (a new tab/window) is exactly what has repeatedly loaded
+  // blank on iOS Safari. Staying in the current tab is what actually
+  // works there — if Safari doesn't honour `download`, it just navigates
+  // to and renders the blob in place, which is fine now that the page is
+  // fully static and needs no script to show its content.
   document.body.appendChild(a);
   a.click();
   a.remove();
