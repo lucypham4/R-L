@@ -1,6 +1,6 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 
-// AI fill needs a server-side secret (the Anthropic API key), so it rides on
+// AI fill needs a server-side secret (the Gemini API key), so it rides on
 // the same Supabase project as auth/data via an Edge Function
 // (supabase/functions/ai-fill) rather than calling a third-party API
 // directly from the browser.
