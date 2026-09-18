@@ -9,7 +9,7 @@
 // https://aistudio.google.com/apikey)
 
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-const GEMINI_MODEL = Deno.env.get('GEMINI_MODEL') || 'gemini-2.5-flash';
+const GEMINI_MODEL = Deno.env.get('GEMINI_MODEL') || 'gemini-3.6-flash';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',

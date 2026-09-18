@@ -82,7 +82,7 @@ with no billing required:
 2. `supabase secrets set GEMINI_API_KEY=...` on the same project (a free
    key from [Google AI Studio](https://aistudio.google.com/apikey); an
    optional `GEMINI_MODEL` secret overrides the default model, currently
-   `gemini-2.5-flash`).
+   `gemini-3.6-flash`).
 3. Reload the app, "Fill in details with AI" shows up under Description
    once there's a photo and a description to work from.
 
