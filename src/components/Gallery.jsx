@@ -12,8 +12,8 @@ export default function Gallery({
   tagline = 'Private chef · portfolio & archive',
 }) {
   const [search, setSearch] = useState('');
-  const [cuisine, setCuisine] = useState('');
-  const [category, setCategory] = useState('');
+  const [selectedCuisines, setSelectedCuisines] = useState([]);
+  const [selectedCategories, setSelectedCategories] = useState([]);
   const [year, setYear] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
@@ -27,8 +27,8 @@ export default function Gallery({
   const query = search.trim().toLowerCase();
 
   const filtered = meals.filter((m) => {
-    if (cuisine && m.cuisine !== cuisine) return false;
-    if (category && m.category !== category) return false;
+    if (selectedCuisines.length && !selectedCuisines.includes(m.cuisine)) return false;
+    if (selectedCategories.length && !selectedCategories.includes(m.category)) return false;
     if (year && String(new Date(m.date).getFullYear()) !== year) return false;
     if (query) {
       const haystack = [m.name, m.cuisine, m.category, m.description, ...(m.ingredients || [])]
@@ -40,11 +40,19 @@ export default function Gallery({
     return true;
   });
 
-  const hasActiveFilters = Boolean(cuisine || category || year);
+  const hasActiveFilters = Boolean(selectedCuisines.length || selectedCategories.length || year);
+
+  function toggleCuisine(value) {
+    setSelectedCuisines((prev) => (prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]));
+  }
+
+  function toggleCategory(value) {
+    setSelectedCategories((prev) => (prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]));
+  }
 
   function clearFilters() {
-    setCuisine('');
-    setCategory('');
+    setSelectedCuisines([]);
+    setSelectedCategories([]);
     setYear('');
   }
 
@@ -85,14 +93,14 @@ export default function Gallery({
 
       {showFilters && (
         <FilterSheet
-          cuisine={cuisine}
-          category={category}
+          selectedCuisines={selectedCuisines}
+          selectedCategories={selectedCategories}
           year={year}
           cuisines={cuisines}
           categories={categories}
           years={years}
-          onChangeCuisine={setCuisine}
-          onChangeCategory={setCategory}
+          onToggleCuisine={toggleCuisine}
+          onToggleCategory={toggleCategory}
           onChangeYear={setYear}
           hasActiveFilters={hasActiveFilters}
           onClearAll={clearFilters}

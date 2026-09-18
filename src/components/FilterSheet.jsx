@@ -1,16 +1,17 @@
 import { useEffect, useRef } from 'react';
 import FilterSelect from './FilterSelect';
+import './Bubbles.css';
 import './FilterSheet.css';
 
 export default function FilterSheet({
-  cuisine,
-  category,
+  selectedCuisines,
+  selectedCategories,
   year,
   cuisines,
   categories,
   years,
-  onChangeCuisine,
-  onChangeCategory,
+  onToggleCuisine,
+  onToggleCategory,
   onChangeYear,
   hasActiveFilters,
   onClearAll,
@@ -49,10 +50,37 @@ export default function FilterSheet({
         </div>
 
         <div className="filter-sheet-body">
-          <FilterSelect label="Cuisine" value={cuisine} options={cuisines} onChange={onChangeCuisine} onClear={() => onChangeCuisine('')} />
-          <FilterSelect label="Category" value={category} options={categories} onChange={onChangeCategory} onClear={() => onChangeCategory('')} />
-          <FilterSelect label="Year" value={year} options={years} onChange={onChangeYear} onClear={() => onChangeYear('')} />
+          <FilterChipGroup label="Cuisine" options={cuisines} selected={selectedCuisines} onToggle={onToggleCuisine} />
+          <FilterChipGroup label="Category" options={categories} selected={selectedCategories} onToggle={onToggleCategory} />
+
+          <div className="filter-sheet-group">
+            <span className="filter-sheet-label">Year</span>
+            <FilterSelect label="Year" value={year} options={years} onChange={onChangeYear} onClear={() => onChangeYear('')} />
+          </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function FilterChipGroup({ label, options, selected, onToggle }) {
+  if (options.length === 0) return null;
+
+  return (
+    <div className="filter-sheet-group">
+      <span className="filter-sheet-label">{label}</span>
+      <div className="bubble-row">
+        {options.map((option) => (
+          <button
+            type="button"
+            key={option}
+            className={`bubble ${selected.includes(option) ? 'bubble-selected' : ''}`}
+            aria-pressed={selected.includes(option)}
+            onClick={() => onToggle(option)}
+          >
+            {option}
+          </button>
+        ))}
       </div>
     </div>
   );
