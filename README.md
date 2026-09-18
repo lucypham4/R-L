@@ -56,6 +56,44 @@ public page or multi-device access needs it configured.
 Note: every chef on a given deployment shares the same Cloudinary account
 and upload quota, there's no per-chef Cloudinary isolation yet.
 
+### Photo → speak → AI fill
+
+Filling in a meal by hand is the biggest source of friction in "Add a
+meal", so the form leads with the two low-effort inputs and lets AI do the
+rest:
+
+1. Add a photo (or sketch) and speak or type a one-sentence description.
+   The **Speak** button next to Description uses the browser's own Web
+   Speech API, no account or key needed, it just won't appear in browsers
+   that don't support it.
+2. **Fill in details with AI** sends that photo and description to Gemini
+   and fills in the name, cuisine, category, ingredients, method, and note
+   fields it can infer, without overwriting anything already typed.
+   Everything it fills in stays editable, it's a starting point, not a
+   final answer.
+
+This button only appears once Supabase is configured (above), since it
+needs a place to run a server-side call that keeps the AI API key off the
+client. It calls Google's Gemini API rather than a paid provider so it
+runs on the free tier of [Google AI Studio](https://aistudio.google.com/apikey)
+with no billing required:
+
+1. `supabase functions deploy ai-fill` (from `supabase/functions/ai-fill`).
+2. `supabase secrets set GEMINI_API_KEY=...` on the same project (a free
+   key from [Google AI Studio](https://aistudio.google.com/apikey); an
+   optional `GEMINI_MODEL` secret overrides the default model, currently
+   `gemini-3.6-flash`).
+3. Reload the app, "Fill in details with AI" shows up under Description
+   once there's a photo and a description to work from.
+
+The free tier has per-minute/per-day rate limits, comfortably enough for
+one app's personal use, but worth knowing about if it starts erroring
+under heavier use.
+
+Without that function deployed, the button still shows (Supabase is
+configured) but errors clearly on click rather than silently doing
+nothing, so it's obvious what's missing.
+
 ### Signing in (optional)
 
 A "Sign in for multi-device access" link sits in the top bar whenever
@@ -107,6 +145,9 @@ doesn't have:
 - The anon key and the Cloudinary cloud name/preset are public-by-design.
   They're meant to ship in client bundles. Never put a Cloudinary API
   secret or a Supabase service-role key in this app.
+- `GEMINI_API_KEY` is a Supabase Edge Function secret, not a
+  `VITE_`-prefixed client variable, it must never end up in the browser
+  bundle. The `ai-fill` function is the only thing that reads it.
 - Run `supabase/multi-chef-migration.sql`, not `phase2-auth-policies.sql`
   (superseded, kept only for history). The migration makes meal reads
   public again (needed for public chef pages) and scopes every write to
