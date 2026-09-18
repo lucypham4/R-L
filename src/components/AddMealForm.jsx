@@ -6,7 +6,7 @@ import BubbleSelect from './BubbleSelect';
 import IngredientBubbles from './IngredientBubbles';
 import { uploadImage, isCloudinaryConfigured } from '../lib/cloudinary';
 import { createSpeechRecognizer, isSpeechRecognitionSupported } from '../lib/speechToText';
-import { generateMealDetails, isAiFillConfigured } from '../lib/aiFill';
+import { generateMealDetails, cleanDescription, isAiConfigured } from '../lib/aiFill';
 import { loadBubbleList, saveBubbleList } from '../lib/bubbleLists';
 import './AddMealForm.css';
 
@@ -35,6 +35,8 @@ export default function AddMealForm({ onSave, onCancel }) {
   const [speechError, setSpeechError] = useState('');
   const [aiFillStatus, setAiFillStatus] = useState('idle'); // idle | loading | done | error
   const [aiFillError, setAiFillError] = useState('');
+  const [cleanupStatus, setCleanupStatus] = useState('idle'); // idle | loading | done | error
+  const [cleanupError, setCleanupError] = useState('');
   const fileInputRef = useRef(null);
   const cardRef = useRef(null);
   const recognizerRef = useRef(null);
@@ -152,10 +154,25 @@ export default function AddMealForm({ onSave, onCancel }) {
   }
 
   const canAiFill =
-    isAiFillConfigured &&
+    isAiConfigured &&
     (photoMode === 'sketch' ? hasSketch : Boolean(photo)) &&
     description.trim().length > 0 &&
     aiFillStatus !== 'loading';
+
+  async function handleCleanDescription() {
+    setCleanupError('');
+    setCleanupStatus('loading');
+    try {
+      const cleaned = await cleanDescription({ description: description.trim() });
+      setDescription(cleaned.slice(0, DESCRIPTION_MAX));
+      setCleanupStatus('done');
+    } catch (err) {
+      setCleanupStatus('error');
+      setCleanupError(err.message || 'Could not clean up the description.');
+    }
+  }
+
+  const canCleanDescription = isAiConfigured && description.trim().length > 0 && !isListening && cleanupStatus !== 'loading';
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -290,23 +307,38 @@ export default function AddMealForm({ onSave, onCancel }) {
               <Label htmlFor="meal-description" required>
                 Description
               </Label>
-              {isSpeechRecognitionSupported() && (
-                <button
-                  type="button"
-                  className={`add-meal-mic-btn ${isListening ? 'add-meal-mic-btn-active' : ''}`}
-                  onClick={toggleListening}
-                  aria-pressed={isListening}
-                  aria-label={isListening ? 'Stop dictating' : 'Dictate description'}
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <rect x="9" y="3" width="6" height="11" rx="3" />
-                    <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
-                  </svg>
-                  {isListening ? 'Stop' : 'Speak'}
-                </button>
-              )}
+              <div className="add-meal-label-actions">
+                {isSpeechRecognitionSupported() && (
+                  <button
+                    type="button"
+                    className={`add-meal-inline-btn ${isListening ? 'add-meal-inline-btn-active' : ''}`}
+                    onClick={toggleListening}
+                    aria-pressed={isListening}
+                    aria-label={isListening ? 'Stop dictating' : 'Dictate description'}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <rect x="9" y="3" width="6" height="11" rx="3" />
+                      <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+                    </svg>
+                    {isListening ? 'Stop' : 'Speak'}
+                  </button>
+                )}
+                {isAiConfigured && (
+                  <button
+                    type="button"
+                    className="add-meal-inline-btn"
+                    onClick={handleCleanDescription}
+                    disabled={!canCleanDescription}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                    </svg>
+                    {cleanupStatus === 'loading' ? 'Cleaning…' : 'Clean up'}
+                  </button>
+                )}
+              </div>
             </div>
-            <p className="field-help">A quick, spoken sentence or two is plenty, AI fill uses this to fill in the rest.</p>
+            <p className="field-help">Add any additional details about your dish. A quick, spoken sentence or two is plenty.</p>
             <TextArea
               id="meal-description"
               rows={3}
@@ -321,18 +353,19 @@ export default function AddMealForm({ onSave, onCancel }) {
               {description.length} / {DESCRIPTION_MAX}
             </div>
             {speechError && <ErrorText>{speechError}</ErrorText>}
+            {cleanupStatus === 'error' && <ErrorText>{cleanupError}</ErrorText>}
             {touched.description && <ErrorText>{errors.description}</ErrorText>}
 
-            {isAiFillConfigured && (
+            {isAiConfigured && (
               <div className="add-meal-ai-fill">
                 <Button type="button" variant="secondary" onClick={handleAiFill} disabled={!canAiFill}>
-                  {aiFillStatus === 'loading' ? 'Filling in…' : 'Fill in details with AI'}
+                  {aiFillStatus === 'loading' ? 'Filling in…' : 'Fill in details'}
                 </Button>
                 {aiFillStatus === 'loading' && (
                   <p className="field-help">Looking at the photo and description…</p>
                 )}
                 {aiFillStatus === 'done' && (
-                  <p className="add-meal-ai-fill-done">Filled in what it could, worth a once-over below.</p>
+                  <p className="add-meal-status-note">Filled in what it could, worth a once-over below.</p>
                 )}
                 {aiFillStatus === 'error' && <ErrorText>{aiFillError}</ErrorText>}
               </div>
