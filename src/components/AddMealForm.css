@@ -107,7 +107,12 @@
   gap: var(--space-md);
 }
 
-.add-meal-mic-btn {
+.add-meal-label-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.add-meal-inline-btn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -120,22 +125,27 @@
   text-transform: uppercase;
 }
 
-.add-meal-mic-btn svg {
+.add-meal-inline-btn svg {
   width: 13px;
   height: 13px;
 }
 
-.add-meal-mic-btn-active {
+.add-meal-inline-btn-active {
   background: var(--color-accent);
   border-color: var(--color-accent);
   color: var(--color-bg);
+}
+
+.add-meal-inline-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .add-meal-ai-fill {
   margin-top: var(--space-md);
 }
 
-.add-meal-ai-fill-done {
+.add-meal-status-note {
   margin-top: 6px;
   font: 400 0.8125rem/1.5 var(--font-sans);
   color: var(--color-muted);
