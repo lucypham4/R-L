@@ -5,9 +5,13 @@ import SketchCanvas from './SketchCanvas';
 import BubbleSelect from './BubbleSelect';
 import IngredientBubbles from './IngredientBubbles';
 import { uploadImage, isCloudinaryConfigured } from '../lib/cloudinary';
+import { createSpeechRecognizer, isSpeechRecognitionSupported } from '../lib/speechToText';
+import { generateMealDetails, isAiFillConfigured } from '../lib/aiFill';
+import { loadBubbleList, saveBubbleList } from '../lib/bubbleLists';
 import './AddMealForm.css';
 
 const DESCRIPTION_MAX = 400;
+const NOTE_MAX = 90;
 
 export default function AddMealForm({ onSave, onCancel }) {
   const [photoMode, setPhotoMode] = useState('upload'); // upload | sketch
@@ -27,8 +31,14 @@ export default function AddMealForm({ onSave, onCancel }) {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [status, setStatus] = useState('idle'); // idle | uploading | saving | error
   const [submitError, setSubmitError] = useState('');
+  const [isListening, setIsListening] = useState(false);
+  const [speechError, setSpeechError] = useState('');
+  const [aiFillStatus, setAiFillStatus] = useState('idle'); // idle | loading | done | error
+  const [aiFillError, setAiFillError] = useState('');
   const fileInputRef = useRef(null);
   const cardRef = useRef(null);
+  const recognizerRef = useRef(null);
+  const dictationBaseRef = useRef('');
 
   useEffect(() => {
     function onKeyDown(e) {
@@ -41,6 +51,8 @@ export default function AddMealForm({ onSave, onCancel }) {
       document.body.style.overflow = '';
     };
   }, [onCancel, status]);
+
+  useEffect(() => () => recognizerRef.current?.stop(), []);
 
   useEffect(() => {
     if (!photo) {
@@ -70,6 +82,80 @@ export default function AddMealForm({ onSave, onCancel }) {
   function markTouched(field) {
     setTouched((t) => ({ ...t, [field]: true }));
   }
+
+  function toggleListening() {
+    if (isListening) {
+      recognizerRef.current?.stop();
+      return;
+    }
+    setSpeechError('');
+    const recognizer = createSpeechRecognizer({
+      onResult: (transcript) => {
+        setDescription(`${dictationBaseRef.current}${transcript}`.slice(0, DESCRIPTION_MAX));
+      },
+      onError: (code) => {
+        setSpeechError(code === 'not-allowed' ? 'Microphone access was denied.' : 'Speech recognition failed. Try again.');
+        setIsListening(false);
+      },
+      onEnd: () => setIsListening(false),
+    });
+    if (!recognizer) {
+      setSpeechError('Speech recognition is not supported in this browser.');
+      return;
+    }
+    dictationBaseRef.current = description.trim() ? `${description.trim()} ` : '';
+    recognizerRef.current = recognizer;
+    recognizer.start();
+    setIsListening(true);
+    markTouched('description');
+  }
+
+  // Persists a newly-suggested value into its bubble list (if it isn't
+  // already there) before setting it, then forces BubbleSelect to remount
+  // via the `key` prop below so it reloads the list and shows it selected.
+  function applyBubbleValue(kind, value, setter) {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    const list = loadBubbleList(kind);
+    if (!list.includes(trimmed)) saveBubbleList(kind, [...list, trimmed]);
+    setter(trimmed);
+  }
+
+  async function handleAiFill() {
+    setAiFillError('');
+    setAiFillStatus('loading');
+    try {
+      const photoBlob = photoMode === 'sketch' ? await sketchRef.current.getBlob() : photo;
+      if (!photoBlob) throw new Error('Add a photo or sketch first.');
+      const photoMediaType = photoMode === 'sketch' ? 'image/png' : photo?.type || 'image/png';
+
+      const details = await generateMealDetails({
+        description: description.trim(),
+        photoBlob,
+        photoMediaType,
+      });
+
+      if (!name.trim() && details.name) setName(details.name);
+      if (details.category) applyBubbleValue('category', details.category, setCategory);
+      if (details.cuisine) applyBubbleValue('cuisine', details.cuisine, setCuisine);
+      if (details.ingredients.length) {
+        setIngredients((prev) => [...prev, ...details.ingredients.filter((item) => !prev.includes(item))]);
+      }
+      if (!methodText.trim() && details.method.length) setMethodText(details.method.join('\n'));
+      if (!note.trim() && details.note) setNote(details.note.slice(0, NOTE_MAX));
+
+      setAiFillStatus('done');
+    } catch (err) {
+      setAiFillStatus('error');
+      setAiFillError(err.message || 'Could not fill in details. Fill them in yourself instead.');
+    }
+  }
+
+  const canAiFill =
+    isAiFillConfigured &&
+    (photoMode === 'sketch' ? hasSketch : Boolean(photo)) &&
+    description.trim().length > 0 &&
+    aiFillStatus !== 'loading';
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -199,6 +285,60 @@ export default function AddMealForm({ onSave, onCancel }) {
             {touched.photo && <ErrorText>{errors.photo}</ErrorText>}
           </div>
 
+          <div>
+            <div className="add-meal-label-row">
+              <Label htmlFor="meal-description" required>
+                Description
+              </Label>
+              {isSpeechRecognitionSupported() && (
+                <button
+                  type="button"
+                  className={`add-meal-mic-btn ${isListening ? 'add-meal-mic-btn-active' : ''}`}
+                  onClick={toggleListening}
+                  aria-pressed={isListening}
+                  aria-label={isListening ? 'Stop dictating' : 'Dictate description'}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <rect x="9" y="3" width="6" height="11" rx="3" />
+                    <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+                  </svg>
+                  {isListening ? 'Stop' : 'Speak'}
+                </button>
+              )}
+            </div>
+            <p className="field-help">A quick, spoken sentence or two is plenty, AI fill uses this to fill in the rest.</p>
+            <TextArea
+              id="meal-description"
+              rows={3}
+              maxLength={DESCRIPTION_MAX}
+              placeholder="What did you make? e.g. 'Pan-seared salmon with a lemon butter sauce and asparagus'"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              onBlur={() => markTouched('description')}
+              error={touched.description && errors.description}
+            />
+            <div className="add-meal-counter">
+              {description.length} / {DESCRIPTION_MAX}
+            </div>
+            {speechError && <ErrorText>{speechError}</ErrorText>}
+            {touched.description && <ErrorText>{errors.description}</ErrorText>}
+
+            {isAiFillConfigured && (
+              <div className="add-meal-ai-fill">
+                <Button type="button" variant="secondary" onClick={handleAiFill} disabled={!canAiFill}>
+                  {aiFillStatus === 'loading' ? 'Filling in…' : 'Fill in details with AI'}
+                </Button>
+                {aiFillStatus === 'loading' && (
+                  <p className="field-help">Looking at the photo and description…</p>
+                )}
+                {aiFillStatus === 'done' && (
+                  <p className="add-meal-ai-fill-done">Filled in what it could, worth a once-over below.</p>
+                )}
+                {aiFillStatus === 'error' && <ErrorText>{aiFillError}</ErrorText>}
+              </div>
+            )}
+          </div>
+
           <div className="add-meal-row">
             <div>
               <Label htmlFor="meal-name" required>
@@ -232,31 +372,12 @@ export default function AddMealForm({ onSave, onCancel }) {
 
           <div>
             <Label optional>Category</Label>
-            <BubbleSelect kind="category" value={category} onChange={setCategory} />
+            <BubbleSelect key={category} kind="category" value={category} onChange={setCategory} />
           </div>
 
           <div>
             <Label optional>Cuisine</Label>
-            <BubbleSelect kind="cuisine" value={cuisine} onChange={setCuisine} />
-          </div>
-
-          <div>
-            <Label htmlFor="meal-description" required>
-              Description
-            </Label>
-            <TextArea
-              id="meal-description"
-              rows={3}
-              maxLength={DESCRIPTION_MAX}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              onBlur={() => markTouched('description')}
-              error={touched.description && errors.description}
-            />
-            <div className="add-meal-counter">
-              {description.length} / {DESCRIPTION_MAX}
-            </div>
-            {touched.description && <ErrorText>{errors.description}</ErrorText>}
+            <BubbleSelect key={cuisine} kind="cuisine" value={cuisine} onChange={setCuisine} />
           </div>
 
           <div>
@@ -285,7 +406,7 @@ export default function AddMealForm({ onSave, onCancel }) {
             <TextInput
               id="meal-note"
               className="add-meal-note-input"
-              maxLength={90}
+              maxLength={NOTE_MAX}
               placeholder="optional note you'd tell future chefs"
               value={note}
               onChange={(e) => setNote(e.target.value)}

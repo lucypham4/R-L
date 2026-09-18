@@ -100,6 +100,47 @@
   object-fit: contain;
 }
 
+.add-meal-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.add-meal-mic-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  background: var(--color-card);
+  color: var(--color-muted);
+  border: 1px solid var(--color-line);
+  font: 500 0.6875rem/1.5 var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.add-meal-mic-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+.add-meal-mic-btn-active {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-bg);
+}
+
+.add-meal-ai-fill {
+  margin-top: var(--space-md);
+}
+
+.add-meal-ai-fill-done {
+  margin-top: 6px;
+  font: 400 0.8125rem/1.5 var(--font-sans);
+  color: var(--color-muted);
+}
+
 .add-meal-counter {
   margin-top: 6px;
   text-align: right;
