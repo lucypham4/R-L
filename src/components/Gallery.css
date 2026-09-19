@@ -170,6 +170,31 @@
   margin-top: var(--space-md);
 }
 
+.gallery-edit-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding-bottom: var(--space-lg);
+  margin-bottom: var(--space-lg);
+  border-bottom: var(--divider);
+  font: 400 0.8125rem/1.5 var(--font-sans);
+  color: var(--color-muted);
+}
+
+.gallery-edit-done {
+  padding: 6px 16px;
+  border: 1px solid var(--color-ink);
+  color: var(--color-ink);
+  font: 500 0.75rem/1 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.gallery-edit-done:hover {
+  background: var(--color-surface);
+}
+
 .gallery-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

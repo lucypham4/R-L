@@ -13,7 +13,7 @@ export default function FilterSelect({ label, value, options, onChange, onClear 
         <option value="">{label}</option>
         {options.map((opt) => (
           <option key={opt} value={opt}>
-            {label}: {opt}
+            {opt}
           </option>
         ))}
       </select>

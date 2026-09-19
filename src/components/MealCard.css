@@ -1,3 +1,7 @@
+.meal-card-wrap {
+  position: relative;
+}
+
 .meal-card {
   display: flex;
   flex-direction: column;
@@ -6,6 +10,25 @@
   gap: 3px;
   width: 100%;
   transition: transform var(--dur-move) var(--ease);
+  touch-action: manipulation;
+}
+
+.meal-card-delete-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--color-danger);
+  color: #ffffff;
+  font-size: 1rem;
+  line-height: 1;
+  box-shadow: var(--shadow-sm);
 }
 
 .meal-card-image {

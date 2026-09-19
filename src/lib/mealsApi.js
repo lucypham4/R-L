@@ -50,3 +50,8 @@ export async function insertMeal(meal, userId) {
   if (error) throw error;
   return fromRow(data);
 }
+
+export async function deleteMeal(id) {
+  const { error } = await supabase.from('meals').delete().eq('id', id);
+  if (error) throw error;
+}

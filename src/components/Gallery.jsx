@@ -2,12 +2,14 @@ import { useMemo, useState } from 'react';
 import Button from './Button';
 import FilterSheet from './FilterSheet';
 import MealCard from './MealCard';
+import MealActionSheet from './MealActionSheet';
 import './Gallery.css';
 
 export default function Gallery({
   meals,
   onOpenMeal,
   onAddMeal,
+  onDeleteMeal,
   title = 'Meal Diary',
   tagline = 'Private chef · portfolio & archive',
 }) {
@@ -16,6 +18,8 @@ export default function Gallery({
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [year, setYear] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [actionSheetMeal, setActionSheetMeal] = useState(null);
 
   const cuisines = useMemo(() => uniqueSorted(meals.map((m) => m.cuisine)), [meals]);
   const categories = useMemo(() => uniqueSorted(meals.map((m) => m.category)), [meals]);
@@ -54,6 +58,11 @@ export default function Gallery({
     setSelectedCuisines([]);
     setSelectedCategories([]);
     setYear('');
+  }
+
+  async function handleDeleteFromSheet(id) {
+    await onDeleteMeal(id);
+    setActionSheetMeal(null);
   }
 
   return (
@@ -108,6 +117,15 @@ export default function Gallery({
         />
       )}
 
+      {editMode && (
+        <div className="gallery-edit-bar">
+          <span>Tap × to delete a dish</span>
+          <button type="button" className="gallery-edit-done" onClick={() => setEditMode(false)}>
+            Done
+          </button>
+        </div>
+      )}
+
       {filtered.length === 0 ? (
         meals.length === 0 ? (
           <div className="gallery-empty-state">
@@ -125,9 +143,28 @@ export default function Gallery({
       ) : (
         <div className="gallery-grid">
           {filtered.map((meal) => (
-            <MealCard key={meal.id} meal={meal} onOpen={onOpenMeal} />
+            <MealCard
+              key={meal.id}
+              meal={meal}
+              onOpen={onOpenMeal}
+              onLongPress={onDeleteMeal ? setActionSheetMeal : undefined}
+              editMode={editMode}
+              onDelete={onDeleteMeal}
+            />
           ))}
         </div>
+      )}
+
+      {actionSheetMeal && (
+        <MealActionSheet
+          meal={actionSheetMeal}
+          onClose={() => setActionSheetMeal(null)}
+          onDelete={handleDeleteFromSheet}
+          onEditGallery={() => {
+            setEditMode(true);
+            setActionSheetMeal(null);
+          }}
+        />
       )}
     </div>
   );
