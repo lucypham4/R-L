@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import Button from './Button';
 import './PhotoCropModal.css';
 
-const VIEWPORT_SIZE = 320;
+const DEFAULT_VIEWPORT_SIZE = 320;
 const OUTPUT_SIZE = 1400;
 const MAX_ZOOM = 3;
 
@@ -10,6 +10,8 @@ export default function PhotoCropModal({ file, onCancel, onCrop }) {
   const [img, setImg] = useState(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [containerSize, setContainerSize] = useState(DEFAULT_VIEWPORT_SIZE);
+  const viewportRef = useRef(null);
   const dragRef = useRef(null);
 
   useEffect(() => {
@@ -32,18 +34,33 @@ export default function PhotoCropModal({ file, onCancel, onCrop }) {
     };
   }, [onCancel]);
 
-  const baseScale = img ? Math.max(VIEWPORT_SIZE / img.naturalWidth, VIEWPORT_SIZE / img.naturalHeight) : 1;
+  // The viewport's on-screen size can shrink below DEFAULT_VIEWPORT_SIZE on
+  // narrow screens (it's `max-width: 100%`), so the crop math has to use
+  // its actual rendered size, not the CSS default, or the exported crop
+  // won't match what was previewed.
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width;
+      if (width > 0) setContainerSize(width);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const baseScale = img ? Math.max(containerSize / img.naturalWidth, containerSize / img.naturalHeight) : 1;
   const scale = baseScale * zoom;
   const dispW = img ? img.naturalWidth * scale : 0;
   const dispH = img ? img.naturalHeight * scale : 0;
-  const maxPanX = Math.max(0, (dispW - VIEWPORT_SIZE) / 2);
-  const maxPanY = Math.max(0, (dispH - VIEWPORT_SIZE) / 2);
+  const maxPanX = Math.max(0, (dispW - containerSize) / 2);
+  const maxPanY = Math.max(0, (dispH - containerSize) / 2);
   const clampedPan = {
     x: Math.min(maxPanX, Math.max(-maxPanX, pan.x)),
     y: Math.min(maxPanY, Math.max(-maxPanY, pan.y)),
   };
-  const imgLeft = VIEWPORT_SIZE / 2 - dispW / 2 + clampedPan.x;
-  const imgTop = VIEWPORT_SIZE / 2 - dispH / 2 + clampedPan.y;
+  const imgLeft = containerSize / 2 - dispW / 2 + clampedPan.x;
+  const imgTop = containerSize / 2 - dispH / 2 + clampedPan.y;
 
   function handlePointerDown(e) {
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -66,7 +83,7 @@ export default function PhotoCropModal({ file, onCancel, onCrop }) {
     canvas.width = OUTPUT_SIZE;
     canvas.height = OUTPUT_SIZE;
     const ctx = canvas.getContext('2d');
-    const outputScale = OUTPUT_SIZE / VIEWPORT_SIZE;
+    const outputScale = OUTPUT_SIZE / containerSize;
     ctx.drawImage(img, imgLeft * outputScale, imgTop * outputScale, dispW * outputScale, dispH * outputScale);
     canvas.toBlob((blob) => blob && onCrop(blob), 'image/jpeg', 0.92);
   }
@@ -78,6 +95,7 @@ export default function PhotoCropModal({ file, onCancel, onCrop }) {
         <p className="photo-crop-subtitle">Drag to reposition, use the slider to zoom.</p>
 
         <div
+          ref={viewportRef}
           className="photo-crop-viewport"
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
