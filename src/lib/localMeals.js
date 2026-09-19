@@ -5,10 +5,22 @@ const KEY = 'meal-diary-local-meals';
  * scoped to this one browser/device. Signing in later (optional, for
  * multi-device access) switches to Supabase instead; this never syncs.
  */
+// Meals saved before the multi-photo update stored a single `photoUrl`
+// string instead of a `photos` array; upgrade them in place on read so
+// existing local photos keep showing instead of silently disappearing.
+function migratePhotos(meal) {
+  if (meal.photos) return meal;
+  const { photoUrl, ...rest } = meal;
+  return { ...rest, photos: photoUrl ? [photoUrl] : [] };
+}
+
 export function loadLocalMeals() {
   try {
     const raw = localStorage.getItem(KEY);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    const meals = JSON.parse(raw).map(migratePhotos);
+    saveLocalMeals(meals);
+    return meals;
   } catch {
     return [];
   }
