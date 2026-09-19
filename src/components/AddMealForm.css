@@ -16,6 +16,13 @@
   }
 }
 
+.add-meal-progress {
+  font: 500 0.6875rem/1.5 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
 .add-meal-title {
   font: 400 1.5rem/1.5 var(--font-serif);
   letter-spacing: -0.02em;
@@ -112,6 +119,30 @@
 .add-meal-preview {
   max-height: 160px;
   object-fit: contain;
+}
+
+.add-meal-context-photo-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.add-meal-context-photo {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border: 1px solid var(--color-line);
+  flex-shrink: 0;
+}
+
+.add-meal-notes-textarea {
+  resize: vertical;
+}
+
+.add-meal-next svg,
+.btn svg {
+  width: 15px;
+  height: 15px;
 }
 
 .add-meal-label-row {

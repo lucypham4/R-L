@@ -14,7 +14,28 @@ import './AddMealForm.css';
 const DESCRIPTION_MAX = 400;
 const NOTE_MAX = 90;
 
+const STEP_TITLES = {
+  1: 'Add a photo',
+  2: 'Tell us about it',
+  3: 'Your recipe card',
+};
+
+const STEP_SUBTITLES = {
+  1: 'Only you see this. Crop it however you like.',
+  2: 'Ramble as much as you want, the AI reads all of it.',
+  3: 'Give it a once-over and edit anything that needs it.',
+};
+
+function ArrowIcon({ direction = 'forward' }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {direction === 'forward' ? <path d="M5 12h14M13 6l6 6-6 6" /> : <path d="M19 12H5M11 6l-6 6 6 6" />}
+    </svg>
+  );
+}
+
 export default function AddMealForm({ onSave, onCancel }) {
+  const [step, setStep] = useState(1);
   const [photoMode, setPhotoMode] = useState('upload'); // upload | sketch
   const [photo, setPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
@@ -22,6 +43,7 @@ export default function AddMealForm({ onSave, onCancel }) {
   const [cropFile, setCropFile] = useState(null);
   const [hasSketch, setHasSketch] = useState(false);
   const sketchRef = useRef(null);
+  const [notes, setNotes] = useState('');
   const [name, setName] = useState('');
   const [date, setDate] = useState('');
   const [cuisine, setCuisine] = useState('');
@@ -85,11 +107,11 @@ export default function AddMealForm({ onSave, onCancel }) {
         : !photo
         ? 'A photo is required'
         : '',
+    notes: !notes.trim() ? 'Tell us a bit about the dish' : '',
     name: !name.trim() ? 'A name is required' : '',
     date: !date ? 'A date is required' : '',
     description: !description.trim() ? 'A description is required' : '',
   };
-  const isValid = Object.values(errors).every((e) => !e);
 
   function markTouched(field) {
     setTouched((t) => ({ ...t, [field]: true }));
@@ -103,7 +125,7 @@ export default function AddMealForm({ onSave, onCancel }) {
     setSpeechError('');
     const recognizer = createSpeechRecognizer({
       onResult: (transcript) => {
-        setDescription(`${dictationBaseRef.current}${transcript}`.slice(0, DESCRIPTION_MAX));
+        setNotes(`${dictationBaseRef.current}${transcript}`);
       },
       onError: (code) => {
         setSpeechError(code === 'not-allowed' ? 'Microphone access was denied.' : 'Speech recognition failed. Try again.');
@@ -115,11 +137,11 @@ export default function AddMealForm({ onSave, onCancel }) {
       setSpeechError('Speech recognition is not supported in this browser.');
       return;
     }
-    dictationBaseRef.current = description.trim() ? `${description.trim()} ` : '';
+    dictationBaseRef.current = notes.trim() ? `${notes.trim()} ` : '';
     recognizerRef.current = recognizer;
     recognizer.start();
     setIsListening(true);
-    markTouched('description');
+    markTouched('notes');
   }
 
   // Turns a run-on spoken transcript into one line per sentence, so
@@ -170,7 +192,22 @@ export default function AddMealForm({ onSave, onCancel }) {
     setter(trimmed);
   }
 
-  async function handleAiFill() {
+  function handleAdvanceStep1() {
+    markTouched('photo');
+    if (errors.photo) return;
+    setStep(2);
+  }
+
+  async function handleAdvanceStep2() {
+    markTouched('notes');
+    if (errors.notes) return;
+
+    if (!isAiConfigured) {
+      setDescription(notes.trim().slice(0, DESCRIPTION_MAX));
+      setStep(3);
+      return;
+    }
+
     setAiFillError('');
     setAiFillStatus('loading');
     try {
@@ -179,32 +216,26 @@ export default function AddMealForm({ onSave, onCancel }) {
       const photoMediaType = photoMode === 'sketch' ? 'image/png' : photo?.type || 'image/png';
 
       const details = await generateMealDetails({
-        description: description.trim(),
+        notes: notes.trim(),
         photoBlob,
         photoMediaType,
       });
 
-      if (!name.trim() && details.name) setName(details.name);
+      if (details.name) setName(details.name);
+      setDescription((details.description || notes.trim()).slice(0, DESCRIPTION_MAX));
       if (details.category) applyBubbleValue('category', details.category, setCategory);
       if (details.cuisine) applyBubbleValue('cuisine', details.cuisine, setCuisine);
-      if (details.ingredients.length) {
-        setIngredients((prev) => [...prev, ...details.ingredients.filter((item) => !prev.includes(item))]);
-      }
-      if (!methodText.trim() && details.method.length) setMethodText(details.method.join('\n'));
-      if (!note.trim() && details.note) setNote(details.note.slice(0, NOTE_MAX));
+      if (details.ingredients.length) setIngredients(details.ingredients);
+      if (details.method.length) setMethodText(details.method.join('\n'));
+      if (details.note) setNote(details.note.slice(0, NOTE_MAX));
 
       setAiFillStatus('done');
+      setStep(3);
     } catch (err) {
       setAiFillStatus('error');
-      setAiFillError(err.message || 'Could not fill in details. Fill them in yourself instead.');
+      setAiFillError(err.message || 'Could not fill in details. You can still write the card yourself.');
     }
   }
-
-  const canAiFill =
-    isAiConfigured &&
-    (photoMode === 'sketch' ? hasSketch : Boolean(photo)) &&
-    description.trim().length > 0 &&
-    aiFillStatus !== 'loading';
 
   async function handleCleanDescription() {
     setCleanupError('');
@@ -219,12 +250,12 @@ export default function AddMealForm({ onSave, onCancel }) {
     }
   }
 
-  const canCleanDescription = isAiConfigured && description.trim().length > 0 && !isListening && cleanupStatus !== 'loading';
+  const canCleanDescription = isAiConfigured && description.trim().length > 0 && cleanupStatus !== 'loading';
 
   async function handleSubmit(e) {
     e.preventDefault();
-    setTouched({ photo: true, name: true, date: true, description: true });
-    if (!isValid) return;
+    setTouched((t) => ({ ...t, name: true, date: true, description: true }));
+    if (errors.name || errors.date || errors.description) return;
 
     setSubmitError('');
 
@@ -271,114 +302,137 @@ export default function AddMealForm({ onSave, onCancel }) {
   return (
     <div className="modal-overlay" onMouseDown={(e) => e.target === e.currentTarget && !isSaving && onCancel()}>
       <div className="add-meal-card" ref={cardRef} role="dialog" aria-modal="true" aria-label="Add a meal">
-        <h2 className="add-meal-title">Add a meal</h2>
-        <p className="add-meal-subtitle">Only you see this.</p>
+        <p className="add-meal-progress">Step {step} of 3</p>
+        <h2 className="add-meal-title">{STEP_TITLES[step]}</h2>
+        <p className="add-meal-subtitle">{STEP_SUBTITLES[step]}</p>
 
-        <form className="add-meal-form" onSubmit={handleSubmit} noValidate>
-          <div>
-            <Label htmlFor="photo" required>
-              Photo
-            </Label>
-            <div className="add-meal-mode-toggle" role="tablist" aria-label="Photo source">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={photoMode === 'upload'}
-                className={`add-meal-mode-btn ${photoMode === 'upload' ? 'add-meal-mode-btn-active' : ''}`}
-                onClick={() => {
-                  setPhotoMode('upload');
-                  markTouched('photo');
-                }}
-              >
+        {step === 1 && (
+          <div className="add-meal-form">
+            <div>
+              <Label htmlFor="photo" required>
                 Photo
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={photoMode === 'sketch'}
-                className={`add-meal-mode-btn ${photoMode === 'sketch' ? 'add-meal-mode-btn-active' : ''}`}
-                onClick={() => {
-                  setPhotoMode('sketch');
-                  markTouched('photo');
-                }}
-              >
-                Sketch
-              </button>
-            </div>
-            {photoMode === 'upload' ? (
-              <>
-                <div
-                  className="add-meal-dropzone"
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => fileInputRef.current?.click()}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click();
+              </Label>
+              <div className="add-meal-mode-toggle" role="tablist" aria-label="Photo source">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={photoMode === 'upload'}
+                  className={`add-meal-mode-btn ${photoMode === 'upload' ? 'add-meal-mode-btn-active' : ''}`}
+                  onClick={() => {
+                    setPhotoMode('upload');
+                    markTouched('photo');
                   }}
                 >
-                  {photoPreview ? (
-                    <img src={photoPreview} alt="" className="add-meal-preview" />
-                  ) : (
-                    <>
-                      <p>Drop a background-removed PNG</p>
-                      <p className="add-meal-dropzone-hint">or click to browse, crop it square right here</p>
-                    </>
-                  )}
-                </div>
-                {photoPreview && (
-                  <button
-                    type="button"
-                    className="add-meal-adjust-crop"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setCropFile(originalPhotoFile);
+                  Photo
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={photoMode === 'sketch'}
+                  className={`add-meal-mode-btn ${photoMode === 'sketch' ? 'add-meal-mode-btn-active' : ''}`}
+                  onClick={() => {
+                    setPhotoMode('sketch');
+                    markTouched('photo');
+                  }}
+                >
+                  Sketch
+                </button>
+              </div>
+              {photoMode === 'upload' ? (
+                <>
+                  <div
+                    className="add-meal-dropzone"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => fileInputRef.current?.click()}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click();
                     }}
                   >
-                    Adjust crop
-                  </button>
-                )}
-                <input
-                  ref={fileInputRef}
-                  id="photo"
-                  type="file"
-                  accept="image/png,image/jpeg"
-                  className="visually-hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0] ?? null;
-                    if (file) {
-                      setOriginalPhotoFile(file);
-                      setCropFile(file);
-                    }
+                    {photoPreview ? (
+                      <img src={photoPreview} alt="" className="add-meal-preview" />
+                    ) : (
+                      <>
+                        <p>Drop a background-removed PNG</p>
+                        <p className="add-meal-dropzone-hint">or click to browse, crop it square right here</p>
+                      </>
+                    )}
+                  </div>
+                  {photoPreview && (
+                    <button
+                      type="button"
+                      className="add-meal-adjust-crop"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCropFile(originalPhotoFile);
+                      }}
+                    >
+                      Adjust crop
+                    </button>
+                  )}
+                  <input
+                    ref={fileInputRef}
+                    id="photo"
+                    type="file"
+                    accept="image/png,image/jpeg"
+                    className="visually-hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] ?? null;
+                      if (file) {
+                        setOriginalPhotoFile(file);
+                        setCropFile(file);
+                      }
+                      markTouched('photo');
+                      e.target.value = '';
+                    }}
+                  />
+                </>
+              ) : (
+                <SketchCanvas
+                  ref={sketchRef}
+                  onChange={(drawn) => {
+                    setHasSketch(drawn);
                     markTouched('photo');
-                    e.target.value = '';
                   }}
                 />
-              </>
-            ) : (
-              <SketchCanvas
-                ref={sketchRef}
-                onChange={(drawn) => {
-                  setHasSketch(drawn);
-                  markTouched('photo');
-                }}
-              />
-            )}
-            {touched.photo && <ErrorText>{errors.photo}</ErrorText>}
-          </div>
+              )}
+              {touched.photo && <ErrorText>{errors.photo}</ErrorText>}
+            </div>
 
-          <div>
-            <div className="add-meal-label-row">
-              <Label htmlFor="meal-description" required>
-                Description
-              </Label>
-              <div className="add-meal-label-actions">
+            <div className="add-meal-footer">
+              <Button type="button" variant="secondary" onClick={onCancel}>
+                Cancel
+              </Button>
+              <Button type="button" variant="primary" className="add-meal-next" onClick={handleAdvanceStep1}>
+                Next <ArrowIcon />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="add-meal-form">
+            {photoPreview && (
+              <div className="add-meal-context-photo-row">
+                <img src={photoPreview} alt="" className="add-meal-context-photo" />
+                <button type="button" className="add-meal-adjust-crop" onClick={() => setStep(1)}>
+                  Change photo
+                </button>
+              </div>
+            )}
+
+            <div>
+              <div className="add-meal-label-row">
+                <Label htmlFor="meal-notes" required>
+                  About this dish
+                </Label>
                 {isSpeechRecognitionSupported() && (
                   <button
                     type="button"
                     className={`add-meal-inline-btn ${isListening ? 'add-meal-inline-btn-active' : ''}`}
                     onClick={toggleListening}
                     aria-pressed={isListening}
-                    aria-label={isListening ? 'Stop dictating' : 'Dictate description'}
+                    aria-label={isListening ? 'Stop dictating' : 'Dictate notes'}
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <rect x="9" y="3" width="6" height="11" rx="3" />
@@ -387,158 +441,196 @@ export default function AddMealForm({ onSave, onCancel }) {
                     {isListening ? 'Stop' : 'Speak'}
                   </button>
                 )}
+              </div>
+              <p className="field-help">
+                Meal name, when you cooked it, cuisine, category, ingredients, anything that'll help fill out the rest. No limit, ramble away.
+              </p>
+              <TextArea
+                id="meal-notes"
+                rows={8}
+                className="add-meal-notes-textarea"
+                placeholder="e.g. 'Pan-seared salmon with lemon butter sauce and asparagus, made this last night, kind of a French thing, used salmon, butter, lemon, garlic, asparagus...'"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                onBlur={() => markTouched('notes')}
+                error={touched.notes && errors.notes}
+              />
+              {speechError && <ErrorText>{speechError}</ErrorText>}
+              {touched.notes && <ErrorText>{errors.notes}</ErrorText>}
+              {aiFillStatus === 'error' && <ErrorText>{aiFillError}</ErrorText>}
+            </div>
+
+            <div className="add-meal-footer">
+              <Button type="button" variant="secondary" onClick={() => setStep(1)}>
+                <ArrowIcon direction="back" /> Back
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                className="add-meal-next"
+                onClick={handleAdvanceStep2}
+                disabled={aiFillStatus === 'loading'}
+              >
+                {aiFillStatus === 'loading' ? (
+                  'Filling in…'
+                ) : (
+                  <>
+                    Next <ArrowIcon />
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {step === 3 && (
+          <form className="add-meal-form" onSubmit={handleSubmit} noValidate>
+            {aiFillStatus === 'done' && (
+              <p className="add-meal-status-note">Filled in what it could, worth a once-over below.</p>
+            )}
+
+            <div>
+              <div className="add-meal-label-row">
+                <Label htmlFor="meal-description" required>
+                  Description
+                </Label>
                 {isAiConfigured && (
+                  <div className="add-meal-label-actions">
+                    <button
+                      type="button"
+                      className="add-meal-inline-btn"
+                      onClick={handleCleanDescription}
+                      disabled={!canCleanDescription}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                      </svg>
+                      {cleanupStatus === 'loading' ? 'Cleaning…' : 'Clean up'}
+                    </button>
+                  </div>
+                )}
+              </div>
+              <TextArea
+                id="meal-description"
+                rows={3}
+                maxLength={DESCRIPTION_MAX}
+                placeholder="What is this dish?"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                onBlur={() => markTouched('description')}
+                error={touched.description && errors.description}
+              />
+              <div className="add-meal-counter">
+                {description.length} / {DESCRIPTION_MAX}
+              </div>
+              {cleanupStatus === 'error' && <ErrorText>{cleanupError}</ErrorText>}
+              {touched.description && <ErrorText>{errors.description}</ErrorText>}
+            </div>
+
+            <div className="add-meal-row">
+              <div>
+                <Label htmlFor="meal-name" required>
+                  Meal name
+                </Label>
+                <TextInput
+                  id="meal-name"
+                  placeholder="Meal name (required)"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  onBlur={() => markTouched('name')}
+                  error={touched.name && errors.name}
+                />
+                {touched.name && <ErrorText>{errors.name}</ErrorText>}
+              </div>
+              <div>
+                <Label htmlFor="meal-date" required>
+                  Date cooked
+                </Label>
+                <TextInput
+                  id="meal-date"
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  onBlur={() => markTouched('date')}
+                  error={touched.date && errors.date}
+                />
+                {touched.date && <ErrorText>{errors.date}</ErrorText>}
+              </div>
+            </div>
+
+            <div>
+              <Label optional>Category</Label>
+              <BubbleSelect key={category} kind="category" value={category} onChange={setCategory} />
+            </div>
+
+            <div>
+              <Label optional>Cuisine</Label>
+              <BubbleSelect key={cuisine} kind="cuisine" value={cuisine} onChange={setCuisine} />
+            </div>
+
+            <div>
+              <Label optional>Ingredients</Label>
+              <IngredientBubbles value={ingredients} onChange={setIngredients} />
+            </div>
+
+            <div>
+              <div className="add-meal-label-row">
+                <Label htmlFor="meal-method" optional>
+                  Method, step by step
+                </Label>
+                {isSpeechRecognitionSupported() && (
                   <button
                     type="button"
-                    className="add-meal-inline-btn"
-                    onClick={handleCleanDescription}
-                    disabled={!canCleanDescription}
+                    className={`add-meal-inline-btn ${isListeningMethod ? 'add-meal-inline-btn-active' : ''}`}
+                    onClick={toggleMethodListening}
+                    aria-pressed={isListeningMethod}
+                    aria-label={isListeningMethod ? 'Stop dictating method' : 'Dictate method'}
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                      <rect x="9" y="3" width="6" height="11" rx="3" />
+                      <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
                     </svg>
-                    {cleanupStatus === 'loading' ? 'Cleaning…' : 'Clean up'}
+                    {isListeningMethod ? 'Stop' : 'Speak'}
                   </button>
                 )}
               </div>
+              <TextArea
+                id="meal-method"
+                rows={3}
+                placeholder="One step per line, numbered automatically"
+                value={methodText}
+                onChange={(e) => setMethodText(e.target.value)}
+              />
+              {methodSpeechError && <ErrorText>{methodSpeechError}</ErrorText>}
+              <p className="field-help">Speak a step at a time, or run it all together, sentences become steps. Otherwise the card just shows the description.</p>
             </div>
-            <p className="field-help">Add any additional details about your dish. A quick, spoken sentence or two is plenty.</p>
-            <TextArea
-              id="meal-description"
-              rows={3}
-              maxLength={DESCRIPTION_MAX}
-              placeholder="What did you make? e.g. 'Pan-seared salmon with a lemon butter sauce and asparagus'"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              onBlur={() => markTouched('description')}
-              error={touched.description && errors.description}
-            />
-            <div className="add-meal-counter">
-              {description.length} / {DESCRIPTION_MAX}
-            </div>
-            {speechError && <ErrorText>{speechError}</ErrorText>}
-            {cleanupStatus === 'error' && <ErrorText>{cleanupError}</ErrorText>}
-            {touched.description && <ErrorText>{errors.description}</ErrorText>}
 
-            {isAiConfigured && (
-              <div className="add-meal-ai-fill">
-                <Button type="button" variant="secondary" onClick={handleAiFill} disabled={!canAiFill}>
-                  {aiFillStatus === 'loading' ? 'Filling in…' : 'Fill in details'}
-                </Button>
-                {aiFillStatus === 'loading' && (
-                  <p className="field-help">Looking at the photo and description…</p>
-                )}
-                {aiFillStatus === 'done' && (
-                  <p className="add-meal-status-note">Filled in what it could, worth a once-over below.</p>
-                )}
-                {aiFillStatus === 'error' && <ErrorText>{aiFillError}</ErrorText>}
-              </div>
-            )}
-          </div>
-
-          <div className="add-meal-row">
             <div>
-              <Label htmlFor="meal-name" required>
-                Meal name
+              <Label htmlFor="meal-note" optional>
+                Note
               </Label>
               <TextInput
-                id="meal-name"
-                placeholder="Meal name (required)"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                onBlur={() => markTouched('name')}
-                error={touched.name && errors.name}
+                id="meal-note"
+                className="add-meal-note-input"
+                maxLength={NOTE_MAX}
+                placeholder="optional note you'd tell future chefs"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
               />
-              {touched.name && <ErrorText>{errors.name}</ErrorText>}
             </div>
-            <div>
-              <Label htmlFor="meal-date" required>
-                Date cooked
-              </Label>
-              <TextInput
-                id="meal-date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                onBlur={() => markTouched('date')}
-                error={touched.date && errors.date}
-              />
-              {touched.date && <ErrorText>{errors.date}</ErrorText>}
+
+            {submitError && <ErrorText>{submitError}</ErrorText>}
+
+            <div className="add-meal-footer">
+              <Button type="button" variant="secondary" onClick={() => setStep(2)} disabled={isSaving}>
+                <ArrowIcon direction="back" /> Back
+              </Button>
+              <Button type="submit" variant="primary" disabled={isSaving}>
+                {saveLabel}
+              </Button>
             </div>
-          </div>
-
-          <div>
-            <Label optional>Category</Label>
-            <BubbleSelect key={category} kind="category" value={category} onChange={setCategory} />
-          </div>
-
-          <div>
-            <Label optional>Cuisine</Label>
-            <BubbleSelect key={cuisine} kind="cuisine" value={cuisine} onChange={setCuisine} />
-          </div>
-
-          <div>
-            <Label optional>Ingredients</Label>
-            <IngredientBubbles value={ingredients} onChange={setIngredients} />
-          </div>
-
-          <div>
-            <div className="add-meal-label-row">
-              <Label htmlFor="meal-method" optional>
-                Method, step by step
-              </Label>
-              {isSpeechRecognitionSupported() && (
-                <button
-                  type="button"
-                  className={`add-meal-inline-btn ${isListeningMethod ? 'add-meal-inline-btn-active' : ''}`}
-                  onClick={toggleMethodListening}
-                  aria-pressed={isListeningMethod}
-                  aria-label={isListeningMethod ? 'Stop dictating method' : 'Dictate method'}
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <rect x="9" y="3" width="6" height="11" rx="3" />
-                    <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
-                  </svg>
-                  {isListeningMethod ? 'Stop' : 'Speak'}
-                </button>
-              )}
-            </div>
-            <TextArea
-              id="meal-method"
-              rows={3}
-              placeholder="One step per line, numbered automatically"
-              value={methodText}
-              onChange={(e) => setMethodText(e.target.value)}
-            />
-            {methodSpeechError && <ErrorText>{methodSpeechError}</ErrorText>}
-            <p className="field-help">Speak a step at a time, or run it all together, sentences become steps. Otherwise the card just shows the description.</p>
-          </div>
-
-          <div>
-            <Label htmlFor="meal-note" optional>
-              Note
-            </Label>
-            <TextInput
-              id="meal-note"
-              className="add-meal-note-input"
-              maxLength={NOTE_MAX}
-              placeholder="optional note you'd tell future chefs"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-            />
-          </div>
-
-          {submitError && <ErrorText>{submitError}</ErrorText>}
-
-          <div className="add-meal-footer">
-            <Button type="submit" variant="primary" disabled={isSaving}>
-              {saveLabel}
-            </Button>
-            <Button type="button" variant="secondary" onClick={onCancel} disabled={isSaving}>
-              Cancel
-            </Button>
-          </div>
-        </form>
+          </form>
+        )}
       </div>
 
       {cropFile && (

@@ -19,10 +19,10 @@ function blobToBase64(blob) {
 }
 
 /**
- * Asks the ai-fill Edge Function to infer the rest of a meal's details from
- * a photo and the chef's own brief, spoken-or-typed description.
+ * Asks the ai-fill Edge Function to infer a full meal's details from a photo
+ * and the chef's own freeform (unlimited-length) notes about the dish.
  */
-export async function generateMealDetails({ description, photoBlob, photoMediaType }) {
+export async function generateMealDetails({ notes, photoBlob, photoMediaType }) {
   if (!isAiConfigured) {
     throw new Error('This needs Supabase configured first.');
   }
@@ -33,7 +33,7 @@ export async function generateMealDetails({ description, photoBlob, photoMediaTy
   const imageData = await blobToBase64(photoBlob);
   const { data, error } = await supabase.functions.invoke('ai-fill', {
     body: {
-      description,
+      notes,
       image: { data: imageData, mediaType: photoMediaType || 'image/png' },
     },
   });
@@ -43,6 +43,7 @@ export async function generateMealDetails({ description, photoBlob, photoMediaTy
 
   return {
     name: typeof data.name === 'string' ? data.name : '',
+    description: typeof data.description === 'string' ? data.description : '',
     cuisine: typeof data.cuisine === 'string' ? data.cuisine : '',
     category: typeof data.category === 'string' ? data.category : '',
     ingredients: Array.isArray(data.ingredients) ? data.ingredients.filter((s) => typeof s === 'string' && s.trim()) : [],
