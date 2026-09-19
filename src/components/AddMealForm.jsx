@@ -28,12 +28,6 @@ const STEP_TITLES = {
   3: 'Your recipe card',
 };
 
-const STEP_SUBTITLES = {
-  1: 'Only you see this. Crop it however you like.',
-  2: '',
-  3: '',
-};
-
 function ArrowIcon({ direction = 'forward' }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -352,7 +346,6 @@ export default function AddMealForm({ onSave, onCancel }) {
       <div className="add-meal-card" ref={cardRef} role="dialog" aria-modal="true" aria-label="Add a meal">
         <p className="add-meal-progress">Step {step} of 3</p>
         <h2 className="add-meal-title">{STEP_TITLES[step]}</h2>
-        {STEP_SUBTITLES[step] && <p className="add-meal-subtitle">{STEP_SUBTITLES[step]}</p>}
 
         {step === 1 && (
           <div className="add-meal-form">
