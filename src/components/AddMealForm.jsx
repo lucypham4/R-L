@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import Button from './Button';
 import { Label, TextInput, TextArea, ErrorText } from './TextField';
 import SketchCanvas from './SketchCanvas';
+import PhotoCropModal from './PhotoCropModal';
 import BubbleSelect from './BubbleSelect';
 import IngredientBubbles from './IngredientBubbles';
 import { uploadImage, isCloudinaryConfigured } from '../lib/cloudinary';
@@ -17,6 +18,8 @@ export default function AddMealForm({ onSave, onCancel }) {
   const [photoMode, setPhotoMode] = useState('upload'); // upload | sketch
   const [photo, setPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
+  const [originalPhotoFile, setOriginalPhotoFile] = useState(null);
+  const [cropFile, setCropFile] = useState(null);
   const [hasSketch, setHasSketch] = useState(false);
   const sketchRef = useRef(null);
   const [name, setName] = useState('');
@@ -318,10 +321,22 @@ export default function AddMealForm({ onSave, onCancel }) {
                   ) : (
                     <>
                       <p>Drop a background-removed PNG</p>
-                      <p className="add-meal-dropzone-hint">or click to browse · square crop, ≥1400px</p>
+                      <p className="add-meal-dropzone-hint">or click to browse, crop it square right here</p>
                     </>
                   )}
                 </div>
+                {photoPreview && (
+                  <button
+                    type="button"
+                    className="add-meal-adjust-crop"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCropFile(originalPhotoFile);
+                    }}
+                  >
+                    Adjust crop
+                  </button>
+                )}
                 <input
                   ref={fileInputRef}
                   id="photo"
@@ -329,8 +344,13 @@ export default function AddMealForm({ onSave, onCancel }) {
                   accept="image/png,image/jpeg"
                   className="visually-hidden"
                   onChange={(e) => {
-                    setPhoto(e.target.files?.[0] ?? null);
+                    const file = e.target.files?.[0] ?? null;
+                    if (file) {
+                      setOriginalPhotoFile(file);
+                      setCropFile(file);
+                    }
                     markTouched('photo');
+                    e.target.value = '';
                   }}
                 />
               </>
@@ -520,6 +540,17 @@ export default function AddMealForm({ onSave, onCancel }) {
           </div>
         </form>
       </div>
+
+      {cropFile && (
+        <PhotoCropModal
+          file={cropFile}
+          onCancel={() => setCropFile(null)}
+          onCrop={(blob) => {
+            setPhoto(new File([blob], 'meal-photo.jpg', { type: 'image/jpeg' }));
+            setCropFile(null);
+          }}
+        />
+      )}
     </div>
   );
 }
