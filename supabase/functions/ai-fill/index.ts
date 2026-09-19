@@ -16,10 +16,17 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const DESCRIPTION_MAX = 400;
+
 const RESPONSE_SCHEMA = {
   type: 'OBJECT',
   properties: {
     name: { type: 'STRING', description: 'A short, appetizing dish name.' },
+    description: {
+      type: 'STRING',
+      description:
+        `A vivid, third-person description of the dish for a recipe card (e.g. "A pan-seared salmon fillet finished with a bright lemon butter sauce..."). Never first person ("I made..."). Under ${DESCRIPTION_MAX} characters.`,
+    },
     cuisine: {
       type: 'STRING',
       description: "The dish's cuisine, e.g. Italian, Japanese, Mexican. Empty string if unclear.",
@@ -44,7 +51,7 @@ const RESPONSE_SCHEMA = {
         "One short, optional aside a chef might leave for future reference, under 90 characters. Empty string if there's nothing worth saying.",
     },
   },
-  required: ['name', 'cuisine', 'category', 'ingredients', 'method', 'note'],
+  required: ['name', 'description', 'cuisine', 'category', 'ingredients', 'method', 'note'],
 };
 
 function jsonResponse(body, status = 200) {
@@ -70,9 +77,9 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'Invalid request body.' }, 400);
   }
 
-  const { description, image } = payload || {};
-  if (!description || typeof description !== 'string' || !description.trim()) {
-    return jsonResponse({ error: 'A description is required.' }, 400);
+  const { notes, image } = payload || {};
+  if (!notes || typeof notes !== 'string' || !notes.trim()) {
+    return jsonResponse({ error: 'Some notes about the dish are required.' }, 400);
   }
   if (!image?.data || typeof image.data !== 'string') {
     return jsonResponse({ error: 'A photo is required.' }, 400);
@@ -99,7 +106,14 @@ Deno.serve(async (req) => {
                   },
                 },
                 {
-                  text: `Photo of a dish, and the chef's own brief description: "${description.trim()}". Fill in your best-guess structured details for this dish.`,
+                  text: [
+                    'Photo of a dish, and the chef\'s own freeform notes about it (may mention the',
+                    'meal name, when it was cooked, cuisine, category, ingredients, or anything else):',
+                    `"${notes.trim()}"`,
+                    '',
+                    'Fill in your best-guess structured details for this dish, including a',
+                    `third-person description under ${DESCRIPTION_MAX} characters.`,
+                  ].join('\n'),
                 },
               ],
             },
@@ -128,6 +142,10 @@ Deno.serve(async (req) => {
       details = JSON.parse(text);
     } catch {
       return jsonResponse({ error: 'AI response was not valid JSON.' }, 502);
+    }
+
+    if (typeof details.description === 'string' && details.description.length > DESCRIPTION_MAX) {
+      details.description = details.description.slice(0, DESCRIPTION_MAX);
     }
 
     return jsonResponse(details);
