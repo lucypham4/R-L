@@ -9,7 +9,17 @@ const SWIPE_THRESHOLD = 50;
  * Editable (onAdd/onRemove) in the add-meal flow, read-only when viewing a
  * saved meal.
  */
-export default function PhotoCarousel({ photos, activeIndex, onActiveChange, onRemove, onAdd, maxPhotos, alt = '', emptyLabel }) {
+export default function PhotoCarousel({
+  photos,
+  activeIndex,
+  onActiveChange,
+  onRemove,
+  onAdd,
+  maxPhotos,
+  alt = '',
+  emptyLabel,
+  showQueue = true,
+}) {
   const swipeStart = useRef(null);
 
   function go(delta) {
@@ -35,7 +45,7 @@ export default function PhotoCarousel({ photos, activeIndex, onActiveChange, onR
 
   return (
     <div className="photo-carousel">
-      {(photos.length > 0 || onAdd) && (
+      {showQueue && (photos.length > 0 || onAdd) && (
         <div className="photo-carousel-queue">
           {photos.map((photo, i) => (
             <div key={photo.id} className={`photo-carousel-thumb-wrap ${i === activeIndex ? 'photo-carousel-thumb-active' : ''}`}>

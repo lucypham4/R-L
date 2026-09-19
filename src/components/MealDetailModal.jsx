@@ -138,6 +138,7 @@ export default function MealDetailModal({ meal, index, total, onClose }) {
             onActiveChange={setPhotoIndex}
             alt={`${meal.name}, ${meal.cuisine} ${meal.category}`}
             emptyLabel="food cutout · full res"
+            showQueue={false}
           />
         </div>
 
