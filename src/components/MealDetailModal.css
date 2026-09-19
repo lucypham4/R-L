@@ -191,3 +191,72 @@
   font: 400 0.625rem/1 var(--font-mono);
   color: var(--color-disabled);
 }
+
+.share-card-clip {
+  position: absolute;
+  top: 0;
+  left: -10000px;
+  pointer-events: none;
+}
+
+.share-card {
+  width: 480px;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg);
+  color: var(--color-ink);
+}
+
+.share-card-image {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface);
+}
+
+.share-card-body {
+  padding: 32px;
+}
+
+.share-card-name {
+  font: 700 1.5rem/1.4 var(--font-serif);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.share-card-description {
+  margin-top: 18px;
+  font: 400 0.9375rem/1.65 var(--font-sans);
+}
+
+.share-card-sub {
+  margin-top: 10px;
+  font: 400 0.75rem/1.5 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.share-card-ingredients {
+  margin-top: 22px;
+}
+
+.share-card-method {
+  margin-top: 22px;
+}
+
+.share-card-note {
+  margin-top: 28px;
+}
+
+.share-card-footer {
+  margin-top: 32px;
+  padding: 18px 32px;
+  border-top: 1px solid var(--color-line);
+  font: 500 0.6875rem/1 var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-disabled);
+}

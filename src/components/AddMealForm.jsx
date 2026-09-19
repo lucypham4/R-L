@@ -33,6 +33,8 @@ export default function AddMealForm({ onSave, onCancel }) {
   const [submitError, setSubmitError] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [speechError, setSpeechError] = useState('');
+  const [isListeningMethod, setIsListeningMethod] = useState(false);
+  const [methodSpeechError, setMethodSpeechError] = useState('');
   const [aiFillStatus, setAiFillStatus] = useState('idle'); // idle | loading | done | error
   const [aiFillError, setAiFillError] = useState('');
   const [cleanupStatus, setCleanupStatus] = useState('idle'); // idle | loading | done | error
@@ -41,6 +43,8 @@ export default function AddMealForm({ onSave, onCancel }) {
   const cardRef = useRef(null);
   const recognizerRef = useRef(null);
   const dictationBaseRef = useRef('');
+  const methodRecognizerRef = useRef(null);
+  const methodDictationBaseRef = useRef('');
 
   useEffect(() => {
     function onKeyDown(e) {
@@ -54,7 +58,10 @@ export default function AddMealForm({ onSave, onCancel }) {
     };
   }, [onCancel, status]);
 
-  useEffect(() => () => recognizerRef.current?.stop(), []);
+  useEffect(() => () => {
+    recognizerRef.current?.stop();
+    methodRecognizerRef.current?.stop();
+  }, []);
 
   useEffect(() => {
     if (!photo) {
@@ -110,6 +117,43 @@ export default function AddMealForm({ onSave, onCancel }) {
     recognizer.start();
     setIsListening(true);
     markTouched('description');
+  }
+
+  // Turns a run-on spoken transcript into one line per sentence, so
+  // dictated method steps land in the "one step per line" format the
+  // field expects instead of one unbroken block of text.
+  function splitIntoSteps(transcript) {
+    return transcript
+      .split(/(?<=[.!?])\s+/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .join('\n');
+  }
+
+  function toggleMethodListening() {
+    if (isListeningMethod) {
+      methodRecognizerRef.current?.stop();
+      return;
+    }
+    setMethodSpeechError('');
+    const recognizer = createSpeechRecognizer({
+      onResult: (transcript) => {
+        setMethodText(`${methodDictationBaseRef.current}${splitIntoSteps(transcript)}`);
+      },
+      onError: (code) => {
+        setMethodSpeechError(code === 'not-allowed' ? 'Microphone access was denied.' : 'Speech recognition failed. Try again.');
+        setIsListeningMethod(false);
+      },
+      onEnd: () => setIsListeningMethod(false),
+    });
+    if (!recognizer) {
+      setMethodSpeechError('Speech recognition is not supported in this browser.');
+      return;
+    }
+    methodDictationBaseRef.current = methodText.trim() ? `${methodText.trim()}\n` : '';
+    methodRecognizerRef.current = recognizer;
+    recognizer.start();
+    setIsListeningMethod(true);
   }
 
   // Persists a newly-suggested value into its bubble list (if it isn't
@@ -419,9 +463,26 @@ export default function AddMealForm({ onSave, onCancel }) {
           </div>
 
           <div>
-            <Label htmlFor="meal-method" optional>
-              Method, step by step
-            </Label>
+            <div className="add-meal-label-row">
+              <Label htmlFor="meal-method" optional>
+                Method, step by step
+              </Label>
+              {isSpeechRecognitionSupported() && (
+                <button
+                  type="button"
+                  className={`add-meal-inline-btn ${isListeningMethod ? 'add-meal-inline-btn-active' : ''}`}
+                  onClick={toggleMethodListening}
+                  aria-pressed={isListeningMethod}
+                  aria-label={isListeningMethod ? 'Stop dictating method' : 'Dictate method'}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <rect x="9" y="3" width="6" height="11" rx="3" />
+                    <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+                  </svg>
+                  {isListeningMethod ? 'Stop' : 'Speak'}
+                </button>
+              )}
+            </div>
             <TextArea
               id="meal-method"
               rows={3}
@@ -429,7 +490,8 @@ export default function AddMealForm({ onSave, onCancel }) {
               value={methodText}
               onChange={(e) => setMethodText(e.target.value)}
             />
-            <p className="field-help">Otherwise the card just shows the description.</p>
+            {methodSpeechError && <ErrorText>{methodSpeechError}</ErrorText>}
+            <p className="field-help">Speak a step at a time, or run it all together, sentences become steps. Otherwise the card just shows the description.</p>
           </div>
 
           <div>

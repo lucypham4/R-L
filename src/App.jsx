@@ -11,7 +11,7 @@ import BottomNav from './components/BottomNav';
 import SettingsPage from './components/SettingsPage';
 import { isSupabaseConfigured } from './lib/supabase';
 import { isCloudinaryConfigured } from './lib/cloudinary';
-import { fetchMeals, insertMeal } from './lib/mealsApi';
+import { fetchMeals, insertMeal, deleteMeal } from './lib/mealsApi';
 import { fetchChefProfile } from './lib/chefsApi';
 import { getSession, onAuthChange, signOut } from './lib/auth';
 import { loadLocalMeals, saveLocalMeals, createLocalMeal } from './lib/localMeals';
@@ -196,6 +196,18 @@ function AdminApp() {
     setShowAddForm(false);
   }
 
+  async function handleDeleteMeal(id) {
+    if (isSupabaseConfigured && session) {
+      await deleteMeal(id);
+    }
+    setMeals((prev) => {
+      const next = prev.filter((m) => m.id !== id);
+      if (!isSupabaseConfigured || !session) saveLocalMeals(next);
+      return next;
+    });
+    if (String(openMealId) === String(id)) closeMeal();
+  }
+
   if (isSupabaseConfigured && !sessionChecked) {
     return null;
   }
@@ -255,7 +267,7 @@ function AdminApp() {
 
       {loadError && <p className="app-config-notice app-config-error">{loadError}</p>}
 
-      <Gallery meals={sortedMeals} onOpenMeal={handleOpenMeal} onAddMeal={() => setShowAddForm(true)} />
+      <Gallery meals={sortedMeals} onOpenMeal={handleOpenMeal} onAddMeal={() => setShowAddForm(true)} onDeleteMeal={handleDeleteMeal} />
 
       {openMeal && (
         <MealDetailModal
@@ -263,7 +275,6 @@ function AdminApp() {
           index={sortedMeals.length - openIndex}
           total={sortedMeals.length}
           onClose={closeMeal}
-          sharePath={chefProfile ? `/${chefProfile.slug}` : '/'}
         />
       )}
 

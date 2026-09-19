@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Button from './Button';
 import './OnboardingTour.css';
 
@@ -72,15 +72,40 @@ function buildSteps(publicUrl) {
   ];
 }
 
+const SWIPE_THRESHOLD = 50;
+
 export default function OnboardingTour({ onDone, publicUrl }) {
   const [step, setStep] = useState(0);
   const STEPS = buildSteps(publicUrl);
   const isLast = step === STEPS.length - 1;
   const current = STEPS[step];
+  const swipeStart = useRef(null);
+
+  function handlePointerDown(e) {
+    swipeStart.current = { x: e.clientX, y: e.clientY };
+  }
+
+  function handlePointerUp(e) {
+    if (!swipeStart.current) return;
+    const dx = e.clientX - swipeStart.current.x;
+    const dy = e.clientY - swipeStart.current.y;
+    swipeStart.current = null;
+    if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dx) < Math.abs(dy)) return;
+    if (dx < 0) {
+      isLast ? onDone() : setStep((s) => s + 1);
+    } else if (step > 0) {
+      setStep((s) => s - 1);
+    }
+  }
 
   return (
     <div className="onboarding-screen">
-      <div className="onboarding-card">
+      <div
+        className="onboarding-card"
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={() => (swipeStart.current = null)}
+      >
         <button type="button" className="onboarding-skip" onClick={onDone}>
           Skip
         </button>
