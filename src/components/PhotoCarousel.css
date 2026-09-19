@@ -1,0 +1,126 @@
+.photo-carousel {
+  display: flex;
+  gap: var(--space-md);
+  align-items: flex-start;
+}
+
+.photo-carousel-queue {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 340px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.photo-carousel-thumb-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.photo-carousel-thumb {
+  display: block;
+  width: 52px;
+  height: 52px;
+  overflow: hidden;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  padding: 0;
+}
+
+.photo-carousel-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.photo-carousel-thumb-active {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 1px;
+}
+
+.photo-carousel-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 400 1.125rem/1 var(--font-sans);
+  color: var(--color-muted);
+  border-style: dashed;
+}
+
+.photo-carousel-remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--color-danger);
+  color: #ffffff;
+  font: 500 0.625rem/1 var(--font-sans);
+  cursor: pointer;
+}
+
+.photo-carousel-main {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  aspect-ratio: 4 / 5;
+  max-width: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  overflow: hidden;
+  touch-action: pan-y;
+}
+
+.photo-carousel-main-photo {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.photo-carousel-empty {
+  font: 400 0.6875rem/1 var(--font-mono);
+  color: var(--color-muted);
+}
+
+.photo-carousel-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(20, 19, 17, 0.35);
+  color: #ffffff;
+  border: none;
+}
+
+.photo-carousel-arrow svg {
+  width: 18px;
+  height: 18px;
+}
+
+.photo-carousel-arrow:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.photo-carousel-arrow-prev {
+  left: 8px;
+}
+
+.photo-carousel-arrow-next {
+  right: 8px;
+}

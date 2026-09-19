@@ -22,6 +22,11 @@ const RESPONSE_SCHEMA = {
   type: 'OBJECT',
   properties: {
     name: { type: 'STRING', description: 'A short, appetizing dish name.' },
+    date: {
+      type: 'STRING',
+      description:
+        "The date this dish was cooked, as YYYY-MM-DD, inferred from a relative phrase in the notes (e.g. \"made this last night\", \"cooked it Sunday\") relative to today's date given below. Empty string if no date is mentioned or implied.",
+    },
     description: {
       type: 'STRING',
       description:
@@ -51,7 +56,7 @@ const RESPONSE_SCHEMA = {
         "One short, optional aside a chef might leave for future reference, under 90 characters. Empty string if there's nothing worth saying.",
     },
   },
-  required: ['name', 'description', 'cuisine', 'category', 'ingredients', 'method', 'note'],
+  required: ['name', 'date', 'description', 'cuisine', 'category', 'ingredients', 'method', 'note'],
 };
 
 function jsonResponse(body, status = 200) {
@@ -85,6 +90,8 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'A photo is required.' }, 400);
   }
 
+  const today = new Date().toISOString().slice(0, 10);
+
   try {
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
@@ -107,12 +114,15 @@ Deno.serve(async (req) => {
                 },
                 {
                   text: [
+                    `Today's date is ${today}.`,
+                    '',
                     'Photo of a dish, and the chef\'s own freeform notes about it (may mention the',
                     'meal name, when it was cooked, cuisine, category, ingredients, or anything else):',
                     `"${notes.trim()}"`,
                     '',
                     'Fill in your best-guess structured details for this dish, including a',
-                    `third-person description under ${DESCRIPTION_MAX} characters.`,
+                    `third-person description under ${DESCRIPTION_MAX} characters, and the date it was`,
+                    "cooked if the notes mention or imply one (relative to today's date above).",
                   ].join('\n'),
                 },
               ],
@@ -146,6 +156,10 @@ Deno.serve(async (req) => {
 
     if (typeof details.description === 'string' && details.description.length > DESCRIPTION_MAX) {
       details.description = details.description.slice(0, DESCRIPTION_MAX);
+    }
+
+    if (typeof details.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(details.date) || details.date > today) {
+      details.date = '';
     }
 
     return jsonResponse(details);

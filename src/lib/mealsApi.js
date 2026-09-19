@@ -14,7 +14,7 @@ function fromRow(row) {
     method: row.method ?? [],
     note: row.note ?? '',
     tags: row.tags ?? [],
-    photoUrl: row.photo_url ?? null,
+    photos: Array.isArray(row.photos) ? row.photos : [],
   };
 }
 
@@ -30,7 +30,7 @@ function toRow(meal) {
     method: meal.method ?? [],
     note: meal.note || '',
     tags: meal.tags ?? [],
-    photo_url: meal.photoUrl ?? null,
+    photos: meal.photos ?? [],
   };
 }
 

@@ -43,6 +43,7 @@ export async function generateMealDetails({ notes, photoBlob, photoMediaType }) 
 
   return {
     name: typeof data.name === 'string' ? data.name : '',
+    date: typeof data.date === 'string' ? data.date : '',
     description: typeof data.description === 'string' ? data.description : '',
     cuisine: typeof data.cuisine === 'string' ? data.cuisine : '',
     category: typeof data.category === 'string' ? data.category : '',

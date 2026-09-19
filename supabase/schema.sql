@@ -20,7 +20,7 @@ create table if not exists public.meals (
   method text[] not null default '{}',
   note text not null default '',
   tags text[] not null default '{}',
-  photo_url text,
+  photos jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now()
 );
 
