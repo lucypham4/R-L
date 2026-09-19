@@ -116,11 +116,6 @@
   color: var(--color-ink);
 }
 
-.add-meal-preview {
-  max-height: 160px;
-  object-fit: contain;
-}
-
 .add-meal-context-photo-row {
   display: flex;
   align-items: center;

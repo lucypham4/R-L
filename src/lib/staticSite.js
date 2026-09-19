@@ -25,7 +25,7 @@ export function generateStaticSiteHtml(meals, { siteTitle = 'Meal Diary', theme 
     ingredients: m.ingredients || [],
     method: m.method || [],
     note: m.note || '',
-    photoUrl: m.photoUrl || null,
+    photoUrl: m.photos?.[0] || null,
   }));
 
   const cardsHtml = safeMeals.map((meal) => mealCardHtml(meal, dateFmt)).join('\n');

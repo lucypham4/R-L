@@ -3,6 +3,7 @@ import Button from './Button';
 import { Label, TextInput, TextArea, ErrorText } from './TextField';
 import SketchCanvas from './SketchCanvas';
 import PhotoCropModal from './PhotoCropModal';
+import PhotoCarousel from './PhotoCarousel';
 import BubbleSelect from './BubbleSelect';
 import IngredientBubbles from './IngredientBubbles';
 import { uploadImage, isCloudinaryConfigured } from '../lib/cloudinary';
@@ -13,6 +14,13 @@ import './AddMealForm.css';
 
 const DESCRIPTION_MAX = 400;
 const NOTE_MAX = 90;
+const MAX_PHOTOS = 6;
+
+function newPhotoId() {
+  return typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `photo-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
 
 const STEP_TITLES = {
   1: 'Add a photo',
@@ -22,8 +30,8 @@ const STEP_TITLES = {
 
 const STEP_SUBTITLES = {
   1: 'Only you see this. Crop it however you like.',
-  2: 'Ramble as much as you want, the AI reads all of it.',
-  3: 'Give it a once-over and edit anything that needs it.',
+  2: '',
+  3: '',
 };
 
 function ArrowIcon({ direction = 'forward' }) {
@@ -37,10 +45,9 @@ function ArrowIcon({ direction = 'forward' }) {
 export default function AddMealForm({ onSave, onCancel }) {
   const [step, setStep] = useState(1);
   const [photoMode, setPhotoMode] = useState('upload'); // upload | sketch
-  const [photo, setPhoto] = useState(null);
-  const [photoPreview, setPhotoPreview] = useState(null);
-  const [originalPhotoFile, setOriginalPhotoFile] = useState(null);
-  const [cropFile, setCropFile] = useState(null);
+  const [photos, setPhotos] = useState([]); // [{ id, originalFile, file, previewUrl }]
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [cropTarget, setCropTarget] = useState(null); // { file, index: number | null }
   const [hasSketch, setHasSketch] = useState(false);
   const sketchRef = useRef(null);
   const [notes, setNotes] = useState('');
@@ -53,7 +60,7 @@ export default function AddMealForm({ onSave, onCancel }) {
   const [methodText, setMethodText] = useState('');
   const [note, setNote] = useState('');
   const [touched, setTouched] = useState({});
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadProgressList, setUploadProgressList] = useState([]);
   const [status, setStatus] = useState('idle'); // idle | uploading | saving | error
   const [submitError, setSubmitError] = useState('');
   const [isListening, setIsListening] = useState(false);
@@ -88,15 +95,14 @@ export default function AddMealForm({ onSave, onCancel }) {
     methodRecognizerRef.current?.stop();
   }, []);
 
-  useEffect(() => {
-    if (!photo) {
-      setPhotoPreview(null);
-      return;
-    }
-    const url = URL.createObjectURL(photo);
-    setPhotoPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [photo]);
+  const photosRef = useRef(photos);
+  photosRef.current = photos;
+  useEffect(
+    () => () => {
+      photosRef.current.forEach((p) => p.previewUrl && URL.revokeObjectURL(p.previewUrl));
+    },
+    [],
+  );
 
   const errors = {
     photo:
@@ -104,7 +110,7 @@ export default function AddMealForm({ onSave, onCancel }) {
         ? !hasSketch
           ? 'A sketch is required'
           : ''
-        : !photo
+        : photos.length === 0
         ? 'A photo is required'
         : '',
     notes: !notes.trim() ? 'Tell us a bit about the dish' : '',
@@ -192,6 +198,31 @@ export default function AddMealForm({ onSave, onCancel }) {
     setter(trimmed);
   }
 
+  function handleCropConfirm(blob) {
+    const file = new File([blob], 'meal-photo.jpg', { type: 'image/jpeg' });
+    const previewUrl = URL.createObjectURL(blob);
+    if (cropTarget.index === null) {
+      setPhotos([...photos, { id: newPhotoId(), originalFile: cropTarget.file, file, previewUrl }]);
+      setActiveIndex(photos.length);
+    } else {
+      const next = [...photos];
+      if (next[cropTarget.index]?.previewUrl) URL.revokeObjectURL(next[cropTarget.index].previewUrl);
+      next[cropTarget.index] = { ...next[cropTarget.index], file, previewUrl };
+      setPhotos(next);
+      setActiveIndex(cropTarget.index);
+    }
+    setCropTarget(null);
+    markTouched('photo');
+  }
+
+  function handleRemovePhoto(index) {
+    const removed = photos[index];
+    if (removed?.previewUrl) URL.revokeObjectURL(removed.previewUrl);
+    const next = photos.filter((_, i) => i !== index);
+    setPhotos(next);
+    setActiveIndex((i) => Math.min(i, Math.max(0, next.length - 1)));
+  }
+
   function handleAdvanceStep1() {
     markTouched('photo');
     if (errors.photo) return;
@@ -211,9 +242,9 @@ export default function AddMealForm({ onSave, onCancel }) {
     setAiFillError('');
     setAiFillStatus('loading');
     try {
-      const photoBlob = photoMode === 'sketch' ? await sketchRef.current.getBlob() : photo;
+      const photoBlob = photoMode === 'sketch' ? await sketchRef.current.getBlob() : photos[0]?.file;
       if (!photoBlob) throw new Error('Add a photo or sketch first.');
-      const photoMediaType = photoMode === 'sketch' ? 'image/png' : photo?.type || 'image/png';
+      const photoMediaType = photoMode === 'sketch' ? 'image/png' : 'image/jpeg';
 
       const details = await generateMealDetails({
         notes: notes.trim(),
@@ -222,6 +253,7 @@ export default function AddMealForm({ onSave, onCancel }) {
       });
 
       if (details.name) setName(details.name);
+      if (details.date) setDate(details.date);
       setDescription((details.description || notes.trim()).slice(0, DESCRIPTION_MAX));
       if (details.category) applyBubbleValue('category', details.category, setCategory);
       if (details.cuisine) applyBubbleValue('cuisine', details.cuisine, setCuisine);
@@ -252,6 +284,23 @@ export default function AddMealForm({ onSave, onCancel }) {
 
   const canCleanDescription = isAiConfigured && description.trim().length > 0 && cleanupStatus !== 'loading';
 
+  async function uploadOnePhoto(file, index) {
+    if (isCloudinaryConfigured) {
+      const uploaded = await uploadImage(file, {
+        onProgress: (p) =>
+          setUploadProgressList((list) => {
+            const next = [...list];
+            next[index] = p;
+            return next;
+          }),
+      });
+      return uploaded.url;
+    }
+    // No Cloudinary configured, fall back to a local object URL so the
+    // card still renders a photo for this session (won't persist on reload).
+    return URL.createObjectURL(file);
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setTouched((t) => ({ ...t, name: true, date: true, description: true }));
@@ -259,22 +308,18 @@ export default function AddMealForm({ onSave, onCancel }) {
 
     setSubmitError('');
 
-    let photoUrl = null;
     try {
-      const fileToUpload = photoMode === 'sketch' ? await sketchRef.current.getBlob() : photo;
-      if (photoMode === 'sketch' && !fileToUpload) {
-        throw new Error('Could not read the sketch. Try drawing again.');
-      }
-
-      if (isCloudinaryConfigured) {
+      let photoUrls;
+      if (photoMode === 'sketch') {
+        const blob = await sketchRef.current.getBlob();
+        if (!blob) throw new Error('Could not read the sketch. Try drawing again.');
         setStatus('uploading');
-        setUploadProgress(0);
-        const uploaded = await uploadImage(fileToUpload, { onProgress: setUploadProgress });
-        photoUrl = uploaded.url;
+        setUploadProgressList([0]);
+        photoUrls = [await uploadOnePhoto(new File([blob], 'meal-sketch.png', { type: 'image/png' }), 0)];
       } else {
-        // No Cloudinary configured, fall back to a local object URL so the
-        // card still renders a photo for this session (won't persist on reload).
-        photoUrl = URL.createObjectURL(fileToUpload);
+        setStatus('uploading');
+        setUploadProgressList(photos.map(() => 0));
+        photoUrls = await Promise.all(photos.map((p, i) => uploadOnePhoto(p.file, i)));
       }
 
       setStatus('saving');
@@ -287,7 +332,7 @@ export default function AddMealForm({ onSave, onCancel }) {
         ingredients,
         method: methodText.split('\n').map((s) => s.trim()).filter(Boolean),
         note: note.trim(),
-        photoUrl,
+        photos: photoUrls,
       });
       setStatus('idle');
     } catch (err) {
@@ -296,6 +341,9 @@ export default function AddMealForm({ onSave, onCancel }) {
     }
   }
 
+  const uploadProgress = uploadProgressList.length
+    ? uploadProgressList.reduce((sum, p) => sum + p, 0) / uploadProgressList.length
+    : 0;
   const isSaving = status === 'uploading' || status === 'saving';
   const saveLabel = status === 'uploading' ? `Uploading… ${Math.round(uploadProgress * 100)}%` : status === 'saving' ? 'Saving…' : 'Save meal';
 
@@ -304,7 +352,7 @@ export default function AddMealForm({ onSave, onCancel }) {
       <div className="add-meal-card" ref={cardRef} role="dialog" aria-modal="true" aria-label="Add a meal">
         <p className="add-meal-progress">Step {step} of 3</p>
         <h2 className="add-meal-title">{STEP_TITLES[step]}</h2>
-        <p className="add-meal-subtitle">{STEP_SUBTITLES[step]}</p>
+        {STEP_SUBTITLES[step] && <p className="add-meal-subtitle">{STEP_SUBTITLES[step]}</p>}
 
         {step === 1 && (
           <div className="add-meal-form">
@@ -340,35 +388,38 @@ export default function AddMealForm({ onSave, onCancel }) {
               </div>
               {photoMode === 'upload' ? (
                 <>
-                  <div
-                    className="add-meal-dropzone"
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => fileInputRef.current?.click()}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click();
-                    }}
-                  >
-                    {photoPreview ? (
-                      <img src={photoPreview} alt="" className="add-meal-preview" />
-                    ) : (
-                      <>
-                        <p>Drop a background-removed PNG</p>
-                        <p className="add-meal-dropzone-hint">or click to browse, crop it square right here</p>
-                      </>
-                    )}
-                  </div>
-                  {photoPreview && (
-                    <button
-                      type="button"
-                      className="add-meal-adjust-crop"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setCropFile(originalPhotoFile);
+                  {photos.length === 0 ? (
+                    <div
+                      className="add-meal-dropzone"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => fileInputRef.current?.click()}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click();
                       }}
                     >
-                      Adjust crop
-                    </button>
+                      <p>Drop a background-removed PNG</p>
+                      <p className="add-meal-dropzone-hint">or click to browse, crop it right here</p>
+                    </div>
+                  ) : (
+                    <>
+                      <PhotoCarousel
+                        photos={photos.map((p) => ({ id: p.id, src: p.previewUrl }))}
+                        activeIndex={activeIndex}
+                        onActiveChange={setActiveIndex}
+                        onRemove={handleRemovePhoto}
+                        onAdd={() => fileInputRef.current?.click()}
+                        maxPhotos={MAX_PHOTOS}
+                        alt="Uploaded dish photo"
+                      />
+                      <button
+                        type="button"
+                        className="add-meal-adjust-crop"
+                        onClick={() => setCropTarget({ file: photos[activeIndex].originalFile, index: activeIndex })}
+                      >
+                        Adjust crop
+                      </button>
+                    </>
                   )}
                   <input
                     ref={fileInputRef}
@@ -378,11 +429,7 @@ export default function AddMealForm({ onSave, onCancel }) {
                     className="visually-hidden"
                     onChange={(e) => {
                       const file = e.target.files?.[0] ?? null;
-                      if (file) {
-                        setOriginalPhotoFile(file);
-                        setCropFile(file);
-                      }
-                      markTouched('photo');
+                      if (file) setCropTarget({ file, index: null });
                       e.target.value = '';
                     }}
                   />
@@ -412,9 +459,9 @@ export default function AddMealForm({ onSave, onCancel }) {
 
         {step === 2 && (
           <div className="add-meal-form">
-            {photoPreview && (
+            {photos.length > 0 && (
               <div className="add-meal-context-photo-row">
-                <img src={photoPreview} alt="" className="add-meal-context-photo" />
+                <img src={photos[0].previewUrl} alt="" className="add-meal-context-photo" />
                 <button type="button" className="add-meal-adjust-crop" onClick={() => setStep(1)}>
                   Change photo
                 </button>
@@ -442,14 +489,11 @@ export default function AddMealForm({ onSave, onCancel }) {
                   </button>
                 )}
               </div>
-              <p className="field-help">
-                Meal name, when you cooked it, cuisine, category, ingredients, anything that'll help fill out the rest. No limit, ramble away.
-              </p>
               <TextArea
                 id="meal-notes"
                 rows={8}
                 className="add-meal-notes-textarea"
-                placeholder="e.g. 'Pan-seared salmon with lemon butter sauce and asparagus, made this last night, kind of a French thing, used salmon, butter, lemon, garlic, asparagus...'"
+                placeholder="Meal name, when you cooked it, cuisine, category, ingredients, anything that'll help fill out the rest. No limit, ramble away."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 onBlur={() => markTouched('notes')}
@@ -485,10 +529,6 @@ export default function AddMealForm({ onSave, onCancel }) {
 
         {step === 3 && (
           <form className="add-meal-form" onSubmit={handleSubmit} noValidate>
-            {aiFillStatus === 'done' && (
-              <p className="add-meal-status-note">Filled in what it could, worth a once-over below.</p>
-            )}
-
             <div>
               <div className="add-meal-label-row">
                 <Label htmlFor="meal-description" required>
@@ -602,7 +642,6 @@ export default function AddMealForm({ onSave, onCancel }) {
                 onChange={(e) => setMethodText(e.target.value)}
               />
               {methodSpeechError && <ErrorText>{methodSpeechError}</ErrorText>}
-              <p className="field-help">Speak a step at a time, or run it all together, sentences become steps. Otherwise the card just shows the description.</p>
             </div>
 
             <div>
@@ -633,15 +672,8 @@ export default function AddMealForm({ onSave, onCancel }) {
         )}
       </div>
 
-      {cropFile && (
-        <PhotoCropModal
-          file={cropFile}
-          onCancel={() => setCropFile(null)}
-          onCrop={(blob) => {
-            setPhoto(new File([blob], 'meal-photo.jpg', { type: 'image/jpeg' }));
-            setCropFile(null);
-          }}
-        />
+      {cropTarget && (
+        <PhotoCropModal file={cropTarget.file} onCancel={() => setCropTarget(null)} onCrop={handleCropConfirm} />
       )}
     </div>
   );

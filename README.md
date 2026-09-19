@@ -30,7 +30,8 @@ page and cross-device access possible on top of that.
    (creates the `meals` table), then `supabase/multi-chef-migration.sql`
    once (adds the `chefs` table, scopes every meal to its own chef, and
    sets the row-level security policies this app actually relies on today.
-   See Security notes below.
+   See Security notes below), then `supabase/photos-array-migration.sql`
+   once (adds the `photos` column meals now use for up to 6 photos each).
 3. In Cloudinary, create an **unsigned** upload preset (Settings → Upload →
    Upload presets → Add upload preset, signing mode "Unsigned"). Unsigned
    presets are what let the browser upload directly without exposing your

@@ -42,8 +42,8 @@ export default function MealCard({ meal, onOpen, onLongPress, editMode, onDelete
         onPointerCancel={cancelPress}
       >
         <span className="meal-card-image">
-          {meal.photoUrl ? (
-            <img src={meal.photoUrl} alt={`${meal.name}, ${meal.cuisine} ${meal.category}`} className="meal-card-photo" />
+          {meal.photos?.[0] ? (
+            <img src={meal.photos[0]} alt={`${meal.name}, ${meal.cuisine} ${meal.category}`} className="meal-card-photo" />
           ) : (
             <span className="meal-card-image-label" aria-hidden="true">
               food cutout · 1:1

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { toCanvas } from 'html-to-image';
+import PhotoCarousel from './PhotoCarousel';
 import './Bubbles.css';
 import './MealDetailModal.css';
 
@@ -43,6 +44,7 @@ export default function MealDetailModal({ meal, index, total, onClose }) {
   const closeRef = useRef(null);
   const shareCardRef = useRef(null);
   const [shareStatus, setShareStatus] = useState('idle'); // idle | working | done | error
+  const [photoIndex, setPhotoIndex] = useState(0);
 
   useEffect(() => {
     closeRef.current?.focus();
@@ -57,9 +59,15 @@ export default function MealDetailModal({ meal, index, total, onClose }) {
     };
   }, [onClose]);
 
+  useEffect(() => {
+    setPhotoIndex(0);
+  }, [meal?.id]);
+
   if (!meal) return null;
 
   const date = new Date(meal.date);
+  const photos = meal.photos ?? [];
+  const heroPhotoUrl = photos[0] ?? null;
 
   async function handleShare() {
     setShareStatus('working');
@@ -70,8 +78,8 @@ export default function MealDetailModal({ meal, index, total, onClose }) {
         backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim() || '#faf9f6',
       });
 
-      if (meal.photoUrl) {
-        const img = await loadImage(meal.photoUrl);
+      if (heroPhotoUrl) {
+        const img = await loadImage(heroPhotoUrl);
         drawPhotoCover(canvas, img);
       }
 
@@ -124,13 +132,13 @@ export default function MealDetailModal({ meal, index, total, onClose }) {
             <span className="modal-plate-count">{total}</span>
           </div>
           <div className="modal-rule" />
-          <div className="modal-plate-image">
-            {meal.photoUrl ? (
-              <img src={meal.photoUrl} alt={`${meal.name}, ${meal.cuisine} ${meal.category}`} className="modal-plate-photo" />
-            ) : (
-              <span>food cutout · full res</span>
-            )}
-          </div>
+          <PhotoCarousel
+            photos={photos.map((src, i) => ({ id: i, src }))}
+            activeIndex={photoIndex}
+            onActiveChange={setPhotoIndex}
+            alt={`${meal.name}, ${meal.cuisine} ${meal.category}`}
+            emptyLabel="food cutout · full res"
+          />
         </div>
 
         <div className="modal-text">
@@ -179,7 +187,7 @@ export default function MealDetailModal({ meal, index, total, onClose }) {
 
       <div className="share-card-clip" aria-hidden="true">
         <div className="share-card" ref={shareCardRef}>
-          <div className="share-card-image">{!meal.photoUrl && <span>food cutout</span>}</div>
+          <div className="share-card-image">{!heroPhotoUrl && <span>food cutout</span>}</div>
           <div className="share-card-body">
             <h2 className="share-card-name">{meal.name}</h2>
             {meal.description && <p className="share-card-description">{meal.description}</p>}

@@ -28,7 +28,6 @@
   position: relative;
   width: 320px;
   max-width: 100%;
-  aspect-ratio: 1 / 1;
   margin-top: var(--space-lg);
   overflow: hidden;
   background: var(--color-surface);
@@ -51,6 +50,13 @@
   width: 320px;
   max-width: 100%;
   margin-top: var(--space-lg);
+}
+
+.photo-crop-aspect-toggle {
+  display: inline-flex;
+  align-self: flex-start;
+  margin-top: var(--space-md);
+  border: 1px solid var(--color-line);
 }
 
 .photo-crop-card .add-meal-footer {
