@@ -1,4 +1,5 @@
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { getSquareCropUrl } from '../lib/autoSquareCrop';
 import './MealCard.css';
 
 const dateFormatter = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -11,6 +12,23 @@ export function formatMealDate(iso) {
 export default function MealCard({ meal, onOpen, onLongPress, editMode, onDelete }) {
   const pressTimer = useRef(null);
   const longPressedRef = useRef(false);
+  const rawPhoto = meal.photos?.[0] ?? null;
+  const [thumbSrc, setThumbSrc] = useState(rawPhoto);
+
+  // Most photos already fill their 1:1 thumbnail edge to edge (every JPEG
+  // from the crop wizard does); this only replaces the src when an older
+  // background-removed PNG turns out to have transparent padding baked in.
+  useEffect(() => {
+    setThumbSrc(rawPhoto);
+    if (!rawPhoto) return;
+    let cancelled = false;
+    getSquareCropUrl(rawPhoto).then((url) => {
+      if (!cancelled) setThumbSrc(url);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [rawPhoto]);
 
   function startPress() {
     if (!onLongPress) return;
@@ -42,8 +60,8 @@ export default function MealCard({ meal, onOpen, onLongPress, editMode, onDelete
         onPointerCancel={cancelPress}
       >
         <span className="meal-card-image">
-          {meal.photos?.[0] ? (
-            <img src={meal.photos[0]} alt={`${meal.name}, ${meal.cuisine} ${meal.category}`} className="meal-card-photo" />
+          {thumbSrc ? (
+            <img src={thumbSrc} alt={`${meal.name}, ${meal.cuisine} ${meal.category}`} className="meal-card-photo" />
           ) : (
             <span className="meal-card-image-label" aria-hidden="true">
               food cutout · 1:1
