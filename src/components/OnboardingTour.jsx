@@ -65,7 +65,7 @@ function buildSteps(publicUrl) {
     {
       icon: 'share',
       title: 'Share it when you’re ready',
-      body: publicUrl ? `Your page is already live at ${publicUrl}.` : 'Download a copy any time. Sign in later for a live page.',
+      body: publicUrl ? `Your page is already live at ${publicUrl}.` : 'Sign in for a live page and to export a copy any time.',
       artLabel: 'Share illustration',
       artHint: '1:1 · ≥800px',
     },
