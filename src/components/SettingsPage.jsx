@@ -50,6 +50,8 @@ export default function SettingsPage({
   onSignIn,
   onSignOut,
   onDownloadCopy,
+  canExport,
+  onRequestSignUp,
   localMealCount,
   onImportLocalMeals,
 }) {
@@ -75,10 +77,23 @@ export default function SettingsPage({
       {onDownloadCopy && (
         <section className="settings-section">
           <h2 className="settings-section-title">Export</h2>
-          <p className="settings-row-body">Download a static, offline copy of your meal diary.</p>
-          <Button variant="secondary" onClick={onDownloadCopy}>
-            Download copy
-          </Button>
+          {canExport ? (
+            <>
+              <p className="settings-row-body">Download a static, offline copy of your meal diary.</p>
+              <Button variant="secondary" onClick={onDownloadCopy}>
+                Download copy
+              </Button>
+            </>
+          ) : (
+            <>
+              {/* ADR 0002: export is gated behind an account so guests aren't stranded —
+                  Local Import means nothing they have is lost by signing up first. */}
+              <p className="settings-row-body">Create an account to export a copy of your meal diary.</p>
+              <Button variant="primary" onClick={onRequestSignUp}>
+                Create an account
+              </Button>
+            </>
+          )}
         </section>
       )}
 

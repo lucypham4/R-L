@@ -191,6 +191,11 @@ function AdminApp() {
     setShowSignIn(true);
   }
 
+  function handleRequestSignUp() {
+    setSignInMode('signup');
+    setShowSignIn(true);
+  }
+
   function handleChefCreated(profile) {
     setChefProfile(profile);
     const count = countLocalMeals();
@@ -292,6 +297,8 @@ function AdminApp() {
           onSignIn={handleRequestSignIn}
           onSignOut={signOut}
           onDownloadCopy={() => setShowPublish(true)}
+          canExport={!isSupabaseConfigured || Boolean(session)}
+          onRequestSignUp={handleRequestSignUp}
           localMealCount={localMealCount}
           onImportLocalMeals={handleImportLocalMeals}
         />
