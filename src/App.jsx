@@ -5,6 +5,7 @@ import AddMealForm from './components/AddMealForm';
 import PublishModal from './components/PublishModal';
 import SignInScreen from './components/SignInScreen';
 import ChooseUsername from './components/ChooseUsername';
+import LocalImportPrompt from './components/LocalImportPrompt';
 import OnboardingTour from './components/OnboardingTour';
 import PublicChefPage from './components/PublicChefPage';
 import BottomNav from './components/BottomNav';
@@ -15,6 +16,7 @@ import { fetchMeals, insertMeal, deleteMeal } from './lib/mealsApi';
 import { fetchChefProfile } from './lib/chefsApi';
 import { getSession, onAuthChange, signOut } from './lib/auth';
 import { loadLocalMeals, saveLocalMeals, createLocalMeal } from './lib/localMeals';
+import { importLocalMeals, countLocalMeals } from './lib/localImport';
 import './App.css';
 
 function hasSeenOnboarding(key) {
@@ -66,6 +68,13 @@ function AdminApp() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [theme, setTheme] = useState('light');
+  // Local Import (see CONTEXT.md / ADR 0001): offered once, right after a
+  // fresh sign-up, while the new account is guaranteed empty. Anything
+  // declined or left behind by a partial failure stays in local storage,
+  // surfaced again as a manual retry in Settings (localMealCount below).
+  const [showLocalImport, setShowLocalImport] = useState(false);
+  const [localImportCount, setLocalImportCount] = useState(0);
+  const [localMealCount, setLocalMealCount] = useState(() => countLocalMeals());
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -182,6 +191,27 @@ function AdminApp() {
     setShowSignIn(true);
   }
 
+  function handleChefCreated(profile) {
+    setChefProfile(profile);
+    const count = countLocalMeals();
+    if (count > 0) {
+      setLocalImportCount(count);
+      setShowLocalImport(true);
+    }
+  }
+
+  function handleLocalImportDone() {
+    setShowLocalImport(false);
+    setLocalMealCount(countLocalMeals());
+  }
+
+  async function handleImportLocalMeals() {
+    const outcome = await importLocalMeals(session.user.id);
+    setMeals((prev) => [...outcome.imported, ...prev]);
+    setLocalMealCount(countLocalMeals());
+    return outcome;
+  }
+
   async function handleAddMeal(fields) {
     if (isSupabaseConfigured && session) {
       const meal = await insertMeal(fields, session.user.id);
@@ -221,7 +251,18 @@ function AdminApp() {
   }
 
   if (session && !chefProfile) {
-    return <ChooseUsername userId={session.user.id} onCreated={setChefProfile} />;
+    return <ChooseUsername userId={session.user.id} onCreated={handleChefCreated} />;
+  }
+
+  if (showLocalImport) {
+    return (
+      <LocalImportPrompt
+        userId={session.user.id}
+        mealCount={localImportCount}
+        onImported={(importedMeals) => setMeals((prev) => [...importedMeals, ...prev])}
+        onDone={handleLocalImportDone}
+      />
+    );
   }
 
   const publicUrl = chefProfile ? `${window.location.origin}/${chefProfile.slug}` : null;
@@ -251,6 +292,8 @@ function AdminApp() {
           onSignIn={handleRequestSignIn}
           onSignOut={signOut}
           onDownloadCopy={() => setShowPublish(true)}
+          localMealCount={localMealCount}
+          onImportLocalMeals={handleImportLocalMeals}
         />
         {showPublish && <PublishModal meals={sortedMeals} onClose={() => setShowPublish(false)} />}
       </>
