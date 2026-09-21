@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import Gallery from './components/Gallery';
 import MealDetailModal from './components/MealDetailModal';
 import AddMealForm from './components/AddMealForm';
@@ -41,10 +42,20 @@ export default function App() {
   const slug = window.location.pathname.replace(/^\/+|\/+$/g, '');
 
   if (slug) {
-    return <PublicChefPage slug={slug} />;
+    return (
+      <>
+        <PublicChefPage slug={slug} />
+        <Analytics />
+      </>
+    );
   }
 
-  return <AdminApp />;
+  return (
+    <>
+      <AdminApp />
+      <Analytics />
+    </>
+  );
 }
 
 function AdminApp() {
