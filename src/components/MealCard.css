@@ -38,7 +38,17 @@
   align-items: center;
   justify-content: center;
   background: transparent;
-  transition: box-shadow var(--dur-move) var(--ease);
+  /* A hairline outline instead of the drop shadow this used to grow on
+     hover. The shadow read as a grey blur around every thumbnail on
+     touch, where :hover sticks after a tap and has nothing to clear it.
+     A border is also honest about where the image ends, which matters
+     for sketches and background-removed PNGs whose own edges are white
+     or transparent and otherwise dissolve into the page. */
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-media);
+  /* Clips the photo to the rounded corners; object-fit: cover alone
+     would square them off again. */
+  overflow: hidden;
 }
 
 .meal-card-image-label {
@@ -69,8 +79,18 @@
   color: var(--color-disabled);
 }
 
-.meal-card:hover {
-  transform: translateY(var(--lift));
+/* Hover effects are gated to devices that actually hover. On touch,
+   :hover latches onto the last element tapped and stays there, so an
+   un-gated hover state becomes a stuck visual artifact with no way to
+   dismiss it. */
+@media (hover: hover) {
+  .meal-card:hover {
+    transform: translateY(var(--lift));
+  }
+
+  .meal-card:hover .meal-card-image {
+    border-color: var(--color-line-strong);
+  }
 }
 
 /* Touch has no hover, so the press dip is the only feedback a tap gets.
@@ -82,9 +102,6 @@
   transition-duration: var(--dur-press);
 }
 
-.meal-card:hover .meal-card-image {
-  box-shadow: var(--shadow-md);
-}
 
 .meal-card:focus-visible .meal-card-image {
   outline: var(--focus-ring);

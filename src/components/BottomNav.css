@@ -3,7 +3,7 @@
 }
 
 /* Phone breakpoint only, per the design system: a persistent floating
-   glass pill. The one deliberate exception to --radius: 0 in the app. */
+   glass pill, rounded with --radius-pill. */
 @media (max-width: 640px) {
   .bottom-nav {
     display: flex;
@@ -12,14 +12,16 @@
     bottom: max(16px, env(safe-area-inset-bottom));
     transform: translateX(-50%);
     z-index: 40;
-    width: 194px;
-    height: 60px;
+    /* Sized for icons alone; the text labels under them were removed, so
+       the pill tightens up rather than keeping their empty space. */
+    width: 168px;
+    height: 54px;
     padding: 3px;
     gap: 4px;
     background: rgba(250, 249, 246, 0.78);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border-radius: 32px;
+    border-radius: var(--radius-pill);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
   }
 }
@@ -42,22 +44,16 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  border-radius: 28px;
+  border-radius: var(--radius-pill);
   color: var(--color-muted);
   transition: background var(--dur-color) var(--ease), color var(--dur-color) var(--ease),
     transform var(--dur-move) var(--ease-spring);
 }
 
 .bottom-nav-tab svg {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   transition: transform var(--dur-move) var(--ease-spring);
-}
-
-.bottom-nav-tab span {
-  font: 400 0.5625rem/1 var(--font-mono);
-  letter-spacing: 0.02em;
 }
 
 .bottom-nav-tab:active {
@@ -76,5 +72,5 @@
    enough to confirm the tap registered and to pull the eye to the pill's
    new position, without the tab bar becoming a light show. */
 .bottom-nav-tab-active svg {
-  transform: translateY(-1px) scale(1.08);
+  transform: scale(1.08);
 }

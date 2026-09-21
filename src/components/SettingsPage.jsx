@@ -7,6 +7,49 @@ function plural(n, word) {
   return `${n} ${word}${n === 1 ? '' : 's'}`;
 }
 
+// The public page's own light/dark setting. Distinct from the chef's
+// in-app Appearance above: that one is per-device and follows the OS by
+// default, while this is a property of the published page every client
+// sees. Writes through on click so the live page updates immediately,
+// with the previous value restored if the update fails.
+function PublicPageThemeRow({ pageTheme, onChangePageTheme }) {
+  const [value, setValue] = useState(pageTheme);
+  const [status, setStatus] = useState('idle'); // idle | saving | error
+
+  async function handleToggle() {
+    const next = value === 'dark' ? 'light' : 'dark';
+    const previous = value;
+    setValue(next);
+    setStatus('saving');
+    try {
+      await onChangePageTheme(next);
+      setStatus('idle');
+    } catch {
+      setValue(previous);
+      setStatus('error');
+    }
+  }
+
+  return (
+    <>
+      <div className="settings-row">
+        <span>Public page</span>
+        <Button variant="secondary" onClick={handleToggle} disabled={status === 'saving'}>
+          {status === 'saving' ? 'Saving…' : value === 'dark' ? 'Dark' : 'Light'}
+        </Button>
+      </div>
+      <p className="settings-row-body">
+        How your page at your public link looks to everyone you share it with. Change it any time.
+      </p>
+      {status === 'error' && (
+        <p className="settings-row-body settings-row-error">
+          Could not save that. Check your connection and try again.
+        </p>
+      )}
+    </>
+  );
+}
+
 // Manual fallback for meals Local Import (see CONTEXT.md / ADR 0001) left
 // behind — declined at sign-up, or lost to a partial failure. Only ever
 // touches meals still sitting in local storage, so there's nothing to
@@ -50,9 +93,8 @@ export default function SettingsPage({
   onToggleTheme,
   onSignIn,
   onSignOut,
-  onDownloadCopy,
-  canExport,
-  onRequestSignUp,
+  chefProfile,
+  onChangePageTheme,
   localMealCount,
   onImportLocalMeals,
 }) {
@@ -73,30 +115,16 @@ export default function SettingsPage({
             {THEME_LABELS[theme]}
           </Button>
         </div>
-      </section>
 
-      {onDownloadCopy && (
-        <section className="settings-section">
-          <h2 className="settings-section-title">Export</h2>
-          {canExport ? (
-            <>
-              <p className="settings-row-body">Download a static, offline copy of your meal diary.</p>
-              <Button variant="secondary" onClick={onDownloadCopy}>
-                Download copy
-              </Button>
-            </>
-          ) : (
-            <>
-              {/* ADR 0002: export is gated behind an account so guests aren't stranded —
-                  Local Import means nothing they have is lost by signing up first. */}
-              <p className="settings-row-body">Create an account to export a copy of your meal diary.</p>
-              <Button variant="primary" onClick={onRequestSignUp}>
-                Create an account
-              </Button>
-            </>
-          )}
-        </section>
-      )}
+        {/* Only a signed-in chef with a profile has a public page to
+            style, so guests never see this row. */}
+        {chefProfile && onChangePageTheme && (
+          <PublicPageThemeRow
+            pageTheme={chefProfile.pageTheme}
+            onChangePageTheme={onChangePageTheme}
+          />
+        )}
+      </section>
 
       {isSupabaseConfigured && (
         <section className="settings-section">
