@@ -13,6 +13,8 @@
   "dependencies": {
     "@capacitor/core": "^8.5.2",
     "@capacitor/ios": "^8.5.2",
+    "@rive-app/canvas": "^2.42.2",
+    "@rive-app/react-canvas": "^4.34.3",
     "@supabase/supabase-js": "^2.116.0",
     "html-to-image": "^1.11.13",
     "react": "^18.3.1",

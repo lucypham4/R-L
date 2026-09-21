@@ -124,8 +124,34 @@ the sign-in form.
 ### Onboarding
 
 A short, skippable welcome tour (`src/components/OnboardingTour.jsx`) runs
-once per browser (or once per account, if signed in), with placeholder art
-slots, swap them for real illustrations whenever they're ready.
+once per browser (or once per account, if signed in). Its four art slots
+each take an animated Rive artboard, a static image, or neither, in which
+case they fall back to a labelled placeholder showing the size that slot
+wants. The cover slot currently holds an animated Rive illustration; the
+other three are still placeholders.
+
+Swapping art in is a one-entry change in
+`src/components/onboardingSteps.js`. See
+[`docs/design-system/illustration.md`](docs/design-system/illustration.md)
+for the details, including how to read artboard and state-machine names
+out of a `.riv` file and why the Rive WebAssembly is self-hosted rather
+than pulled from a CDN.
+
+### Design system
+
+`src/styles/tokens.css` holds the colour, type, space and motion tokens,
+in a light theme, a dark theme, and a reduced-motion variant. Two notes
+worth reading before adding UI:
+
+- [`docs/design-system/motion.md`](docs/design-system/motion.md) — the
+  motion tokens, the shared keyframes, and why a component written
+  against the tokens is reduced-motion correct without its own media
+  query.
+- [`docs/design-system/illustration.md`](docs/design-system/illustration.md)
+  — the art slots and the Rive setup.
+
+Theme follows the operating system by default. The Appearance control in
+Settings cycles System → Light → Dark and remembers the choice.
 
 ### iOS App Store transition
 

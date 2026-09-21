@@ -109,9 +109,34 @@ img {
   animation: modal-fade var(--dur-color) var(--ease);
 }
 
+/* Shared motion keyframes.
+
+   These live here, not in a component stylesheet, because more than one
+   component uses each of them. `modal-rise` in particular used to be
+   defined in MealDetailModal.css while MealActionSheet.css also animated
+   with it, so the action sheet only slid up as long as the bundler
+   happened to include the modal's stylesheet too. */
 @keyframes modal-fade {
   from {
     opacity: 0;
+  }
+}
+
+@keyframes modal-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+/* The app's one entrance gesture: fade up over a short distance. Used by
+   gallery cards, onboarding step content and page-level sections. The
+   travel comes from --rise, which reduced motion flattens to 0px, leaving
+   a plain fade. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--rise));
   }
 }
 

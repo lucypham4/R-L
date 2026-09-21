@@ -19,21 +19,35 @@ function Icon({ name }) {
   );
 }
 
-export default function BottomNav({ onHome, onAdd, onProfile }) {
+const TABS = [
+  { id: 'home', label: 'Home' },
+  { id: 'add', label: 'Add' },
+  { id: 'profile', label: 'Profile' },
+];
+
+// `active` is the id of the view currently on screen. It used to be
+// hard-coded to Home, so the pill stayed under Home even while the add
+// form or settings page was open.
+export default function BottomNav({ onHome, onAdd, onProfile, active = 'home' }) {
+  const handlers = { home: onHome, add: onAdd, profile: onProfile };
+
   return (
     <nav className="bottom-nav" aria-label="Primary">
-      <button type="button" className="bottom-nav-tab bottom-nav-tab-active" onClick={onHome}>
-        <Icon name="home" />
-        <span>Home</span>
-      </button>
-      <button type="button" className="bottom-nav-tab" onClick={onAdd}>
-        <Icon name="add" />
-        <span>Add</span>
-      </button>
-      <button type="button" className="bottom-nav-tab" onClick={onProfile}>
-        <Icon name="profile" />
-        <span>Profile</span>
-      </button>
+      {TABS.map((tab) => {
+        const isActive = active === tab.id;
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            className={`bottom-nav-tab ${isActive ? 'bottom-nav-tab-active' : ''}`}
+            aria-current={isActive ? 'page' : undefined}
+            onClick={handlers[tab.id]}
+          >
+            <Icon name={tab.id} />
+            <span>{tab.label}</span>
+          </button>
+        );
+      })}
     </nav>
   );
 }

@@ -70,7 +70,16 @@
 }
 
 .meal-card:hover {
-  transform: translateY(-4px);
+  transform: translateY(var(--lift));
+}
+
+/* Touch has no hover, so the press dip is the only feedback a tap gets.
+   It also reads as "held" during the 500ms long-press that opens the
+   action sheet, which makes that gesture discoverable instead of
+   silent. */
+.meal-card:active {
+  transform: scale(var(--press-scale));
+  transition-duration: var(--dur-press);
 }
 
 .meal-card:hover .meal-card-image {

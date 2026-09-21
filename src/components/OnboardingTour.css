@@ -51,34 +51,6 @@
   color: var(--color-muted);
 }
 
-.onboarding-art {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  margin-top: 24px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  background: repeating-linear-gradient(
-    45deg,
-    var(--color-surface),
-    var(--color-surface) 10px,
-    var(--color-line) 10px,
-    var(--color-line) 20px
-  );
-}
-
-.onboarding-art-label {
-  font: 400 0.6875rem/1 var(--font-mono);
-  color: var(--color-muted);
-}
-
-.onboarding-art-hint {
-  font: 400 0.625rem/1 var(--font-mono);
-  color: var(--color-disabled);
-}
-
 .onboarding-dots {
   display: flex;
   gap: 6px;
@@ -89,10 +61,11 @@
   width: 16px;
   height: 3px;
   background: var(--color-line-strong);
-  transition: background var(--dur-color) var(--ease);
+  transition: background var(--dur-color) var(--ease), width var(--dur-move) var(--ease-out);
 }
 
 .onboarding-dot-active {
+  width: 26px;
   background: var(--color-accent);
 }
 
@@ -106,4 +79,59 @@
 
 .onboarding-footer .btn {
   flex: 1;
+}
+
+/* Step transitions.
+
+   The panel is keyed by step index in OnboardingTour.jsx, so React
+   remounts it on every move and the entrance animation replays. The
+   direction class decides which edge it comes in from, matching the way
+   the chef swiped.
+
+   Only the incoming panel is animated -- there's no paired exit. A
+   cross-fade between two absolutely-positioned panels would look
+   smoother, but it needs a fixed height to avoid the card jumping as
+   panels of different lengths overlap, and these four steps have
+   deliberately different amounts of copy. */
+.onboarding-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  animation: onboarding-slide var(--dur-enter) var(--ease-out) backwards;
+}
+
+.onboarding-panel-back {
+  animation-name: onboarding-slide-back;
+}
+
+@keyframes onboarding-slide {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+
+@keyframes onboarding-slide-back {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+}
+
+/* Reduced motion keeps the cross-fade but drops the sideways travel:
+   the panel change still reads as a change, without the movement. */
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-panel {
+    animation-name: modal-fade;
+    animation-duration: var(--dur-color);
+  }
+
+  .onboarding-panel-back {
+    animation-name: modal-fade;
+  }
+}
+
+.onboarding-skip {
+  transition: color var(--dur-color) var(--ease);
 }

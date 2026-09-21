@@ -214,3 +214,51 @@
     gap: var(--grid-gap-lg);
   }
 }
+
+/* First-paint entrance.
+
+   The grid's children fade up in sequence, but only inside the window
+   right after the first cards appear: Gallery.jsx drops the
+   `gallery-grid-intro` class once that window closes, so typing in the
+   search box -- which remounts every card that survives the filter --
+   doesn't replay the cascade on each keystroke. A gallery that
+   re-animates while you type is exactly the kind of motion that stops
+   being charming on the second viewing.
+
+   --stagger-index is capped in Gallery.jsx, so the last card of a
+   200-meal archive starts no later than the 12th and the whole entrance
+   is over inside a second. */
+.gallery-grid-intro > * {
+  animation: rise-in var(--dur-enter) var(--ease-out) backwards;
+  animation-delay: calc(var(--stagger-index, 0) * var(--stagger-step));
+}
+
+/* The empty state is the first thing a new chef sees, so it gets the
+   same entrance rather than appearing abruptly. */
+.gallery-empty-state {
+  animation: rise-in var(--dur-enter) var(--ease-out) backwards;
+}
+
+/* The filter dot pops rather than blinking on, which draws the eye to
+   the fact that a filter is now narrowing the results. */
+.gallery-filter-dot {
+  animation: filter-dot-pop var(--dur-move) var(--ease-spring) backwards;
+}
+
+@keyframes filter-dot-pop {
+  from {
+    transform: scale(0);
+  }
+}
+
+.gallery-filter-btn,
+.gallery-edit-done {
+  transition: background var(--dur-color) var(--ease), color var(--dur-color) var(--ease),
+    transform var(--dur-move) var(--ease-spring);
+}
+
+.gallery-filter-btn:active,
+.gallery-edit-done:active {
+  transform: scale(var(--press-scale));
+  transition-duration: var(--dur-press);
+}

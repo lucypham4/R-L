@@ -16,6 +16,8 @@ import { fetchMeals, insertMeal, deleteMeal } from './lib/mealsApi';
 import { fetchChefProfile } from './lib/chefsApi';
 import { getSession, onAuthChange, signOut } from './lib/auth';
 import { loadLocalMeals, saveLocalMeals, createLocalMeal } from './lib/localMeals';
+import { scrollToTop } from './lib/motion';
+import { loadTheme, saveTheme, nextTheme, applyTheme } from './lib/theme';
 import { importLocalMeals, countLocalMeals } from './lib/localImport';
 import './App.css';
 
@@ -67,7 +69,7 @@ function AdminApp() {
   const [chefProfileChecked, setChefProfileChecked] = useState(!isSupabaseConfigured);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [theme, setTheme] = useState('light');
+  const [theme, setTheme] = useState(loadTheme);
   // Local Import (see CONTEXT.md / ADR 0001): offered once, right after a
   // fresh sign-up, while the new account is guaranteed empty. Anything
   // declined or left behind by a partial failure stays in local storage,
@@ -77,7 +79,8 @@ function AdminApp() {
   const [localMealCount, setLocalMealCount] = useState(() => countLocalMeals());
 
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
+    applyTheme(theme);
+    saveTheme(theme);
   }, [theme]);
 
   // Shareable meal links: `?meal=<id>` opens that meal directly, and
@@ -179,11 +182,11 @@ function AdminApp() {
     setShowAddForm(false);
     setShowPublish(false);
     closeMeal();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    scrollToTop();
   }
 
   function handleToggleTheme() {
-    setTheme((t) => (t === 'light' ? 'dark' : 'light'));
+    setTheme(nextTheme);
   }
 
   function handleRequestSignIn() {
@@ -332,7 +335,12 @@ function AdminApp() {
         <AddMealForm onSave={handleAddMeal} onCancel={() => setShowAddForm(false)} />
       )}
 
-      <BottomNav onHome={handleNavHome} onAdd={() => setShowAddForm(true)} onProfile={() => setShowSettings(true)} />
+      <BottomNav
+        active={showAddForm ? 'add' : 'home'}
+        onHome={handleNavHome}
+        onAdd={() => setShowAddForm(true)}
+        onProfile={() => setShowSettings(true)}
+      />
     </div>
   );
 }

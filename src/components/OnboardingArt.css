@@ -1,0 +1,39 @@
+.onboarding-art {
+  width: 100%;
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: repeating-linear-gradient(
+    45deg,
+    var(--color-surface),
+    var(--color-surface) 10px,
+    var(--color-line) 10px,
+    var(--color-line) 20px
+  );
+}
+
+/* Once a slot has real art in it the hatched placeholder background is
+   just noise behind a transparent PNG or canvas, so it comes off. */
+.onboarding-art-filled {
+  background: none;
+}
+
+.onboarding-art-image,
+.onboarding-art-rive {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.onboarding-art-label {
+  font: 400 0.6875rem/1 var(--font-mono);
+  color: var(--color-muted);
+}
+
+.onboarding-art-hint {
+  font: 400 0.625rem/1 var(--font-mono);
+  color: var(--color-disabled);
+}

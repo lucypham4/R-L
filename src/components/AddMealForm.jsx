@@ -345,6 +345,12 @@ export default function AddMealForm({ onSave, onCancel }) {
     <div className="modal-overlay" onMouseDown={(e) => e.target === e.currentTarget && !isSaving && onCancel()}>
       <div className="add-meal-card" ref={cardRef} role="dialog" aria-modal="true" aria-label="Add a meal">
         <p className="add-meal-progress">Step {step} of 3</p>
+        {/* The step counter already says where you are; the bar makes it
+            glanceable and, by growing rather than jumping, shows that the
+            last step moved you forward. */}
+        <div className="add-meal-progress-track" aria-hidden="true">
+          <span className="add-meal-progress-fill" style={{ transform: `scaleX(${step / 3})` }} />
+        </div>
         <h2 className="add-meal-title">{STEP_TITLES[step]}</h2>
 
         {step === 1 && (

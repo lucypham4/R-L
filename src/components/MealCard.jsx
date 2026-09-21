@@ -9,7 +9,7 @@ export function formatMealDate(iso) {
   return dateFormatter.format(new Date(iso)).replace(/ /g, ' ').toUpperCase();
 }
 
-export default function MealCard({ meal, onOpen, onLongPress, editMode, onDelete }) {
+export default function MealCard({ meal, onOpen, onLongPress, editMode, onDelete, style }) {
   const pressTimer = useRef(null);
   const longPressedRef = useRef(false);
   const rawPhoto = meal.photos?.[0] ?? null;
@@ -49,7 +49,7 @@ export default function MealCard({ meal, onOpen, onLongPress, editMode, onDelete
   }
 
   return (
-    <div className="meal-card-wrap">
+    <div className="meal-card-wrap" style={style}>
       <button
         type="button"
         className="meal-card"
