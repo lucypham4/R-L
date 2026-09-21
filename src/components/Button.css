@@ -12,7 +12,17 @@
   text-transform: uppercase;
   white-space: nowrap;
   transition: background var(--dur-color) var(--ease), border-color var(--dur-color) var(--ease),
-    color var(--dur-color) var(--ease);
+    color var(--dur-color) var(--ease), transform var(--dur-move) var(--ease-spring);
+}
+
+/* Press feedback. The button dips under the finger and springs back on
+   release, which is what makes a tap feel acknowledged on touch where
+   there's no hover state to do it. --ease-spring supplies the overshoot
+   on the way back; the dip itself is quick and linear-feeling so it
+   tracks the finger rather than lagging it. */
+.btn:active:not(:disabled) {
+  transform: scale(var(--press-scale));
+  transition-duration: var(--dur-press);
 }
 
 .btn-primary {

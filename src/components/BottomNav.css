@@ -45,11 +45,14 @@
   gap: 2px;
   border-radius: 28px;
   color: var(--color-muted);
+  transition: background var(--dur-color) var(--ease), color var(--dur-color) var(--ease),
+    transform var(--dur-move) var(--ease-spring);
 }
 
 .bottom-nav-tab svg {
   width: 22px;
   height: 22px;
+  transition: transform var(--dur-move) var(--ease-spring);
 }
 
 .bottom-nav-tab span {
@@ -57,7 +60,21 @@
   letter-spacing: 0.02em;
 }
 
+.bottom-nav-tab:active {
+  transform: scale(var(--press-scale));
+  transition-duration: var(--dur-press);
+}
+
 .bottom-nav-tab-active {
-  background: #ffffff;
+  /* Was hard-coded #ffffff, which left a white pill sitting in the dark
+     theme's nav bar. --color-card tracks the theme. */
+  background: var(--color-card);
   color: var(--color-accent);
+}
+
+/* The icon of the tab you just landed on gives a small nudge upward --
+   enough to confirm the tap registered and to pull the eye to the pill's
+   new position, without the tab bar becoming a light show. */
+.bottom-nav-tab-active svg {
+  transform: translateY(-1px) scale(1.08);
 }

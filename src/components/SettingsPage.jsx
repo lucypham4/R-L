@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Button from './Button';
+import { THEME_LABELS } from '../lib/theme';
 import './SettingsPage.css';
 
 function plural(n, word) {
@@ -69,7 +70,7 @@ export default function SettingsPage({
         <div className="settings-row">
           <span>Appearance</span>
           <Button variant="secondary" onClick={onToggleTheme}>
-            {theme === 'dark' ? 'Dark' : 'Light'}
+            {THEME_LABELS[theme]}
           </Button>
         </div>
       </section>

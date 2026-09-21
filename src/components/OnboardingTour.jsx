@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react';
 import Button from './Button';
+import OnboardingArt from './OnboardingArt';
+import { buildSteps } from './onboardingSteps';
 import './OnboardingTour.css';
 
 const ICONS = {
@@ -39,47 +41,28 @@ function Icon({ name }) {
   );
 }
 
-function buildSteps(publicUrl) {
-  return [
-    {
-      icon: 'book',
-      title: 'Every dish, remembered',
-      body: 'Document all your proudest dishes.',
-      artLabel: 'Cover illustration',
-      artHint: '16:9 · ≥1600px wide',
-    },
-    {
-      icon: 'camera',
-      title: 'Log it your way',
-      body: 'Snap a photo, or sketch it instead.',
-      artLabel: 'Add-meal illustration',
-      artHint: '1:1 · ≥800px',
-    },
-    {
-      icon: 'grid',
-      title: 'Watch it grow',
-      body: 'Every meal adds to your archive.',
-      artLabel: 'Growing-archive illustration',
-      artHint: '1:1 · ≥800px',
-    },
-    {
-      icon: 'share',
-      title: 'Share it when you’re ready',
-      body: publicUrl ? `Your page is already live at ${publicUrl}.` : 'Sign in for a live page and to export a copy any time.',
-      artLabel: 'Share illustration',
-      artHint: '1:1 · ≥800px',
-    },
-  ];
-}
-
 const SWIPE_THRESHOLD = 50;
 
 export default function OnboardingTour({ onDone, publicUrl }) {
   const [step, setStep] = useState(0);
+  // Which way the last move went, so the panel slides in from the side
+  // the chef came from instead of always the same direction. Swiping
+  // back that animates forward feels like the app misread the gesture.
+  const [direction, setDirection] = useState('forward');
   const STEPS = buildSteps(publicUrl);
   const isLast = step === STEPS.length - 1;
   const current = STEPS[step];
   const swipeStart = useRef(null);
+
+  function goNext() {
+    setDirection('forward');
+    setStep((n) => n + 1);
+  }
+
+  function goBack() {
+    setDirection('back');
+    setStep((n) => n - 1);
+  }
 
   function handlePointerDown(e) {
     swipeStart.current = { x: e.clientX, y: e.clientY };
@@ -92,9 +75,9 @@ export default function OnboardingTour({ onDone, publicUrl }) {
     swipeStart.current = null;
     if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dx) < Math.abs(dy)) return;
     if (dx < 0) {
-      isLast ? onDone() : setStep((s) => s + 1);
+      isLast ? onDone() : goNext();
     } else if (step > 0) {
-      setStep((s) => s - 1);
+      goBack();
     }
   }
 
@@ -110,13 +93,17 @@ export default function OnboardingTour({ onDone, publicUrl }) {
           Skip
         </button>
 
-        <Icon name={current.icon} />
-        <h2 className="onboarding-title">{current.title}</h2>
-        <p className="onboarding-body">{current.body}</p>
+        <div key={step} className={`onboarding-panel onboarding-panel-${direction}`}>
+          <Icon name={current.icon} />
+          <h2 className="onboarding-title">{current.title}</h2>
+          <p className="onboarding-body">{current.body}</p>
 
-        <div className="onboarding-art" aria-hidden="true">
-          <span className="onboarding-art-label">{current.artLabel}</span>
-          <span className="onboarding-art-hint">{current.artHint}</span>
+          <OnboardingArt
+            art={current.art}
+            label={current.artLabel}
+            hint={current.artHint}
+            ratio={current.ratio}
+          />
         </div>
 
         <div className="onboarding-dots">
@@ -127,14 +114,14 @@ export default function OnboardingTour({ onDone, publicUrl }) {
 
         <div className="onboarding-footer">
           {step > 0 && (
-            <Button type="button" variant="secondary" onClick={() => setStep((s) => s - 1)}>
+            <Button type="button" variant="secondary" onClick={goBack}>
               Back
             </Button>
           )}
           <Button
             type="button"
             variant="primary"
-            onClick={() => (isLast ? onDone() : setStep((s) => s + 1))}
+            onClick={() => (isLast ? onDone() : goNext())}
           >
             {isLast ? "Let's cook" : 'Next'}
           </Button>

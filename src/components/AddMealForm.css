@@ -204,3 +204,43 @@
   padding-top: var(--space-lg);
   border-top: var(--divider);
 }
+
+/* Wizard progress bar. scaleX on a fixed-width track rather than an
+   animated width, so the growth is composited rather than relaid out on
+   every frame. --dur-move collapses to 0ms under reduced motion, which
+   turns the growth into a jump without hiding the progress itself. */
+.add-meal-progress-track {
+  height: 2px;
+  margin-top: 8px;
+  margin-bottom: var(--space-lg);
+  background: var(--color-line);
+  overflow: hidden;
+}
+
+.add-meal-progress-fill {
+  display: block;
+  height: 100%;
+  background: var(--color-accent);
+  transform-origin: left center;
+  transition: transform var(--dur-move) var(--ease-out);
+}
+
+/* Each step is its own element in the JSX, so changing step unmounts one
+   and mounts the next and this entrance replays without needing a key. */
+.add-meal-form {
+  animation: rise-in var(--dur-enter) var(--ease-out) backwards;
+}
+
+.add-meal-inline-btn,
+.add-meal-mode-toggle button,
+.add-meal-adjust-crop {
+  transition: background var(--dur-color) var(--ease), color var(--dur-color) var(--ease),
+    transform var(--dur-move) var(--ease-spring);
+}
+
+.add-meal-inline-btn:active:not(:disabled),
+.add-meal-mode-toggle button:active:not(:disabled),
+.add-meal-adjust-crop:active:not(:disabled) {
+  transform: scale(var(--press-scale));
+  transition-duration: var(--dur-press);
+}

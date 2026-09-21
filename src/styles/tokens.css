@@ -9,6 +9,7 @@
   --color-accent: #bb2027;
   --color-accent-hover: #8f171c;
   --color-accent-wash: rgba(187, 32, 39, 0.08);
+  --color-accent-ring: rgba(187, 32, 39, 0.38);
   --color-danger: #a3392b;
   --color-note-ink: #4a5a6a;
   --color-card: #faf9f6;
@@ -58,9 +59,29 @@
   --control-height: 44px;
   --filter-height: 40px;
 
+  /* Motion. Every moving thing in the app reads from the tokens below, so
+     the reduced-motion block at the bottom of this file can neutralise
+     movement app-wide by redefining them in one place. Don't hard-code a
+     duration, easing curve or offset in a component stylesheet. */
   --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+
+  --dur-press: 90ms;
   --dur-color: 200ms;
   --dur-move: 240ms;
+  --dur-enter: 380ms;
+
+  /* Per-item delay when a list animates in. Gallery.css caps how many
+     items ever take a delay, so a long archive doesn't cascade for
+     seconds. */
+  --stagger-step: 36ms;
+
+  /* Movement amounts, tokenised so reduced motion can flatten them to
+     zero without every component needing its own media query. */
+  --press-scale: 0.97;
+  --lift: -4px;
+  --rise: 10px;
 
   --divider: 1px solid var(--color-line);
   --rule-card: 2px solid var(--color-ink);
@@ -80,6 +101,7 @@
     --color-accent: #f26d62;
     --color-accent-hover: #ff9086;
     --color-accent-wash: rgba(242, 109, 98, 0.14);
+  --color-accent-ring: rgba(242, 109, 98, 0.42);
     --color-danger: #f08072;
     --color-note-ink: #8fa6bc;
     --color-card: #211f1c;
@@ -101,6 +123,7 @@
   --color-accent: #f26d62;
   --color-accent-hover: #ff9086;
   --color-accent-wash: rgba(242, 109, 98, 0.14);
+  --color-accent-ring: rgba(242, 109, 98, 0.42);
   --color-danger: #f08072;
   --color-note-ink: #8fa6bc;
   --color-card: #211f1c;
@@ -108,4 +131,25 @@
   --shadow-md: 0 10px 24px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 28px 70px rgba(0, 0, 0, 0.65);
   --scrim-bg: rgba(20, 19, 17, 0.55);
+}
+
+/* Reduced motion. Rather than the usual blanket `* { animation: none }`,
+   neutralise the movement tokens: durations that move things go to zero,
+   travel distances collapse, and scale factors become identity. Colour
+   transitions (--dur-color) deliberately survive, since a cross-fade
+   carries no vestibular risk and keeps hover/focus states legible.
+
+   The practical upshot: a component written against these tokens is
+   automatically reduced-motion correct, with no per-component media
+   query. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-press: 0ms;
+    --dur-move: 0ms;
+    --dur-enter: 0ms;
+    --stagger-step: 0ms;
+    --press-scale: 1;
+    --lift: 0px;
+    --rise: 0px;
+  }
 }

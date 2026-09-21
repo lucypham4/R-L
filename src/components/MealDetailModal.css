@@ -11,13 +11,6 @@
   animation: modal-rise var(--dur-move) var(--ease);
 }
 
-@keyframes modal-rise {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-}
-
 @media (min-width: 768px) {
   .modal-card {
     flex-direction: row;

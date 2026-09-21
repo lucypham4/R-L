@@ -1,9 +1,19 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Button from './Button';
 import FilterSheet from './FilterSheet';
 import MealCard from './MealCard';
 import MealActionSheet from './MealActionSheet';
 import './Gallery.css';
+
+// Cards past this index all share the same entrance delay, so a long
+// archive's cascade finishes in about a second instead of scaling with
+// the number of meals.
+const STAGGER_CAP = 12;
+
+// How long the entrance stays armed after the first cards render. Covers
+// the capped cascade (STAGGER_CAP * --stagger-step) plus one --dur-enter,
+// with room to spare.
+const INTRO_WINDOW_MS = 900;
 
 export default function Gallery({
   meals,
@@ -20,6 +30,10 @@ export default function Gallery({
   const [showFilters, setShowFilters] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [actionSheetMeal, setActionSheetMeal] = useState(null);
+  // The staggered entrance is a first-impression flourish, not a
+  // permanent property of the grid. Once the intro window closes the
+  // class comes off, so re-filtering never replays it.
+  const [introDone, setIntroDone] = useState(false);
 
   const cuisines = useMemo(() => uniqueSorted(meals.map((m) => m.cuisine)), [meals]);
   const categories = useMemo(() => uniqueSorted(meals.map((m) => m.category)), [meals]);
@@ -27,6 +41,14 @@ export default function Gallery({
     () => uniqueSorted(meals.map((m) => String(new Date(m.date).getFullYear()))).sort().reverse(),
     [meals]
   );
+
+  const hasRenderedMeals = meals.length > 0;
+
+  useEffect(() => {
+    if (!hasRenderedMeals || introDone) return;
+    const timer = setTimeout(() => setIntroDone(true), INTRO_WINDOW_MS);
+    return () => clearTimeout(timer);
+  }, [hasRenderedMeals, introDone]);
 
   const query = search.trim().toLowerCase();
 
@@ -141,11 +163,12 @@ export default function Gallery({
           <p className="gallery-empty">No meals match those filters.</p>
         )
       ) : (
-        <div className="gallery-grid">
-          {filtered.map((meal) => (
+        <div className={`gallery-grid ${introDone ? '' : 'gallery-grid-intro'}`}>
+          {filtered.map((meal, i) => (
             <MealCard
               key={meal.id}
               meal={meal}
+              style={{ '--stagger-index': Math.min(i, STAGGER_CAP) }}
               onOpen={onOpenMeal}
               onLongPress={onDeleteMeal ? setActionSheetMeal : undefined}
               editMode={editMode}
