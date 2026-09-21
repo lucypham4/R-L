@@ -13,8 +13,14 @@
     transform: translateX(-50%);
     z-index: 40;
     /* Sized for icons alone; the text labels under them were removed, so
-       the pill tightens up rather than keeping their empty space. */
-    width: 168px;
+       the pill tightens up rather than keeping their empty space.
+
+       170 rather than a rounder 168 so the three tabs divide evenly:
+       170 - 6 (padding) - 8 (two gaps) = 156, and 156 / 3 = 52 exactly.
+       At 168 each tab came out 51.33px, and the accumulated fraction
+       pushed the last tab a subpixel off its edge, so the end gaps never
+       quite matched. */
+    width: 170px;
     height: 54px;
     padding: 3px;
     gap: 4px;
