@@ -3,7 +3,6 @@ import { Analytics } from '@vercel/analytics/react';
 import Gallery from './components/Gallery';
 import MealDetailModal from './components/MealDetailModal';
 import AddMealForm from './components/AddMealForm';
-import PublishModal from './components/PublishModal';
 import SignInScreen from './components/SignInScreen';
 import ChooseUsername from './components/ChooseUsername';
 import LocalImportPrompt from './components/LocalImportPrompt';
@@ -14,7 +13,7 @@ import SettingsPage from './components/SettingsPage';
 import { isSupabaseConfigured } from './lib/supabase';
 import { isCloudinaryConfigured } from './lib/cloudinary';
 import { fetchMeals, insertMeal, deleteMeal } from './lib/mealsApi';
-import { fetchChefProfile } from './lib/chefsApi';
+import { fetchChefProfile, updateChefPageTheme } from './lib/chefsApi';
 import { getSession, onAuthChange, signOut } from './lib/auth';
 import { loadLocalMeals, saveLocalMeals, createLocalMeal } from './lib/localMeals';
 import { scrollToTop } from './lib/motion';
@@ -71,7 +70,6 @@ function AdminApp() {
   const [loadError, setLoadError] = useState('');
   const [openMealId, setOpenMealId] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [showPublish, setShowPublish] = useState(false);
   const [showSignIn, setShowSignIn] = useState(false);
   const [signInMode, setSignInMode] = useState('signin');
   const [session, setSession] = useState(null);
@@ -191,7 +189,6 @@ function AdminApp() {
 
   function handleNavHome() {
     setShowAddForm(false);
-    setShowPublish(false);
     closeMeal();
     scrollToTop();
   }
@@ -200,13 +197,17 @@ function AdminApp() {
     setTheme(nextTheme);
   }
 
-  function handleRequestSignIn() {
-    setSignInMode('signin');
-    setShowSignIn(true);
+  // Writes the chef's public-page theme through to their profile. Kept in
+  // App so the local chefProfile stays in step with the row that was just
+  // saved; SettingsPage re-renders from it. Errors propagate so the row
+  // can roll its own state back.
+  async function handleChangePageTheme(pageTheme) {
+    const updated = await updateChefPageTheme(session.user.id, pageTheme);
+    setChefProfile(updated);
   }
 
-  function handleRequestSignUp() {
-    setSignInMode('signup');
+  function handleRequestSignIn() {
+    setSignInMode('signin');
     setShowSignIn(true);
   }
 
@@ -300,24 +301,20 @@ function AdminApp() {
 
   if (showSettings) {
     return (
-      <>
-        <SettingsPage
-          onBack={() => setShowSettings(false)}
-          isSupabaseConfigured={isSupabaseConfigured}
-          session={session}
-          publicUrl={publicUrl}
-          theme={theme}
-          onToggleTheme={handleToggleTheme}
-          onSignIn={handleRequestSignIn}
-          onSignOut={signOut}
-          onDownloadCopy={() => setShowPublish(true)}
-          canExport={!isSupabaseConfigured || Boolean(session)}
-          onRequestSignUp={handleRequestSignUp}
-          localMealCount={localMealCount}
-          onImportLocalMeals={handleImportLocalMeals}
-        />
-        {showPublish && <PublishModal meals={sortedMeals} onClose={() => setShowPublish(false)} />}
-      </>
+      <SettingsPage
+        onBack={() => setShowSettings(false)}
+        isSupabaseConfigured={isSupabaseConfigured}
+        session={session}
+        publicUrl={publicUrl}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
+        onSignIn={handleRequestSignIn}
+        onSignOut={signOut}
+        chefProfile={chefProfile}
+        onChangePageTheme={chefProfile ? handleChangePageTheme : undefined}
+        localMealCount={localMealCount}
+        onImportLocalMeals={handleImportLocalMeals}
+      />
     );
   }
 

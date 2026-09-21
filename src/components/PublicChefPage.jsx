@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Gallery from './Gallery';
 import MealDetailModal from './MealDetailModal';
-import { fetchChefBySlug } from '../lib/chefsApi';
+import { fetchChefBySlug, DEFAULT_PAGE_THEME } from '../lib/chefsApi';
 import { fetchMeals } from '../lib/mealsApi';
 import './PublicChefPage.css';
 
@@ -37,6 +37,15 @@ export default function PublicChefPage({ slug }) {
       cancelled = true;
     };
   }, [slug]);
+
+  // The public page renders the chef's chosen theme, not the visitor's OS
+  // preference: this page is the chef's published work, so it should look
+  // the same to every client they send it to. Setting data-theme
+  // explicitly also pins it, since tokens.css only lets
+  // prefers-color-scheme win when the attribute is absent.
+  useEffect(() => {
+    document.documentElement.dataset.theme = chef?.pageTheme ?? DEFAULT_PAGE_THEME;
+  }, [chef]);
 
   // Shareable meal links, same pattern as the admin app.
   useEffect(() => {

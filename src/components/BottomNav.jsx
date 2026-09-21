@@ -33,6 +33,9 @@ export default function BottomNav({ onHome, onAdd, onProfile, active = 'home' })
 
   return (
     <nav className="bottom-nav" aria-label="Primary">
+      {/* The tab labels are icon-only now, so tab.label reaches screen
+          readers through aria-label instead of visible text. Without it
+          this nav is three unlabelled buttons. */}
       {TABS.map((tab) => {
         const isActive = active === tab.id;
         return (
@@ -41,10 +44,10 @@ export default function BottomNav({ onHome, onAdd, onProfile, active = 'home' })
             type="button"
             className={`bottom-nav-tab ${isActive ? 'bottom-nav-tab-active' : ''}`}
             aria-current={isActive ? 'page' : undefined}
+            aria-label={tab.label}
             onClick={handlers[tab.id]}
           >
             <Icon name={tab.id} />
-            <span>{tab.label}</span>
           </button>
         );
       })}

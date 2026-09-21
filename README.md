@@ -31,7 +31,10 @@ page and cross-device access possible on top of that.
    once (adds the `chefs` table, scopes every meal to its own chef, and
    sets the row-level security policies this app actually relies on today.
    See Security notes below), then `supabase/photos-array-migration.sql`
-   once (adds the `photos` column meals now use for up to 6 photos each).
+   once (adds the `photos` column meals now use for up to 6 photos each),
+   then `supabase/page-theme-migration.sql` once (adds the `page_theme`
+   column that stores each chef's light/dark choice for their public
+   page).
 3. In Cloudinary, create an **unsigned** upload preset (Settings → Upload →
    Upload presets → Add upload preset, signing mode "Unsigned"). Unsigned
    presets are what let the browser upload directly without exposing your
@@ -113,6 +116,12 @@ from there ("New chef? Create an account"), no admin approval step.
    gallery, separate from whatever's in that browser's local storage.
    "View public page ↗" in the top bar opens your `/<slug>` page, that's
    the link to actually share.
+3. Settings → Theme → **Public page** sets whether that page renders light
+   or dark for everyone you send it to. It's stored on your profile, not
+   in the visitor's browser, so the page looks the same to every client,
+   and you can change it at any time after the page is live. It's separate
+   from **Appearance** directly above it, which is your own per-device
+   preference for the private app and follows your OS by default.
 
 There's currently no way to import your local-only meals into an account
 you create afterward, they're two separate stores. If your Supabase
@@ -149,6 +158,9 @@ worth reading before adding UI:
   query.
 - [`docs/design-system/illustration.md`](docs/design-system/illustration.md)
   — the art slots and the Rive setup.
+- [`docs/design-system/shape.md`](docs/design-system/shape.md) — why the
+  app is square-cornered, the two radius tokens that are exceptions, and
+  why photos get a hairline outline rather than a shadow.
 
 Theme follows the operating system by default. The Appearance control in
 Settings cycles System → Light → Dark and remembers the choice.

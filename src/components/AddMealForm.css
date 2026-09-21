@@ -121,6 +121,9 @@
   height: 64px;
   object-fit: cover;
   border: 1px solid var(--color-line);
+  /* Same treatment as every other food photo in the app, so the wizard's
+     thumbnail matches the card it will become. */
+  border-radius: var(--radius-media);
   flex-shrink: 0;
 }
 

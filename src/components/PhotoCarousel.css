@@ -25,6 +25,7 @@
   overflow: hidden;
   background: var(--color-surface);
   border: 1px solid var(--color-line);
+  border-radius: var(--radius-media);
   padding: 0;
 }
 
@@ -38,6 +39,7 @@
 .photo-carousel-thumb-active {
   outline: 2px solid var(--color-ink);
   outline-offset: 1px;
+  border-radius: var(--radius-media);
 }
 
 .photo-carousel-add {
@@ -69,20 +71,31 @@
   position: relative;
   flex: 1;
   min-width: 0;
-  aspect-ratio: 4 / 5;
   max-width: 320px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-surface);
+  /* No fixed aspect-ratio and no surface fill.
+
+     This used to be a hard 4:5 box with a --color-surface background and
+     an object-fit: contain photo inside, which letterboxed every photo
+     that wasn't 4:5 with beige bars above and below. Letting the box
+     hug the photo removes the bars at the source: there is no leftover
+     area left to fill, whatever shape the photo is. */
+  background: transparent;
   border: 1px solid var(--color-line);
+  border-radius: var(--radius-media);
   overflow: hidden;
   touch-action: pan-y;
 }
 
 .photo-carousel-main-photo {
-  max-width: 100%;
-  max-height: 100%;
+  display: block;
+  width: 100%;
+  height: auto;
+  /* Caps a very tall portrait photo so it can't push the meal's text off
+     the screen. Landscape and square photos never reach it. */
+  max-height: 70vh;
   object-fit: contain;
   pointer-events: none;
 }
