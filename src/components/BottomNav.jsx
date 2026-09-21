@@ -1,8 +1,18 @@
 import './BottomNav.css';
 
+// Every glyph's ink spans x 4.5 -> 19.5 inside the 24-unit viewBox.
+//
+// That matters because the first and last icons sit against the pill's
+// rounded ends: the tabs themselves are exactly equal, but the painted
+// glyphs were not. Home's ink ran 3 -> 21 while Profile's ran 4.5 ->
+// 19.5, so the leftmost glyph reached 1.5 units closer to its edge than
+// the rightmost did and the pill looked like it had more padding on the
+// right. Equal ink insets make the end gaps identical without touching
+// the layout, and incidentally stop Home reading as the chunkiest of the
+// three. Keep any new icon inside the same 4.5 -> 19.5 span.
 const ICONS = {
-  home: <path d="M3 11l9-7 9 7M5 10v10h5v-6h4v6h5V10" />,
-  add: <path d="M12 5v14M5 12h14" />,
+  home: <path d="M4.5 11.17l7.5-5.83 7.5 5.83M6.17 10.33v8.33h4.17v-5h3.33v5h4.17V10.33" />,
+  add: <path d="M12 4.5v15M4.5 12h15" />,
   profile: (
     <>
       <circle cx="12" cy="8" r="3.5" />
