@@ -18,6 +18,23 @@ npm install
 npm run dev
 ```
 
+### Tests
+
+```bash
+npm test
+```
+
+Playwright drives the built app (not the dev server, so it exercises what
+actually ships) against fake Supabase credentials, intercepting every
+Supabase request. No test reaches a real project.
+
+The browser is expected to be already installed. If Playwright reports a
+missing browser, run `npx playwright install chromium` once.
+
+The suite currently pins the add-meal wizard's AI-fill failure paths: a
+failing Edge Function must never cost a chef their notes or their way
+forward. See `tests/add-meal-ai-failure.spec.js`.
+
 Works immediately with no environment variables, meals persist to that
 browser's `localStorage` and photos fall back to local blob URLs (see
 below). Configuring Supabase and Cloudinary makes signing in for a public

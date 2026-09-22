@@ -6,3 +6,9 @@ dist
 .env.*
 !.env.example
 supabase/.temp
+
+# Playwright
+test-results
+playwright-report
+blob-report
+.playwright
