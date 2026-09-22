@@ -8,7 +8,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "cap:sync": "vite build && cap sync ios",
-    "cap:open:ios": "cap open ios"
+    "cap:open:ios": "cap open ios",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.2",
@@ -23,6 +25,7 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^8.5.2",
+    "@playwright/test": "^1.56.1",
     "@vitejs/plugin-react": "^4.3.4",
     "vite": "^5.4.11"
   }

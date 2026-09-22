@@ -18,6 +18,23 @@ npm install
 npm run dev
 ```
 
+### Tests
+
+```bash
+npm test
+```
+
+Playwright drives the built app (not the dev server, so it exercises what
+actually ships) against fake Supabase credentials, intercepting every
+Supabase request. No test reaches a real project.
+
+The browser is expected to be already installed. If Playwright reports a
+missing browser, run `npx playwright install chromium` once.
+
+The suite currently pins the add-meal wizard's AI-fill failure paths: a
+failing Edge Function must never cost a chef their notes or their way
+forward. See `tests/add-meal-ai-failure.spec.js`.
+
 Works immediately with no environment variables, meals persist to that
 browser's `localStorage` and photos fall back to local blob URLs (see
 below). Configuring Supabase and Cloudinary makes signing in for a public
@@ -101,6 +118,20 @@ under heavier use.
 Without that function deployed, the button still shows (Supabase is
 configured) but errors clearly on click rather than silently doing
 nothing, so it's obvious what's missing.
+
+**If AI fill fails, the wizard carries on.** A failing Edge Function used
+to strand a chef on step 2 with "Edge Function returned a non-2xx status
+code", which is what `supabase-js` reports for *any* non-2xx and says
+nothing about the cause. The wizard now moves to step 3 regardless,
+carries the notes over as the description, and shows the Edge Function's
+own message, which is the one worth reading:
+
+| What you see | What to do |
+| --- | --- |
+| `GEMINI_API_KEY is not configured on this project.` | `supabase secrets set GEMINI_API_KEY=...` |
+| `AI request failed (404): ...` | The model in `GEMINI_MODEL` doesn't exist for your key; set it to one that does |
+| `AI request failed (429): ...` | Free-tier rate limit, wait and retry |
+| `Couldn't reach the AI just now.` | No response body from our handler, so the function isn't deployed or the request never reached it |
 
 ### Signing in (optional)
 
