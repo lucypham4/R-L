@@ -247,3 +247,34 @@
   transform: scale(var(--press-scale));
   transition-duration: var(--dur-press);
 }
+
+/* Non-blocking notice on step 3, shown when AI fill failed on the way here.
+   Deliberately not styled as an error: nothing is broken from the chef's
+   point of view, they just have a card to fill in by hand. */
+.add-meal-notice {
+  padding: var(--space-md) var(--space-lg);
+  border: 1px solid var(--color-line);
+  border-left: 3px solid var(--color-accent);
+  border-radius: var(--radius-media);
+  background: var(--color-surface);
+}
+
+.add-meal-notice-title {
+  font: 500 0.8125rem/1.4 var(--font-sans);
+  color: var(--color-ink);
+}
+
+.add-meal-notice-body {
+  margin-top: 4px;
+  font: 400 0.8125rem/1.5 var(--font-sans);
+  color: var(--color-muted);
+}
+
+/* The server's own words, kept small: useful when it says something
+   actionable like "GEMINI_API_KEY is not configured on this project". */
+.add-meal-notice-reason {
+  margin-top: 6px;
+  font: 400 0.6875rem/1.45 var(--font-mono);
+  color: var(--color-disabled);
+  overflow-wrap: anywhere;
+}

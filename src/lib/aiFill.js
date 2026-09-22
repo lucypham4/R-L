@@ -6,6 +6,29 @@ import { supabase, isSupabaseConfigured } from './supabase';
 // rather than calling a third-party API directly from the browser.
 export const isAiConfigured = isSupabaseConfigured;
 
+/**
+ * Pulls the real reason out of a failed functions.invoke().
+ *
+ * supabase-js reports every non-2xx as a FunctionsHttpError whose message is
+ * the generic "Edge Function returned a non-2xx status code". The actual
+ * explanation -- "GEMINI_API_KEY is not configured on this project",
+ * "AI request failed (404): ..." -- is in the JSON body, reachable only via
+ * error.context (the underlying Response). Reading it is the difference
+ * between a chef seeing a status-code string and seeing what to fix.
+ */
+async function messageFromFunctionsError(error, fallback) {
+  try {
+    const body = await error?.context?.json?.();
+    if (body && typeof body.error === 'string' && body.error.trim()) return body.error;
+  } catch {
+    // Not JSON (a platform-level 404 or 413 never reaches our handler, so it
+    // has no body of ours); fall through to the generic message below.
+  }
+  // error.message here is supabase-js's own status-code string, which tells a
+  // chef nothing, so prefer the caller's human wording.
+  return fallback;
+}
+
 function blobToBase64(blob) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -38,7 +61,11 @@ export async function generateMealDetails({ notes, photoBlob, photoMediaType }) 
     },
   });
 
-  if (error) throw new Error(error.message || 'Could not fill in details.');
+  if (error) {
+    throw new Error(
+      await messageFromFunctionsError(error, "Couldn't reach the AI just now.")
+    );
+  }
   if (!data || typeof data !== 'object') throw new Error('Got an unexpected response.');
 
   return {
@@ -69,7 +96,11 @@ export async function cleanDescription({ description }) {
     body: { description },
   });
 
-  if (error) throw new Error(error.message || 'Could not clean up the description.');
+  if (error) {
+    throw new Error(
+      await messageFromFunctionsError(error, "Couldn't reach the AI just now.")
+    );
+  }
   if (!data || typeof data.description !== 'string') throw new Error('Got an unexpected response.');
 
   return data.description;

@@ -44,6 +44,12 @@ export default function AddMealForm({ onSave, onCancel }) {
   const [cropTarget, setCropTarget] = useState(null); // { file, index: number | null }
   const [hasSketch, setHasSketch] = useState(false);
   const sketchRef = useRef(null);
+  // SketchCanvas only renders on step 1, so sketchRef.current is null from
+  // step 2 onward. Both the AI-fill call and the save need the drawing after
+  // that point, so the blob is captured on the way out of step 1 and kept
+  // here. Without it, sketch meals threw "Cannot read properties of null
+  // (reading 'getBlob')" and could never be saved.
+  const sketchBlobRef = useRef(null);
   const [notes, setNotes] = useState('');
   const [name, setName] = useState('');
   const [date, setDate] = useState('');
@@ -217,9 +223,20 @@ export default function AddMealForm({ onSave, onCancel }) {
     setActiveIndex((i) => Math.min(i, Math.max(0, next.length - 1)));
   }
 
-  function handleAdvanceStep1() {
+  async function getSketchBlob() {
+    if (sketchRef.current) {
+      const blob = await sketchRef.current.getBlob();
+      if (blob) sketchBlobRef.current = blob;
+      return blob;
+    }
+    return sketchBlobRef.current;
+  }
+
+  async function handleAdvanceStep1() {
     markTouched('photo');
     if (errors.photo) return;
+    // Capture the drawing before the canvas unmounts with this step.
+    if (photoMode === 'sketch') await getSketchBlob();
     setStep(2);
   }
 
@@ -236,7 +253,7 @@ export default function AddMealForm({ onSave, onCancel }) {
     setAiFillError('');
     setAiFillStatus('loading');
     try {
-      const photoBlob = photoMode === 'sketch' ? await sketchRef.current.getBlob() : photos[0]?.file;
+      const photoBlob = photoMode === 'sketch' ? await getSketchBlob() : photos[0]?.file;
       if (!photoBlob) throw new Error('Add a photo or sketch first.');
       const photoMediaType = photoMode === 'sketch' ? 'image/png' : 'image/jpeg';
 
@@ -258,8 +275,16 @@ export default function AddMealForm({ onSave, onCancel }) {
       setAiFillStatus('done');
       setStep(3);
     } catch (err) {
+      // AI fill is an enrichment, never a gate. It used to leave the chef
+      // stuck on step 2 with a status-code string and no way forward, which
+      // meant a failing Edge Function blocked saving a meal at all. Carry
+      // the notes across as the description (exactly what the no-AI path
+      // does) and let them finish the card by hand; the reason travels with
+      // them to step 3 as a notice rather than a dead end.
       setAiFillStatus('error');
-      setAiFillError(err.message || 'Could not fill in details. You can still write the card yourself.');
+      setAiFillError(err.message || "Couldn't reach the AI just now.");
+      setDescription((current) => current || notes.trim().slice(0, DESCRIPTION_MAX));
+      setStep(3);
     }
   }
 
@@ -305,7 +330,7 @@ export default function AddMealForm({ onSave, onCancel }) {
     try {
       let photoUrls;
       if (photoMode === 'sketch') {
-        const blob = await sketchRef.current.getBlob();
+        const blob = await getSketchBlob();
         if (!blob) throw new Error('Could not read the sketch. Try drawing again.');
         setStatus('uploading');
         setUploadProgressList([0]);
@@ -500,7 +525,6 @@ export default function AddMealForm({ onSave, onCancel }) {
               />
               {speechError && <ErrorText>{speechError}</ErrorText>}
               {touched.notes && <ErrorText>{errors.notes}</ErrorText>}
-              {aiFillStatus === 'error' && <ErrorText>{aiFillError}</ErrorText>}
             </div>
 
             <div className="add-meal-footer">
@@ -528,6 +552,19 @@ export default function AddMealForm({ onSave, onCancel }) {
 
         {step === 3 && (
           <form className="add-meal-form" onSubmit={handleSubmit} noValidate>
+            {/* Shown only when AI fill failed on the way here. It explains
+                why the card arrived empty without standing between the chef
+                and saving the meal. */}
+            {aiFillStatus === 'error' && (
+              <div className="add-meal-notice" role="status">
+                <p className="add-meal-notice-title">Filled this in yourself?</p>
+                <p className="add-meal-notice-body">
+                  The AI couldn&rsquo;t fill in the details, so your notes were carried over as the
+                  description. Everything below is yours to edit, and the meal saves normally.
+                </p>
+                <p className="add-meal-notice-reason">{aiFillError}</p>
+              </div>
+            )}
             <div>
               <div className="add-meal-label-row">
                 <Label htmlFor="meal-description" required>
