@@ -21,7 +21,14 @@ export default defineConfig({
   webServer: {
     command: `npm run build && npm run preview -- --port ${PORT} --strictPort`,
     url: `http://localhost:${PORT}`,
-    reuseExistingServer: !process.env.CI,
+    // Never reuse. A server already on the port is serving whatever dist
+    // happens to be on disk, which on a machine with real VITE_SUPABASE_*
+    // values in its environment is a build pointed at a real project --
+    // the stub routes then match nothing and the suite quietly goes
+    // online. Rebuilding costs a few seconds; that cost twice in one
+    // afternoon. If the port is busy this now fails loudly, which is the
+    // correct outcome.
+    reuseExistingServer: false,
     timeout: 180_000,
     env: {
       VITE_SUPABASE_URL: 'https://stub.supabase.co',
