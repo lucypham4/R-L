@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { DEFAULT_SERVES, normaliseServes } from './meal';
 
 function fromRow(row) {
   return {
@@ -8,7 +9,7 @@ function fromRow(row) {
     cuisine: row.cuisine,
     category: row.category,
     date: row.date,
-    serves: row.serves,
+    serves: normaliseServes(row.serves),
     description: row.description,
     ingredients: row.ingredients ?? [],
     method: row.method ?? [],
@@ -24,7 +25,7 @@ function toRow(meal) {
     cuisine: meal.cuisine || '',
     category: meal.category || '',
     date: meal.date,
-    serves: meal.serves || 2,
+    serves: normaliseServes(meal.serves) ?? DEFAULT_SERVES,
     description: meal.description,
     ingredients: meal.ingredients ?? [],
     method: meal.method ?? [],

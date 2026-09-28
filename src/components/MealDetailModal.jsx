@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { toCanvas } from 'html-to-image';
 import PhotoCarousel from './PhotoCarousel';
+import { normaliseServes } from '../lib/meal';
 import './Bubbles.css';
 import './MealDetailModal.css';
 
@@ -136,6 +137,13 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep })
 
   const date = new Date(meal.date);
   const photos = meal.photos ?? [];
+  // Meals logged before the serves field existed have nothing to say here,
+  // and the card shouldn't invent it -- this line also goes onto the image
+  // chefs hand to clients.
+  const serves = normaliseServes(meal.serves);
+  const subLine = [meal.cuisine, fullDateFormatter.format(date), serves && `Serves ${serves}`]
+    .filter(Boolean)
+    .join(' · ');
   const heroPhotoUrl = photos[0] ?? null;
 
   async function handleShare() {
@@ -233,9 +241,7 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep })
               on the dish id is what replays the animation. */}
           <div className="modal-text-body" key={meal.id}>
             {meal.description && <p className="modal-description">{meal.description}</p>}
-            <p className="modal-text-sub">
-              {meal.cuisine} · {fullDateFormatter.format(date)} · Serves {meal.serves}
-            </p>
+            <p className="modal-text-sub">{subLine}</p>
 
             {meal.ingredients.length > 0 && (
               <>
@@ -307,9 +313,7 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep })
           <div className="share-card-body">
             <h2 className="share-card-name">{meal.name}</h2>
             {meal.description && <p className="share-card-description">{meal.description}</p>}
-            <p className="share-card-sub">
-              {meal.cuisine} · {fullDateFormatter.format(date)} · Serves {meal.serves}
-            </p>
+            <p className="share-card-sub">{subLine}</p>
 
             {meal.ingredients.length > 0 && (
               <div className="bubble-row share-card-ingredients">

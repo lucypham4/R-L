@@ -278,3 +278,11 @@
   color: var(--color-disabled);
   overflow-wrap: anywhere;
 }
+
+/* Serves is a two-digit answer sharing a row with a date. Left to the
+   row's default it takes half the width for no reason. */
+@media (min-width: 560px) {
+  .add-meal-row > .add-meal-serves {
+    flex: 0 0 132px;
+  }
+}

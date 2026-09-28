@@ -10,11 +10,28 @@ import { uploadImage, isCloudinaryConfigured } from '../lib/cloudinary';
 import { createSpeechRecognizer, isSpeechRecognitionSupported } from '../lib/speechToText';
 import { generateMealDetails, cleanDescription, isAiConfigured } from '../lib/aiFill';
 import { loadBubbleList, saveBubbleList } from '../lib/bubbleLists';
+import { DEFAULT_SERVES } from '../lib/meal';
 import './AddMealForm.css';
 
 const DESCRIPTION_MAX = 400;
 const NOTE_MAX = 90;
 const MAX_PHOTOS = 6;
+const SERVES_MIN = 1;
+const SERVES_MAX = 99;
+
+/**
+ * A number input hands back a string, and an empty one hands back ''. Both
+ * have to be rejected before Number() turns them into something the card
+ * would print as fact.
+ */
+function servesError(value) {
+  const trimmed = String(value).trim();
+  if (!trimmed) return 'How many it served is required';
+  const n = Number(trimmed);
+  if (!Number.isInteger(n)) return 'Use a whole number';
+  if (n < SERVES_MIN || n > SERVES_MAX) return `Between ${SERVES_MIN} and ${SERVES_MAX}`;
+  return '';
+}
 
 function newPhotoId() {
   return typeof crypto !== 'undefined' && crypto.randomUUID
@@ -53,6 +70,10 @@ export default function AddMealForm({ onSave, onCancel }) {
   const [notes, setNotes] = useState('');
   const [name, setName] = useState('');
   const [date, setDate] = useState('');
+  // Pre-filled rather than blank: 2 was what every meal silently claimed
+  // before this field existed, and it's the common case. The difference is
+  // that a chef now sees it and can change it.
+  const [serves, setServes] = useState(String(DEFAULT_SERVES));
   const [cuisine, setCuisine] = useState('');
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
@@ -116,6 +137,7 @@ export default function AddMealForm({ onSave, onCancel }) {
     notes: !notes.trim() ? 'Tell us a bit about the dish' : '',
     name: !name.trim() ? 'A name is required' : '',
     date: !date ? 'A date is required' : '',
+    serves: servesError(serves),
     description: !description.trim() ? 'A description is required' : '',
   };
 
@@ -322,8 +344,8 @@ export default function AddMealForm({ onSave, onCancel }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    setTouched((t) => ({ ...t, name: true, date: true, description: true }));
-    if (errors.name || errors.date || errors.description) return;
+    setTouched((t) => ({ ...t, name: true, date: true, description: true, serves: true }));
+    if (errors.name || errors.date || errors.description || errors.serves) return;
 
     setSubmitError('');
 
@@ -345,6 +367,7 @@ export default function AddMealForm({ onSave, onCancel }) {
       await onSave({
         name: name.trim(),
         date,
+        serves: Number(serves),
         cuisine: cuisine.trim(),
         category: category.trim(),
         description: description.trim(),
@@ -603,21 +626,22 @@ export default function AddMealForm({ onSave, onCancel }) {
               {touched.description && <ErrorText>{errors.description}</ErrorText>}
             </div>
 
+            <div>
+              <Label htmlFor="meal-name" required>
+                Meal name
+              </Label>
+              <TextInput
+                id="meal-name"
+                placeholder="Meal name (required)"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onBlur={() => markTouched('name')}
+                error={touched.name && errors.name}
+              />
+              {touched.name && <ErrorText>{errors.name}</ErrorText>}
+            </div>
+
             <div className="add-meal-row">
-              <div>
-                <Label htmlFor="meal-name" required>
-                  Meal name
-                </Label>
-                <TextInput
-                  id="meal-name"
-                  placeholder="Meal name (required)"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  onBlur={() => markTouched('name')}
-                  error={touched.name && errors.name}
-                />
-                {touched.name && <ErrorText>{errors.name}</ErrorText>}
-              </div>
               <div>
                 <Label htmlFor="meal-date" required>
                   Date cooked
@@ -631,6 +655,22 @@ export default function AddMealForm({ onSave, onCancel }) {
                   error={touched.date && errors.date}
                 />
                 {touched.date && <ErrorText>{errors.date}</ErrorText>}
+              </div>
+              <div className="add-meal-serves">
+                <Label htmlFor="meal-serves">How many it served</Label>
+                <TextInput
+                  id="meal-serves"
+                  type="number"
+                  inputMode="numeric"
+                  min={SERVES_MIN}
+                  max={SERVES_MAX}
+                  step={1}
+                  value={serves}
+                  onChange={(e) => setServes(e.target.value)}
+                  onBlur={() => markTouched('serves')}
+                  error={touched.serves && errors.serves}
+                />
+                {touched.serves && <ErrorText>{errors.serves}</ErrorText>}
               </div>
             </div>
 
