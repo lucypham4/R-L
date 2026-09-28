@@ -17,6 +17,8 @@
   max-height: 85vh;
   overflow-y: auto;
   background: var(--color-card);
+  /* Top corners only -- see MealActionSheet.css. */
+  border-radius: var(--radius-surface) var(--radius-surface) 0 0;
   box-shadow: var(--shadow-lg);
   padding: var(--space-xl) var(--space-xl) var(--space-2xl);
   animation: filter-sheet-rise var(--dur-move) var(--ease);

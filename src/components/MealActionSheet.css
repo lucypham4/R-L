@@ -21,6 +21,9 @@
   padding: var(--space-xl) var(--space-lg) calc(var(--space-xl) + env(safe-area-inset-bottom, 0px));
   background: var(--color-card);
   border-top: 1px solid var(--color-line);
+  /* Top corners only: the sheet is flush with the bottom of the viewport,
+     so rounding the bottom would leave two slivers of scrim under it. */
+  border-radius: var(--radius-surface) var(--radius-surface) 0 0;
   animation: modal-rise var(--dur-move) var(--ease);
 }
 

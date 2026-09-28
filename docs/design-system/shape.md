@@ -15,7 +15,7 @@ being reinvented as magic numbers in each component.
 | --- | --- | --- |
 | `--radius` | `0` | The default. Buttons, fields, anything in the page. |
 | `--radius-media` | `12px` | Photographs and illustrations. |
-| `--radius-surface` | `18px` | Surfaces that float above the page: the dish modal. |
+| `--radius-surface` | `18px` | Surfaces that float above the page: modals, cards, sheets. |
 | `--radius-pill` | `999px` | Fully-rounded controls: bubble pickers, the floating nav pill. |
 
 ## Why a floating surface is rounded
@@ -26,10 +26,16 @@ gallery, which *is* the page, and wrong for a modal, which is a card
 resting on top of one — the corner is the main thing telling you which of
 the two you are looking at.
 
-The dish modal takes `--radius-surface`. The add-meal card and the
-bottom sheets are still square; that is a loose end rather than a
-decision, and if they get rounded they should take this same token rather
-than a number of their own.
+Everything that floats takes `--radius-surface`: the dish modal, the
+add-meal card, the photo crop card, the action sheet and the filter
+sheet.
+
+The two bottom sheets round their **top corners only**
+(`var(--radius-surface) var(--radius-surface) 0 0`). They sit flush
+against the bottom of the viewport, so rounding all four would leave a
+sliver of scrim showing under each bottom corner — the radius is there to
+say "this rests on top of the page", and the edge it rests against has no
+corner to round.
 
 ## Why media is rounded
 
