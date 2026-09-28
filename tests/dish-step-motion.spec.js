@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './support/network';
 
 // The dish-to-dish transition in the detail modal, pinned.
 //

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './support/network';
 import { fileURLToPath } from 'node:url';
 
 // Regression suite for the add-meal wizard when the ai-fill Edge Function
