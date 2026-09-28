@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "preview:capture": "node scripts/capture-preview.mjs",
     "cap:sync": "vite build && cap sync ios",
     "cap:open:ios": "cap open ios",
     "test": "playwright test",
