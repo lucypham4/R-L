@@ -211,7 +211,6 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep })
             <span className="meta">{meal.category}</span>
             <span className="modal-plate-count">{total}</span>
           </div>
-          <div className="modal-rule" />
           <PhotoCarousel
             photos={photos.map((src, i) => ({ id: i, src }))}
             activeIndex={photoIndex}
@@ -244,16 +243,13 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep })
             <p className="modal-text-sub">{subLine}</p>
 
             {meal.ingredients.length > 0 && (
-              <>
-                <div className="bubble-row modal-ingredients">
-                  {meal.ingredients.map((ing) => (
-                    <span key={ing} className="bubble">
-                      {ing}
-                    </span>
-                  ))}
-                </div>
-                <div className="modal-rule" />
-              </>
+              <div className="bubble-row modal-ingredients">
+                {meal.ingredients.map((ing) => (
+                  <span key={ing} className="bubble">
+                    {ing}
+                  </span>
+                ))}
+              </div>
             )}
 
             {meal.method.length > 0 && (
@@ -338,7 +334,7 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep })
 
             {meal.note && <p className="modal-note share-card-note">{meal.note}</p>}
           </div>
-          <div className="share-card-footer">meal diary</div>
+          <div className="share-card-footer">staj</div>
         </div>
       </div>
     </div>

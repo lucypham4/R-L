@@ -19,12 +19,18 @@
      The two exceptions below are named so they're used consistently
      instead of being re-invented as magic numbers in each component:
 
-       --radius-media  photographs and illustrations, which read as
-                       objects sitting on the page rather than as chrome
-       --radius-pill   fully-rounded controls: the bubble pickers and
-                       the floating nav pill */
+       --radius-media    photographs and illustrations, which read as
+                         objects sitting on the page rather than as chrome
+       --radius-surface  surfaces that float above the page rather than
+                         sitting in it -- the dish modal. A square corner
+                         reads as a panel welded to the viewport; a
+                         rounded one reads as a card resting on top of it,
+                         which is what a modal actually is
+       --radius-pill     fully-rounded controls: the bubble pickers and
+                         the floating nav pill */
   --radius: 0;
   --radius-media: 12px;
+  --radius-surface: 18px;
   --radius-pill: 999px;
   --shadow-sm: 0 1px 2px rgba(31, 30, 28, 0.14);
   --shadow-md: 0 10px 24px rgba(31, 30, 28, 0.16);
@@ -49,6 +55,19 @@
   --text-caption: 400 0.8125rem/1.55 var(--font-sans);
   --text-meta: 400 0.6875rem/1.4 var(--font-mono);
   --text-meta-ls: 0.14em;
+
+  /* The dish name, which is the one piece of type in the app that has to
+     carry a whole surface on its own. Light and mixed-case rather than
+     bold and uppercase: at this size uppercase costs about a sixth of the
+     line width for nothing, and dish names run long -- "Charred leek,
+     hazelnut and brown butter" is an ordinary one, not a stress test.
+
+     The share card gets its own size because it is a different medium: a
+     fixed 480px image rather than a fluid card, so it doesn't inherit the
+     reader's text size or the viewport's width. */
+  --text-dish: 400 2rem/1.15 var(--font-serif);
+  --text-dish-ls: -0.01em;
+  --text-dish-share: 400 2.25rem/1.12 var(--font-serif);
 
   --space-xs: 4px;
   --space-sm: 8px;
@@ -135,7 +154,6 @@
   --dof-opacity: 0.6;
 
   --divider: 1px solid var(--color-line);
-  --rule-card: 2px solid var(--color-ink);
   --focus-ring: 2px solid var(--color-accent);
   --focus-offset: 3px;
 }

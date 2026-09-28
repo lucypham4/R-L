@@ -7,6 +7,7 @@
   max-height: 90vh;
   overflow-y: auto;
   background: var(--color-card);
+  border-radius: var(--radius-surface);
   box-shadow: var(--shadow-lg);
   animation: modal-rise var(--dur-move) var(--ease);
 }
@@ -50,14 +51,11 @@
   display: flex;
   flex-direction: column;
   padding: 24px 26px;
-  border-bottom: 2px solid var(--color-ink);
 }
 
 @media (min-width: 768px) {
   .modal-plate {
     flex: 1;
-    border-bottom: none;
-    border-right: 2px solid var(--color-ink);
   }
 }
 
@@ -65,17 +63,14 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
+  /* Was sitting on a 2px rule that separated it from the photo. With the
+     rule gone the gap has to be explicit, or the label crowds the plate. */
+  margin-bottom: 18px;
 }
 
 .modal-plate-count {
   font: 400 0.9375rem/1.5 var(--font-sans);
   color: var(--color-ink);
-}
-
-.modal-rule {
-  height: 2px;
-  background: var(--color-ink);
-  margin: 12px 0 18px;
 }
 
 .modal-plate .photo-carousel {
@@ -115,9 +110,8 @@
 
 .modal-text-name {
   text-align: left;
-  font: 700 1.25rem/1.5 var(--font-serif);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  font: var(--text-dish);
+  letter-spacing: var(--text-dish-ls);
 }
 
 .modal-name-out {
@@ -199,7 +193,7 @@
 }
 
 .modal-text-sub {
-  margin-top: 8px;
+  margin-top: 12px;
   text-align: left;
   font: 400 0.6875rem/1.5 var(--font-mono);
   letter-spacing: 0.1em;
@@ -306,9 +300,8 @@
 }
 
 .share-card-name {
-  font: 700 1.5rem/1.4 var(--font-serif);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  font: var(--text-dish-share);
+  letter-spacing: var(--text-dish-ls);
 }
 
 .share-card-description {
