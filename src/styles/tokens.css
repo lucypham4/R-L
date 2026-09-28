@@ -77,6 +77,13 @@
   --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  /* Symmetric, for the focus pull and the cross-dissolve. The app's other
+     curves are deliberately front-loaded, which is right for something
+     leaving or arriving but wrong here: a fast-out dissolve spends most of
+     its time almost finished, so the moment where both titles are legible
+     -- the whole point of the effect -- flashes past. This one puts the
+     half-way point half-way through, the way a lens rack does. */
+  --ease-focus: cubic-bezier(0.45, 0, 0.55, 1);
 
   --dur-press: 90ms;
   --dur-color: 200ms;
@@ -93,6 +100,39 @@
   --press-scale: 0.97;
   --lift: -4px;
   --rise: 10px;
+
+  /* Focus pull. When the content of a surface is replaced -- stepping
+     from one dish to the next -- the incoming text arrives out of focus
+     and resolves, rather than cutting or sliding in.
+
+     The asymmetry is the whole effect, and it is deliberate: focus is
+     lost almost instantly and regained slowly. A cut would tell the eye
+     the page changed; this tells it where to look next. Timings are
+     taken from the reference recordings, where the body text dropped out
+     of focus in about four frames and took the better part of a second
+     to come back.
+
+     --blur-defocus is a filter radius, so it is expensive to animate on
+     a large subtree. Apply it to a text block, never to the photo or to
+     a scrolling container. */
+  --dur-defocus: 70ms;
+  --dur-refocus: 350ms;
+  --blur-defocus: 4px;
+  --opacity-defocus: 0.55;
+
+  /* Cross-dissolve. Outgoing and incoming overlap for the entire
+     duration, in the same position, at partial opacity -- both are
+     legible at once mid-way through. Reserved for a single line of
+     display type (the dish name), where the overlap reads as one title
+     becoming another. Used on a paragraph it just looks like a bug. */
+  --dur-dissolve: 500ms;
+
+  /* Depth of field. How far a surface recedes when something in front of
+     it takes focus -- the gallery behind an open dish, for instance.
+     Applied once on open, never per scroll frame. */
+  --dof-blur: 6px;
+  --dof-scale: 0.985;
+  --dof-opacity: 0.6;
 
   --divider: 1px solid var(--color-line);
   --rule-card: 2px solid var(--color-ink);
@@ -162,5 +202,15 @@
     --press-scale: 1;
     --lift: 0px;
     --rise: 0px;
+
+    /* The focus pull and the depth of field are filter effects rather
+       than movement, so they stay -- softening and resolving doesn't
+       provoke the vestibular response that sliding and scaling do. What
+       goes is the scale change and the long dwell: the dissolve shortens
+       to a plain colour-length fade so a dish swap still reads as a
+       change without holding the reader in soft focus. */
+    --dur-dissolve: var(--dur-color);
+    --dur-refocus: var(--dur-color);
+    --dof-scale: 1;
   }
 }

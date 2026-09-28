@@ -27,7 +27,7 @@ export default function LocalImportPrompt({ userId, mealCount, onImported, onDon
     return (
       <div className="signin-screen">
         <div className="signin-card">
-          <p className="signin-eyebrow">Meal Diary</p>
+          <p className="signin-eyebrow">Staj</p>
           <h1 className="signin-title">
             {failed === 0 ? `Imported ${plural(succeeded, 'meal')}` : `Imported ${succeeded} of ${total}`}
           </h1>
@@ -49,7 +49,7 @@ export default function LocalImportPrompt({ userId, mealCount, onImported, onDon
   return (
     <div className="signin-screen">
       <div className="signin-card">
-        <p className="signin-eyebrow">Meal Diary</p>
+        <p className="signin-eyebrow">Staj</p>
         <h1 className="signin-title">Bring your meals along?</h1>
         <p className="signin-subtitle">{plural(mealCount, 'meal')} on this device, not yet in your new account.</p>
         <div className="signin-form">

@@ -1,6 +1,6 @@
 # Shape
 
-Meal Diary is a square-cornered system. `--radius: 0` is the default for
+Staj is a square-cornered system. `--radius: 0` is the default for
 buttons, text fields, cards, modals and sheets, and that is deliberate —
 the hard corners are what make the app read as an editorial archive
 rather than a generic consumer app. Don't round something just because it

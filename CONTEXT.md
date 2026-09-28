@@ -1,6 +1,15 @@
-# Meal Diary
+# Staj
 
 A meal-logging app for any chef: browser-local by default, with an optional cloud-backed account for multi-device access and a public page.
+
+Named for the stage — a *stagiaire* shadows a kitchen to learn it. The app
+is the notebook you keep while you do.
+
+The name changed from Meal Diary in September 2026. A few `localStorage`
+keys still read `meal-diary-*` (`meal-diary-local-meals`,
+`meal-diary-theme`, the bubble lists). They are deliberately left alone:
+renaming them would orphan the meals of anyone who logged dishes before
+the rename, and the keys are invisible to chefs.
 
 ## Language
 

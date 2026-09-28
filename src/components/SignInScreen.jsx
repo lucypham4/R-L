@@ -61,7 +61,7 @@ export default function SignInScreen({ initialMode = 'signin', onGuest }) {
   return (
     <div className="signin-screen">
       <div className="signin-card">
-        <p className="signin-eyebrow">Meal Diary</p>
+        <p className="signin-eyebrow">Staj</p>
         <h1 className="signin-title">{isSignUp ? 'Create your account' : 'Sign in'}</h1>
         <p className="signin-subtitle">
           {isSignUp ? 'Optional. Get a public page and multi-device access.' : 'For a public page and multi-device access.'}

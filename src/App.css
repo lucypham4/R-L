@@ -23,3 +23,19 @@
     padding: 0 var(--page-margin-md);
   }
 }
+
+/* The gallery behind an open dish. Blur and a whisper of scale push it
+   back without the heavy scrim that would flatten the food photography
+   into grey. Only --dof-scale is neutralised under reduced motion; the
+   softening stays, because losing focus isn't movement. */
+.app-stage {
+  transition: filter var(--dur-move) var(--ease), opacity var(--dur-move) var(--ease),
+    transform var(--dur-move) var(--ease);
+}
+
+.app-stage-receded {
+  filter: blur(var(--dof-blur));
+  opacity: var(--dof-opacity);
+  transform: scale(var(--dof-scale));
+  pointer-events: none;
+}
