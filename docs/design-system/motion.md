@@ -171,7 +171,11 @@ connected to the finger.
 - *Two rests snap, the recipe doesn't.* `scroll-snap-type: y mandatory`
   with snap points at resting and open. The sheet is taller than the
   view, so once it's open the recipe scrolls freely; only a release
-  between the two settles on the nearer one.
+  between the two settles on the nearer one. There is a third snap point
+  at the very end of the recipe, and it isn't optional: Chrome decides
+  whether the sheet covers the view at the *requested* position, before
+  clamping, so without it a wheel tick, the End key or a fling asking for
+  anywhere past the end snapped the reader all the way back to rest.
 - *Things attached to the scroll are scrolled; only things that morph
   are scripted.* A scroll handler lands a frame behind the compositor, so
   anything the script positions lags the content by that frame. The card

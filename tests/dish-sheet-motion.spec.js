@@ -226,6 +226,40 @@ test.describe('the dish sheet', () => {
     expect(Math.abs((await settle(open + 120)) - (open + 120))).toBeLessThan(1);
   });
 
+  // Free scrolling inside the open sheet only holds while the sheet covers
+  // the whole view, and Chrome judges that at the *requested* position,
+  // before clamping it to the end. So anything that asks for a position
+  // past the end of the recipe -- another wheel tick at the bottom, the
+  // End key, a fling with momentum left -- found the sheet not covering
+  // the view there and snapped to a rest instead: straight back to the
+  // resting state, the whole recipe gone from under the reader.
+  test('asking to scroll past the end of a recipe stays at the end', async ({ page }) => {
+    await openDish(page);
+    const { open } = await restPoints(page);
+    const scroller = page.locator('.dish-scroller');
+    const at = () => scroller.evaluate((el) => ({ t: el.scrollTop, max: el.scrollHeight - el.clientHeight }));
+
+    await scroller.evaluate((el, top) => (el.scrollTop = top), open);
+    await scroller.evaluate((el) => (el.scrollTop = el.scrollHeight));
+    await page.waitForTimeout(300);
+    let pos = await at();
+    expect(pos.max).toBeGreaterThan(open);
+    expect(pos.t).toBeCloseTo(pos.max, 0);
+
+    // A wheel tick past the end, and the End key from the top.
+    const box = await page.locator('.dish').boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height * 0.7);
+    await page.mouse.wheel(0, 400);
+    await page.waitForTimeout(600);
+    pos = await at();
+    expect(pos.t).toBeCloseTo(pos.max, 0);
+
+    await scroller.evaluate((el, top) => (el.scrollTop = top), open);
+    await scroller.focus();
+    await page.keyboard.press('End');
+    await expect.poll(async () => (await at()).t).toBeCloseTo(pos.max, 0);
+  });
+
   // A finger, not scrollTop. Raw touch points through the DevTools
   // protocol, since that is what reaches the compositor's scrolling: both
   // Playwright's touchscreen (taps only) and Input.synthesizeScrollGesture

@@ -417,6 +417,7 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep })
               </div>
             </div>
           </div>
+          <div className="dish-scroll-end" />
         </div>
 
         <div className="dish-stage">

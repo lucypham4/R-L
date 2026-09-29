@@ -77,6 +77,17 @@
   scroll-snap-align: start;
 }
 
+/* A third snap point, at the very end of the recipe. Free scrolling
+   inside the sheet only holds while the sheet covers the view, and Chrome
+   judges that at the requested position, before clamping it to the end --
+   so a wheel tick, the End key or a fling asking for anywhere past the
+   end found no cover there and snapped back to the resting state. With a
+   snap point at the end, the end is the nearest place to settle. */
+.dish-scroll-end {
+  height: 0;
+  scroll-snap-align: end;
+}
+
 .dish-sheet {
   position: relative;
   min-height: 100cqh;

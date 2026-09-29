@@ -181,6 +181,11 @@ const run = async () => {
   const S = await page.evaluate(() => document.querySelector('.dish-sheet').offsetTop);
   await sheetTo(S);
   await page.screenshot({ path: path.join(OUT, 'still-sheet-open.png') });
+  // The recipe's extra photo loads lazily, and until it has, the recipe
+  // is too short to scroll far enough to collapse the header.
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll('.dish-more-photo')].every((img) => img.complete && img.naturalHeight > 0)
+  );
   await sheetTo(S + 400);
   await page.screenshot({ path: path.join(OUT, 'still-sheet-collapsed.png') });
   await sheetTo(0);
