@@ -86,9 +86,9 @@ function edgeContact(buf) {
 
 /** A fingerprint of the frame: the mean colour of each cell of a 4x4
  *  grid laid over it. Different dishes are different colours, so this
- *  changes as the archive cycles, where coverage does not -- the heaps
+ *  changes as the archive cycles, where coverage does not -- the dishes
  *  are all about the same size. Per cell rather than for the whole frame
- *  because one heap swapping is a small patch of a large frame: across
+ *  because one dish swapping is a small patch of a large frame: across
  *  the whole of it the mean moves by a fraction of a unit and rounds
  *  away, so a grid that was riffling read as standing still. */
 function cellColours(buf, n = 4) {

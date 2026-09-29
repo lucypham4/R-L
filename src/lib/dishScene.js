@@ -3,7 +3,6 @@ import {
   Euler,
   Group,
   InstancedMesh,
-  LatheGeometry,
   Matrix4,
   Mesh,
   PerspectiveCamera,
@@ -16,13 +15,13 @@ import {
 } from 'three/webgpu';
 import {
   bake,
+  vessel,
   blackberry,
   chive,
   crumb,
   curd,
   drizzle,
   flake,
-  heap,
   liquid,
   quenelle,
   raspberry,
@@ -32,7 +31,7 @@ import {
   toast,
 } from './dishFood';
 import { addOutlines, streamMaterial, toy, whiteMaterial } from './dishMaterials';
-import PALETTES from '../assets/dishes/palettes.json';
+import { MINIS } from './dishMinis';
 
 /**
  * The tour's dishes, built rather than photographed.
@@ -50,9 +49,8 @@ import PALETTES from '../assets/dishes/palettes.json';
  * food has a silhouette of its own and can be looked at from anywhere.
  *
  * The photographs are still the reference. Every colour here was sampled
- * from them (`scripts/dish-assets/palettes.py`), the proportions were
- * measured off them, and the camera sits at the 55 degrees of elevation
- * they were consistently shot from.
+ * from them, the proportions were measured off them, and the camera sits
+ * at the 55 degrees of elevation they were consistently shot from.
  */
 
 const CAMERA_ELEVATION = (55 * Math.PI) / 180;
@@ -77,71 +75,6 @@ const FOOD = {
   zucchiniPale: '#cbd49a',
   ricotta: '#efe6d4',
 };
-
-// White dishware, shaded lavender where it turns from the light and inked
-// violet, after the plate in the reference illustration. The inside of a
-// vessel carries no outline -- only its outer silhouette does.
-const PLATE = { colour: '#ffffff', top: '#ffffff', bottom: '#c2b1ee', outline: '#9b7ddf' };
-const plateOutside = () => toy(PLATE.colour, { top: PLATE.top, bottom: PLATE.bottom, outline: PLATE.outline });
-const plateInside = () => toy(PLATE.colour, { top: PLATE.top, bottom: '#d9cdf6', outline: false });
-
-/** The inside of a vessel: centre, out and up to the rim. */
-function innerProfile(radius, depth) {
-  return [
-    new Vector2(0, 0),
-    new Vector2(radius * 0.3, depth * 0.03),
-    new Vector2(radius * 0.58, depth * 0.17),
-    new Vector2(radius * 0.78, depth * 0.45),
-    new Vector2(radius * 0.92, depth * 0.76),
-    new Vector2(radius, depth),
-  ];
-}
-
-/** The outside: over the rim, down the wall, in to the foot. */
-function outerProfile(radius, depth) {
-  return [
-    new Vector2(radius, depth),
-    new Vector2(radius * 1.035, depth * 0.97),
-    new Vector2(radius * 1.02, depth * 0.62),
-    new Vector2(radius * 0.88, depth * 0.24),
-    new Vector2(radius * 0.6, depth * 0.02),
-    new Vector2(radius * 0.34, -depth * 0.02),
-    new Vector2(radius * 0.33, 0),
-    new Vector2(0, 0),
-  ];
-}
-
-/** A vessel, plus the height of its inner surface at a given radius, so
- *  food can be set down on it rather than floated above it. */
-function vessel(radius, depth) {
-  const group = new Group();
-  const inner = new Mesh(new LatheGeometry(innerProfile(radius, depth), 128), plateInside());
-  const outer = new Mesh(new LatheGeometry(outerProfile(radius, depth), 128), plateOutside());
-  group.add(inner, outer);
-
-  // Shine balls on the rim, as on the plate in the reference: a dash and
-  // a dot, back-left toward the light. They are fixed to the light, not
-  // to the dish -- mountDishScene turns this group against the dish's own
-  // rotation every frame -- and a round rim looks the same from any
-  // angle, so they stay put while the dish turns under them.
-  const sparkle = new Group();
-  for (const [a, length, width] of [
-    [3.5, 0.075, 0.018],
-    [3.86, 0.022, 0.016],
-  ]) {
-    const dot = new Mesh(new SphereGeometry(1, 16, 8), whiteMaterial());
-    dot.scale.set(length * radius, 0.004, width * radius);
-    dot.position.set(Math.cos(a) * radius * 0.975, depth + 0.006, Math.sin(a) * radius * 0.975);
-    // Long axis along the rim.
-    dot.rotation.y = -a - Math.PI / 2;
-    sparkle.add(dot);
-  }
-  group.add(sparkle);
-  group.userData.sparkle = sparkle;
-
-  group.userData.floorAt = (r) => depth * Math.pow(Math.min(1, r / radius), 2.1);
-  return group;
-}
 
 const SCENES = {
   /**
@@ -477,19 +410,22 @@ const SCENES = {
   },
 
   /**
-   * The archive filling up: nine dishes riffling through the collection
-   * and settling one at a time, after the loading screen that inspired it.
+   * The archive filling up: nine cells riffling through the chef's
+   * dishes and settling one at a time, after the loading screen that
+   * inspired it -- each on a different dish, so the grid ends as the
+   * whole collection.
    *
-   * Fifteen dishes cannot each be modelled by hand and do not need to be.
-   * At this size what identifies one is its palette and how far its food
-   * spreads, both of which palettes.json takes from the photographs.
+   * Every dish is built once (dishMinis.js) and copied into each cell;
+   * clone() shares geometry and materials, so nine cells of nine dishes
+   * cost nine dishes' worth of geometry. Riffling is a visibility flip.
    */
   archive() {
-    const keys = Object.keys(PALETTES);
+    const protos = MINIS.map((build) => build());
     const root = new Group();
     const COLS = 3;
     const ROWS = 3;
-    const STEP = 0.95;
+    const STEP = 0.98;
+    const SCALE = 0.43;
     const cells = [];
 
     for (let i = 0; i < COLS * ROWS; i++) {
@@ -499,27 +435,15 @@ const SCENES = {
         0,
         (Math.floor(i / COLS) - (ROWS - 1) / 2) * STEP
       );
-      cell.add(vessel(0.4, 0.15));
-
-      // Every dish's heap is built once and hidden, so riffling through
-      // them is a visibility flip rather than rebuilding meshes at 5Hz.
-      const heaps = keys.map((k, n) => {
-        const spec = PALETTES[k];
-        const h = heap(spec.colors, {
-          radius: 0.4 * Math.min(0.68, spec.spread * 0.6),
-          count: 34,
-          seed: n * 31 + i,
-          scale: 1.05,
-        });
-        h.position.set(spec.offset[0] * 0.3, 0.035, spec.offset[1] * 0.3);
-        bake(h);
-        h.visible = false;
-        cell.add(h);
-        return h;
+      const dishes = protos.map((proto) => {
+        const copy = proto.clone();
+        copy.scale.setScalar(SCALE);
+        copy.visible = false;
+        cell.add(copy);
+        return copy;
       });
-
       root.add(cell);
-      cells.push({ cell, heaps, seed: (i * 7) % keys.length, settleAt: 1.1 + i * 0.42, shown: -1 });
+      cells.push({ cell, dishes, seed: (i * 4) % dishes.length, final: i % dishes.length, settleAt: 1.1 + i * 0.42, shown: -1 });
     }
     root.rotation.y = 0.12;
 
@@ -531,11 +455,10 @@ const SCENES = {
         const p = t % CYCLE;
         for (const c of cells) {
           const settled = p > c.settleAt;
-          const step = Math.floor((settled ? c.settleAt : p) / SWAP);
-          const idx = (c.seed + step) % c.heaps.length;
+          const idx = settled ? c.final : (c.seed + Math.floor(p / SWAP)) % c.dishes.length;
           if (idx !== c.shown) {
-            if (c.shown >= 0) c.heaps[c.shown].visible = false;
-            c.heaps[idx].visible = true;
+            if (c.shown >= 0) c.dishes[c.shown].visible = false;
+            c.dishes[idx].visible = true;
             c.shown = idx;
           }
           const rise = Math.min(1, Math.max(0, (p - c.settleAt + 0.35) / 0.35));
@@ -543,7 +466,7 @@ const SCENES = {
           c.cell.rotation.y = settled ? 0 : p * 0.7;
         }
       },
-      frame: 1.42,
+      frame: 1.3,
     };
   },
 
@@ -664,7 +587,7 @@ export function mountDishScene(canvas, sceneName, { reduced = false, outline = t
   // it stays toward the light (see vessel()).
   const sparkles = [];
   built.root.traverse((o) => {
-    if (o.userData.sparkle) sparkles.push(o.userData.sparkle);
+    if (o.userData.isSparkle) sparkles.push(o);
   });
   const yaw = new Euler();
   const turn = new Quaternion();

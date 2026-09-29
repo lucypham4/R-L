@@ -7,15 +7,17 @@ import {
   Float32BufferAttribute,
   Group,
   IcosahedronGeometry,
+  LatheGeometry,
   Matrix4,
   Mesh,
   Shape,
   SphereGeometry,
   TorusGeometry,
   TubeGeometry,
+  Vector2,
   Vector3,
 } from 'three/webgpu';
-import { iceCreamMaterial, soupMaterial, toastMaterial, toy } from './dishMaterials';
+import { iceCreamMaterial, soupMaterial, toastMaterial, toy, whiteMaterial } from './dishMaterials';
 
 /**
  * Food, built rather than photographed.
@@ -30,8 +32,8 @@ import { iceCreamMaterial, soupMaterial, toastMaterial, toy } from './dishMateri
  * They are painted like toys (dishMaterials.js): unlit, each coloured by
  * a soft gradient, after the low-poly "tiny treats" cake used as the
  * reference. The colours themselves are sampled from the chef's
- * photographs (`scripts/dish-assets/palettes.py`), so a reconstruction of
- * their cooking is at least their cooking's colour.
+ * photographs, so a reconstruction of their cooking is at least their
+ * cooking's colour.
  */
 
 // Deterministic, so a dish looks the same every time the tour is opened
@@ -345,7 +347,7 @@ export function drizzle(colour, { innerRadius = 0.05, outerRadius = 0.55, turns 
   }
   geo.computeVertexNormals();
 
-  const mesh = new Mesh(geo, toy(colour));
+  const mesh = new Mesh(geo, toy(colour, { outlineWidth: thickness * 0.4 }));
   mesh.userData.curve = curve;
   // TubeGeometry lays its indices down the path in order, RADIAL * 6 per
   // segment, so a draw range over the first n segments is the first n
@@ -370,7 +372,9 @@ export function drizzle(colour, { innerRadius = 0.05, outerRadius = 0.55, turns 
 export function starburst(colour, { spokes = 9, length = 0.34, arc = Math.PI * 1.1, droop = 0, thickness = 0.009, seed = 1 } = {}) {
   const r = seeded(seed);
   const g = new Group();
-  const material = toy(colour);
+  // A hairline: the spokes are long but barely thicker than the line
+  // drawn round them.
+  const material = toy(colour, { outlineWidth: thickness * 0.35 });
   const knot = new Mesh(new SphereGeometry(thickness * 2.1, 12, 10), material);
   g.add(knot);
   for (let i = 0; i < spokes; i++) {
@@ -492,29 +496,83 @@ export function liquid(colour, { radius = 0.62, dome = 0.012 } = {}) {
   // addOutlines -- a hull cannot outline an open dome).
   const ring = new TorusGeometry(radius, 0.016, 6, 96);
   ring.rotateX(Math.PI / 2);
-  mesh.userData.ringGeometry = ring;
+  // On the geometry, which copies share; clone() would mangle userData.
+  geo.userData.ringGeometry = ring;
   return mesh;
 }
 
-/**
- * A generic heap, for the archive's fifteen dishes -- which cannot each
- * be modelled by hand, and do not need to be. At nine-in-a-grid size what
- * identifies a dish is its palette and how far its food spreads, both of
- * which come from the photograph via palettes.json.
- */
-export function heap(colours, { radius = 0.3, count = 26, seed = 1, scale = 1 } = {}) {
-  const rng = seeded(seed);
-  const g = new Group();
-  for (let i = 0; i < count; i++) {
-    const colour = colours[i % colours.length];
-    const angle = rng() * Math.PI * 2;
-    const rad = Math.sqrt(rng()) * radius;
-    const size = (0.028 + rng() * 0.03) * scale;
-    const piece = crumb(colour, { size, rng });
-    const mound = Math.max(0, 1 - rad / radius) * 0.055 * scale;
-    piece.position.set(Math.cos(angle) * rad, mound * (0.4 + rng() * 0.6), Math.sin(angle) * rad);
-    piece.rotation.set(rng() * Math.PI, rng() * Math.PI, rng() * Math.PI);
-    g.add(piece);
+
+// Dishware in a cool, pale blue -- the palette runs #F5FBFF, #E5F3FD,
+// #D1E5F4, #BDD5E7, #AECCE4, #9ABDDC -- lightest where it faces the
+// light, and inked a deeper blue from the same family. The inside of a
+// vessel carries no outline; only its outer silhouette does.
+const PLATE = {
+  outside: { top: '#e5f3fd', bottom: '#aecce4' },
+  inside: { top: '#f5fbff', bottom: '#d1e5f4' },
+  ink: '#7fa4cc',
+};
+// No toon highlight on dishware, inside or out: the wall below the far rim
+// faces up at the camera and caught a white patch the size of the food.
+// The rim's placed shine balls are the dishware's shine.
+const plateOutside = () => toy('#d1e5f4', { ...PLATE.outside, outline: PLATE.ink, shine: false });
+const plateInside = () => toy('#e5f3fd', { ...PLATE.inside, outline: false, shine: false });
+
+/** The inside of a vessel: centre, out and up to the rim. */
+function innerProfile(radius, depth) {
+  return [
+    new Vector2(0, 0),
+    new Vector2(radius * 0.3, depth * 0.03),
+    new Vector2(radius * 0.58, depth * 0.17),
+    new Vector2(radius * 0.78, depth * 0.45),
+    new Vector2(radius * 0.92, depth * 0.76),
+    new Vector2(radius, depth),
+  ];
+}
+
+/** The outside: over the rim, down the wall, in to the foot. */
+function outerProfile(radius, depth) {
+  return [
+    new Vector2(radius, depth),
+    new Vector2(radius * 1.035, depth * 0.97),
+    new Vector2(radius * 1.02, depth * 0.62),
+    new Vector2(radius * 0.88, depth * 0.24),
+    new Vector2(radius * 0.6, depth * 0.02),
+    new Vector2(radius * 0.34, -depth * 0.02),
+    new Vector2(radius * 0.33, 0),
+    new Vector2(0, 0),
+  ];
+}
+
+/** A vessel, plus the height of its inner surface at a given radius, so
+ *  food can be set down on it rather than floated above it. */
+export function vessel(radius, depth) {
+  const group = new Group();
+  const inner = new Mesh(new LatheGeometry(innerProfile(radius, depth), 128), plateInside());
+  const outer = new Mesh(new LatheGeometry(outerProfile(radius, depth), 128), plateOutside());
+  group.add(inner, outer);
+
+  // Shine balls on the rim, as on the plate in the reference: a dash and
+  // a dot, back-left toward the light. They are fixed to the light, not
+  // to the dish -- mountDishScene turns this group against the dish's own
+  // rotation every frame -- and a round rim looks the same from any
+  // angle, so they stay put while the dish turns under them.
+  const sparkle = new Group();
+  for (const [a, length, width] of [
+    [3.5, 0.075, 0.018],
+    [3.86, 0.022, 0.016],
+  ]) {
+    const dot = new Mesh(new SphereGeometry(1, 16, 8), whiteMaterial());
+    dot.scale.set(length * radius, 0.004, width * radius);
+    dot.position.set(Math.cos(a) * radius * 0.975, depth + 0.006, Math.sin(a) * radius * 0.975);
+    // Long axis along the rim.
+    dot.rotation.y = -a - Math.PI / 2;
+    sparkle.add(dot);
   }
-  return g;
+  // Flagged on itself rather than referenced from the vessel's userData:
+  // clone() copies userData through JSON, which would mangle a reference.
+  sparkle.userData.isSparkle = true;
+  group.add(sparkle);
+
+  group.userData.floorAt = (r) => depth * Math.pow(Math.min(1, r / radius), 2.1);
+  return group;
 }

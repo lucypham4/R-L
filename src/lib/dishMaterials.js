@@ -88,11 +88,13 @@ const cache = new Map();
  * [y0, y1]` also runs the gradient up the piece's own height (not
  * bake-safe). `shine: false` for flat pieces, where a highlight would
  * flash across the whole face at once. `outline` overrides the ink
- * colour, or `false` for none. `fade: true` exposes
- * `material.userData.opacity`.
+ * colour, or `false` for none; `outlineWidth` fixes its width for a
+ * piece whose size says nothing about its thickness -- a long, thin
+ * spoke of chocolate would otherwise get the outline of a large piece.
+ * `fade: true` exposes `material.userData.opacity`.
  */
-export function toy(colour, { top, bottom, range = null, fade = false, shine: shiny = true, outline } = {}) {
-  const key = [colour, top, bottom, range?.join(','), fade, shiny, outline].join('|');
+export function toy(colour, { top, bottom, range = null, fade = false, shine: shiny = true, outline, outlineWidth } = {}) {
+  const key = [colour, top, bottom, range?.join(','), fade, shiny, outline, outlineWidth].join('|');
   if (!fade && cache.has(key)) return cache.get(key);
 
   const hi = color(top ? new Color(top) : lighter(colour, 0.16));
@@ -105,6 +107,7 @@ export function toy(colour, { top, bottom, range = null, fade = false, shine: sh
   const base = mix(lo, hi, t).mul(range ? float(1) : float(0.9).add(wrap().mul(0.14)));
   material.colorNode = shiny ? mix(base, color('#ffffff'), shine()) : base;
   material.userData.outline = outline === false ? null : new Color(outline ?? inked(colour));
+  material.userData.outlineWidth = outlineWidth ?? null;
   if (fade) {
     withFade(material);
   } else {
@@ -267,7 +270,7 @@ export function addOutlines(root) {
     if (o.isMesh && !o.userData.isHull) meshes.push(o);
   });
   for (const mesh of meshes) {
-    const { outline, ring, opacity } = mesh.material.userData;
+    const { outline, outlineWidth, ring, opacity } = mesh.material.userData;
     if (ring) {
       mesh.add(ringFor(mesh, ring));
       continue;
@@ -275,7 +278,7 @@ export function addOutlines(root) {
     if (!outline) continue;
     mesh.geometry.computeBoundingSphere();
     // Thicker on big pieces, never so thick a chive disappears into it.
-    const width = Math.min(0.016, Math.max(0.0045, mesh.geometry.boundingSphere.radius * 0.07));
+    const width = outlineWidth ?? Math.min(0.016, Math.max(0.0045, mesh.geometry.boundingSphere.radius * 0.07));
     const material = hullMaterial(outline, width, opacity);
     const shell = hullGeometry(mesh.geometry);
     const hull = mesh.isInstancedMesh
@@ -294,7 +297,7 @@ function ringFor(mesh, ink) {
   // child it scales with it as the soup rises.
   const material = new MeshBasicNodeMaterial();
   material.colorNode = color(ink);
-  const ring = new mesh.constructor(mesh.userData.ringGeometry, material);
+  const ring = new mesh.constructor(mesh.geometry.userData.ringGeometry, material);
   ring.userData.isHull = true;
   return ring;
 }

@@ -29,12 +29,15 @@ them. A quenelle is lofted from a rounded-triangle cross-section — two
 spoon faces meeting in a ridge, and a flat face to sit on — because an
 ellipsoid has no faces and reads as a dumpling. A blackberry is a cluster
 of drupelets, which is what makes it read as a blackberry rather than as
-a dark marble. The scallion oil is a tube swept along an Archimedean
+a dark marble. The scallion oil is a tube swept along a hand-drawn
 spiral. Toast is extruded from an outline, because its silhouette is the
 whole thing.
 
-Nothing is textured, and the tour ships **no images at all** — only
-`palettes.json`, a few hundred bytes.
+`src/lib/dishMinis.js` builds the archive's nine dishes the same way, at
+plate scale: scallops with their crust on a pool of purée, a glazed rib on
+grilled pineapple, a lace tuile leaning on a quenelle, and so on.
+
+Nothing is textured, and the tour ships **no images at all**.
 
 ### Painted like toys
 
@@ -52,12 +55,16 @@ way they do:
   (flakes, chives, the soup, the toast) do not; there a highlight flashes
   across the whole face at once. The soup and every vessel's rim get
   their shine balls as placed shapes instead.
-- **White dishware.** Every plate and bowl is white, shaded lavender and
-  inked violet, after the plate in the reference.
+- **Cool blue dishware.** Every plate and bowl is a pale blue from one
+  palette — `#F5FBFF`, `#E5F3FD`, `#D1E5F4`, `#BDD5E7`, `#AECCE4`,
+  `#9ABDDC` — lightest where it faces the light, inked a deeper blue from
+  the same family.
 - **The toon outline** is an inverted hull in a darker shade of each
   part's own colour, added as a pass over a finished scene
   (`addOutlines`). It is on by default; a step's art turns it off with
-  `outline: false` in `onboardingSteps.js`.
+  `outline: false` in `onboardingSteps.js`. Its width follows a piece's
+  size, except where that misleads: a chocolate spoke is long but thin,
+  so it sets its own hairline (`outlineWidth`).
 
 An earlier pass went the other way — pitted crumb from Worley noise,
 spoon drag as bump — which was the wrong direction for this look, and
@@ -84,15 +91,14 @@ at and falls apart either side of it, because a picture of food has no
 silhouette of its own — so those scenes could only turn through a few
 degrees before the flatness showed.
 
-Built food can be lit, can cast shadows on the plate under it, and can be
-looked at from anywhere.
+Built food has a silhouette of its own and can be looked at from
+anywhere.
 
 The photographs remain the reference:
 
-- **Colours** are sampled from them by `scripts/dish-assets/palettes.py`.
-  Where a sampled mean sat in shadow, `FOOD` in `dishScene.js` uses the
-  lit quartile instead — a mean taken across a photograph's own shading
-  is darker than the thing itself.
+- **Colours** are sampled from them. Where a sampled mean sat in shadow,
+  `FOOD` in `dishScene.js` uses the lit quartile instead — a mean taken
+  across a photograph's own shading is darker than the thing itself.
 - **Proportions** are measured off them. The toast is 0.71 of the soup
   surface across; getting that wrong by reading it against the radius
   rather than the diameter produced a slab longer than the plate.
@@ -117,8 +123,12 @@ rather than at a guessed height.
 scatter every time the tour opens, rather than re-plating itself on each
 mount.
 
-**Build variants once and hide them.** The archive riffles through fifteen
-heaps by flipping `visible`, not by rebuilding meshes five times a second.
+**Build variants once and hide them.** The archive riffles nine cells
+through nine dishes by flipping `visible`, not by rebuilding meshes five
+times a second. Each dish is built once and `clone()`d into every cell,
+which shares geometry and materials. `clone()` copies `userData` through
+JSON, so nothing that must survive a copy — the rim's shine group, the
+soup's outline ring — is referenced from there.
 
 **Nothing moves in clumps.** The soup's timeline is the model: the
 empty bowl and plate first, then soup poured in until it fills, the toast
@@ -179,8 +189,8 @@ there is no DOM to measure inside a canvas:
   rises and falls. Baked into one texture it would never change; sharing
   one keyframe it would never be partial.
 - **Cycling**: the mean colour of each cell of a 4x4 grid over the frame
-  keeps changing. Coverage does not work here — the heaps keep the same
-  silhouettes — and neither does the whole frame's mean: one heap
+  keeps changing. Coverage does not work here — the dishes keep about the
+  same silhouettes — and neither does the whole frame's mean: one dish
   swapping moves it by a fraction of a unit, which rounds away.
 
 The suite renders the scenes at 1x. Headless Chromium has no GPU, and on

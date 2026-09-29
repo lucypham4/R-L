@@ -24,20 +24,12 @@ for i, (piece, area, pos) in enumerate(cut('gallery.webp'), 1):
 Hysteresis, not a single threshold: the plates are dark ceramic on a dark
 backdrop, and any threshold that rejects the backdrop also eats the rims.
 
-## `palettes.py` — a photograph into numbers
-
-```sh
-python3 scripts/dish-assets/palettes.py
-```
-
-Writes `src/assets/dishes/palettes.json`: per dish, how far its food
-spreads across the vessel, where it sits, and three representative
-colours by k-means. That is what the archive's nine slots are rebuilt
-from — fifteen dishes cannot each be modelled by hand, and at that size
-what identifies one is its palette and its spread, not the shape of any
-individual piece.
-
 ## What is no longer here
+
+`palettes.py` reduced each gallery photograph to a spread and three
+k-means colours, for an archive of generic heaps. The archive now models
+each of the chef's dishes (`src/lib/dishMinis.js`), so the script and its
+`palettes.json` are gone.
 
 `topdown.py` un-projected a dish's foreshortened ellipse into a top-down
 texture, back when the photographs were mapped onto the geometry. `soup.py`
