@@ -25,6 +25,16 @@ const SCENES = ['dessert', 'soup', 'archive', 'zucchini'];
 // these run long by the standards of the rest of the suite.
 test.describe.configure({ timeout: 120_000 });
 
+// Rendered at 1x. Headless runs have no GPU, so the scenes draw on
+// SwiftShader, where
+// the renderer's multisampled antialiasing costs per sample and a 2x frame
+// takes several seconds -- long enough that watching one eleven-second
+// cycle runs past the timeout. Nothing asserted here depends on
+// resolution: whether a dish is drawn, moves, reaches the frame's edge.
+// On a phone's GPU the same antialiasing is close to free, so the app
+// keeps it; only the test lowers the pixel count.
+test.use({ deviceScaleFactor: 1 });
+
 async function openTour(page) {
   await page.route('**stub.supabase.co/**', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
@@ -154,6 +164,10 @@ test.describe('onboarding dish scenes', () => {
   }
 
   test('the soup assembles rather than arriving finished', async ({ page }) => {
+    // Twenty-six screenshots across a full cycle, each a few seconds on a
+    // software GPU. Fewer samples would fit the default and could miss
+    // the empty stretch at the start of the cycle, which is the point.
+    test.setTimeout(180_000);
     await openTour(page);
     await page.getByRole('button', { name: /next/i }).click();
     await waitForDish(page);

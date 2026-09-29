@@ -1,32 +1,38 @@
 import {
+  BufferGeometry,
   CatmullRomCurve3,
   ExtrudeGeometry,
   Color,
   CylinderGeometry,
+  Float32BufferAttribute,
   Group,
   IcosahedronGeometry,
+  Matrix4,
   Mesh,
   MeshStandardMaterial,
   Shape,
   SphereGeometry,
   TubeGeometry,
   Vector3,
-} from 'three';
+} from 'three/webgpu';
+import { iceCreamMaterial, soupMaterial, toastMaterial } from './dishMaterials';
 
 /**
  * Food, built rather than photographed.
  *
- * Everything here is real geometry: a quenelle is a tapered ellipsoid, a
- * blackberry is a cluster of drupelets, the scallion oil is a tube swept
- * along an Archimedean spiral. That is the point -- a photograph lying on
- * a surface holds up only while the camera barely moves, and the moment a
- * dish turns far enough to matter, flatness shows. These pieces have
+ * Everything here is real geometry: a quenelle is lofted from a rounded
+ * triangle, a blackberry is a cluster of drupelets, the scallion oil is a
+ * tube swept along an Archimedean spiral. That is the point -- a
+ * photograph lying on a surface holds up only while the camera barely
+ * moves, and the moment a dish turns far enough to matter, flatness shows. These pieces have
  * their own silhouettes, catch the key light on their own curves, and
  * throw shadows on the plate under them.
  *
  * The colours are sampled from the chef's photographs
  * (`scripts/dish-assets/palettes.py`), so a reconstruction of their
- * cooking is at least their cooking's colour.
+ * cooking is at least their cooking's colour. Surfaces that need more
+ * than a colour -- toast, ice cream, soup -- get procedural materials
+ * from dishMaterials.js.
  */
 
 // Deterministic, so a dish looks the same every time the tour is opened
@@ -37,6 +43,68 @@ export function seeded(seed) {
     s = (s * 1664525 + 1013904223) >>> 0;
     return s / 0x100000000;
   };
+}
+
+/**
+ * Collapses a group's small pieces into one mesh per material.
+ *
+ * Built food is many small meshes -- sixteen drupelets to a blackberry,
+ * fifty-odd chives on a soup -- and every mesh is a draw call, twice over
+ * once shadows are on. The renderer's per-call overhead, not the pixels,
+ * is what that costs; on a software GPU it cut the frame rate by two
+ * thirds. Once a group's pieces are placed they never move relative to
+ * each other, so they can be baked: geometry transformed into the group's
+ * space and concatenated, one mesh per distinct surface.
+ *
+ * Only plain MeshStandardMaterial pieces are baked. Anything with a node
+ * material (the quenelle, the toast, the soup) patterns itself in its own
+ * local space, which baking would move, so it is left as it is.
+ */
+export function bake(group) {
+  group.updateMatrixWorld(true);
+  const toGroup = new Matrix4().copy(group.matrixWorld).invert();
+  const buckets = new Map();
+  const baked = [];
+  group.traverse((o) => {
+    if (!o.isMesh || o.material.type !== 'MeshStandardMaterial') return;
+    const m = o.material;
+    const key = `${m.color.getHexString()}|${m.roughness}|${m.metalness}|${m.flatShading}`;
+    let bucket = buckets.get(key);
+    if (!bucket) {
+      bucket = { material: m, positions: [], normals: [], receive: false };
+      buckets.set(key, bucket);
+    } else if (bucket.material !== m) {
+      m.dispose();
+    }
+    const geo = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+    geo.applyMatrix4(new Matrix4().multiplyMatrices(toGroup, o.matrixWorld));
+    bucket.positions.push(geo.attributes.position.array);
+    bucket.normals.push(geo.attributes.normal.array);
+    bucket.receive ||= o.receiveShadow;
+    geo.dispose();
+    o.geometry.dispose();
+    baked.push(o);
+  });
+  for (const o of baked) o.removeFromParent();
+  for (const { material, positions, normals, receive } of buckets.values()) {
+    const join = (parts) => {
+      const out = new Float32Array(parts.reduce((n, a) => n + a.length, 0));
+      let at = 0;
+      for (const a of parts) {
+        out.set(a, at);
+        at += a.length;
+      }
+      return out;
+    };
+    const geo = new BufferGeometry();
+    geo.setAttribute('position', new Float32BufferAttribute(join(positions), 3));
+    geo.setAttribute('normal', new Float32BufferAttribute(join(normals), 3));
+    const mesh = new Mesh(geo, material);
+    mesh.castShadow = true;
+    mesh.receiveShadow = receive;
+    group.add(mesh);
+  }
+  return group;
 }
 
 function matte(colour, { roughness = 0.82, flat = false } = {}) {
@@ -61,25 +129,98 @@ function rough(geometry, rng, amount = 0.16, squashY = 1) {
 
 /**
  * A quenelle: the three-sided oval a scoop takes when it is passed
- * between two warm spoons. An ellipsoid squashed on one axis and tapered
- * toward one end, which is as close as a primitive gets.
+ * between two warm spoons.
+ *
+ * An ellipsoid is the obvious primitive and the wrong one -- it has no
+ * faces, so it reads as a dumpling. A quenelle's cross-section is a
+ * rounded triangle: two faces pressed by the spoons, meeting in a ridge
+ * along the top, and a third, flat face it sits on. So it is lofted here
+ * from exactly that. Each ring is a triangle with its corners rounded off
+ * (the support function of a triangle, pushed out by a radius), let out a
+ * little toward an ellipse so the spoon faces are gently convex rather
+ * than planar, and the rings shrink toward both tips -- one end blunter
+ * than the other, as a hand-made one is.
+ *
+ * `userData.ridgeAt(t)` returns the top of the ridge at a fraction of the
+ * length, so garnish can be set on it.
  */
-export function quenelle(colour, { length = 0.44, width = 0.26, height = 0.24, rng } = {}) {
-  const geo = new SphereGeometry(0.5, 40, 28);
-  const pos = geo.attributes.position;
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i);
-    const y = pos.getY(i);
-    const z = pos.getZ(i);
-    // Taper toward +x, and flatten the underside so it sits.
-    const taper = 1 - 0.42 * (x + 0.5);
-    const floor = y < -0.18 ? -0.18 + (y + 0.18) * 0.25 : y;
-    pos.setXYZ(i, x * length, floor * height * 2 * taper, z * width * 2 * taper);
+export function quenelle(colour, { length = 0.62, width = 0.42, height = 0.36, rng } = {}) {
+  const RINGS = 56;
+  const SIDES = 72;
+  const ROUND = Math.min(width, height) * 0.2;
+  // The triangle as [y, z] corners, inset by the rounding radius so the
+  // rounded outline comes out at the requested width and height, with its
+  // base on y = 0 and the ridge on top.
+  const corners = [
+    [height - ROUND, 0],
+    [ROUND, -(width / 2 - ROUND)],
+    [ROUND, width / 2 - ROUND],
+  ];
+  // Rings shrink about this height, so the tips come to a point partway
+  // up rather than down at the plate.
+  const PIVOT = height * 0.34;
+
+  function outline(angle) {
+    // angle 0 points straight up, toward the ridge.
+    const dy = Math.cos(angle);
+    const dz = Math.sin(angle);
+    let best = corners[0];
+    let bestDot = -Infinity;
+    for (const c of corners) {
+      const d = c[0] * dy + c[1] * dz;
+      if (d > bestDot) {
+        bestDot = d;
+        best = c;
+      }
+    }
+    const y = best[0] + ROUND * dy;
+    const z = best[1] + ROUND * dz;
+    // Toward an ellipse through the same extents: convex spoon faces.
+    const ey = PIVOT + dy * (dy > 0 ? height - PIVOT : PIVOT);
+    const ez = dz * width * 0.5;
+    return [y + (ey - y) * 0.22, z + (ez - z) * 0.22];
   }
+
+  function taper(t) {
+    // 0 at both tips; the +x end is the pointier one.
+    return Math.pow(Math.sin(Math.PI * t), 0.62) * (1 - 0.18 * t);
+  }
+
+  const positions = [];
+  for (let i = 0; i <= RINGS; i++) {
+    const t = i / RINGS;
+    const x = (t - 0.5) * length;
+    const s = taper(t);
+    for (let j = 0; j < SIDES; j++) {
+      const [y, z] = outline((j / SIDES) * Math.PI * 2);
+      positions.push(x, PIVOT + (y - PIVOT) * s, z * s);
+    }
+  }
+  const index = [];
+  for (let i = 0; i < RINGS; i++) {
+    for (let j = 0; j < SIDES; j++) {
+      const a = i * SIDES + j;
+      const b = i * SIDES + ((j + 1) % SIDES);
+      const c = a + SIDES;
+      const d = b + SIDES;
+      // Wound so the face normal is (b - a) x (c - a): around, then along,
+      // which points outward.
+      index.push(a, b, c, b, d, c);
+    }
+  }
+  const geo = new BufferGeometry();
+  geo.setAttribute('position', new Float32BufferAttribute(positions, 3));
+  geo.setIndex(index);
   geo.computeVertexNormals();
-  if (rng) rough(geo, rng, 0.05);
-  const mesh = new Mesh(geo, matte(colour, { roughness: 0.68 }));
+  if (rng) rough(geo, rng, 0.03);
+
+  const mesh = new Mesh(geo, iceCreamMaterial({ cream: colour }));
   mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  mesh.userData.ridgeAt = (t) => {
+    const [y] = outline(0);
+    return new Vector3((t - 0.5) * length, PIVOT + (y - PIVOT) * taper(t), 0);
+  };
   return mesh;
 }
 
@@ -249,6 +390,9 @@ export function curd(colour, { size = 0.055, rng } = {}) {
  * oval -- which is what the first attempt looked like, a large brown
  * pebble on the plate. A 2D shape run through ExtrudeGeometry gives the
  * flat edge, the dome, real thickness and a bevelled crust in one.
+ *
+ * The toasting -- pitted crumb on the face, charred crust round the edge
+ * -- is the material's job, in dishMaterials.js.
  */
 export function toast(crustColour, crumbColour, { length = 1.3, width = 0.95, depth = 0.17 } = {}) {
   const g = new Group();
@@ -274,30 +418,12 @@ export function toast(crustColour, crumbColour, { length = 1.3, width = 0.95, de
   // Extrude builds along +Z; lay the slice flat so its thickness is Y.
   geo.rotateX(-Math.PI / 2);
 
-  const slab = new Mesh(geo, matte(crustColour, { roughness: 0.94 }));
+  // One material for face and crust alike -- it tells them apart by which
+  // way the surface faces (see toastMaterial), so there is no seam.
+  const slab = new Mesh(geo, toastMaterial({ crumb: crumbColour, crust: crustColour }));
   slab.castShadow = true;
   slab.receiveShadow = true;
   g.add(slab);
-
-  // The pale crumb, showing along the cut edge only.
-  const cutShape = new Shape();
-  cutShape.moveTo(-half * 0.92, -width * 0.235);
-  cutShape.quadraticCurveTo(0, -width * 0.325, half * 0.92, -width * 0.25);
-  cutShape.quadraticCurveTo(0, -width * 0.20, -half * 0.92, -width * 0.235);
-  const cutGeo = new ExtrudeGeometry(cutShape, {
-    depth: depth * 0.92,
-    bevelEnabled: true,
-    bevelThickness: depth * 0.3,
-    bevelSize: depth * 0.22,
-    bevelSegments: 3,
-    curveSegments: 20,
-  });
-  cutGeo.center();
-  cutGeo.rotateX(-Math.PI / 2);
-  const cut = new Mesh(cutGeo, matte(crumbColour, { roughness: 0.96 }));
-  cut.position.set(0, 0, -width * 0.265);
-  cut.castShadow = true;
-  g.add(cut);
 
   return g;
 }
@@ -311,10 +437,7 @@ export function liquid(colour, { radius = 0.62, dome = 0.012 } = {}) {
     pos.setXYZ(i, pos.getX(i) * radius, pos.getY(i) * dome, pos.getZ(i) * radius);
   }
   geo.computeVertexNormals();
-  const mesh = new Mesh(
-    geo,
-    new MeshStandardMaterial({ color: new Color(colour), roughness: 0.34, metalness: 0.02 })
-  );
+  const mesh = new Mesh(geo, soupMaterial({ soup: colour }));
   mesh.receiveShadow = true;
   return mesh;
 }

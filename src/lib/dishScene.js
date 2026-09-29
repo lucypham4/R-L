@@ -7,14 +7,15 @@ import {
   Mesh,
   MeshBasicMaterial,
   MeshStandardMaterial,
-  PCFSoftShadowMap,
+  PCFShadowMap,
   PerspectiveCamera,
   PlaneGeometry,
   Scene,
   Vector2,
-  WebGLRenderer,
-} from 'three';
+  WebGPURenderer,
+} from 'three/webgpu';
 import {
+  bake,
   blackberry,
   chive,
   crumb,
@@ -36,9 +37,10 @@ import PALETTES from '../assets/dishes/palettes.json';
  * The tour's dishes, built rather than photographed.
  *
  * Every vessel is a lathe -- a profile curve spun around its axis -- and
- * everything in it is geometry too: a quenelle is a tapered ellipsoid, a
- * blackberry is a cluster of drupelets, the scallion oil is a tube swept
- * along an Archimedean spiral. See dishFood.js for the kit.
+ * everything in it is geometry too: a quenelle is lofted from a rounded
+ * triangle, a blackberry is a cluster of drupelets, the scallion oil is a
+ * tube swept along an Archimedean spiral. See dishFood.js for the kit, and
+ * dishMaterials.js for the surfaces.
  *
  * An earlier pass projected the photographs onto the vessels instead.
  * That reads well from the angle the photograph was taken at and falls
@@ -138,25 +140,38 @@ const SCENES = {
     plated.position.y = 0.02;
     bowl.add(plated);
 
-    // Crumble first: the quenelle is set down on a bed of it.
-    for (let i = 0; i < 90; i++) {
+    // The quenelle sits straight on the bowl; its base is at y = 0.
+    // Measured off the photograph: the quenelle runs about 0.47 of the
+    // bowl's diameter and is a little over half as wide as it is long.
+    const scoop = quenelle(FOOD.iceCream, { length: 0.9, width: 0.5, height: 0.38, rng });
+    scoop.position.set(-0.02, 0.012, 0.02);
+    scoop.rotation.y = -0.5;
+    plated.add(scoop);
+
+    // In the photograph the chopped nuts are heaped along the quenelle's
+    // ridge, not spread under it -- the one place a spoon cannot reach to
+    // press them in. Parented to the scoop so they ride on it.
+    for (let i = 0; i < 38; i++) {
+      const at = scoop.userData.ridgeAt(0.22 + rng() * 0.5);
+      const c = crumb(rng() > 0.6 ? FOOD.almond : FOOD.crumble, { size: 0.018 + rng() * 0.02, rng });
+      c.position.set(at.x, at.y + rng() * 0.02, (rng() - 0.5) * 0.12);
+      c.rotation.set(rng() * 3, rng() * 3, rng() * 3);
+      scoop.add(c);
+    }
+    // And a few that fell into the bowl.
+    for (let i = 0; i < 9; i++) {
       const a = rng() * Math.PI * 2;
-      const r = Math.sqrt(rng()) * 0.46;
-      const c = crumb(rng() > 0.7 ? FOOD.almond : FOOD.crumble, { size: 0.022 + rng() * 0.022, rng });
-      c.position.set(Math.cos(a) * r, bowl.userData.floorAt(r) + 0.012, Math.sin(a) * r);
+      const r = 0.36 + rng() * 0.18;
+      const c = crumb(FOOD.almond, { size: 0.018 + rng() * 0.014, rng });
+      c.position.set(Math.cos(a) * r, bowl.userData.floorAt(r) + 0.01, Math.sin(a) * r);
       c.rotation.set(rng() * 3, rng() * 3, rng() * 3);
       plated.add(c);
     }
 
-    const scoop = quenelle(FOOD.iceCream, { length: 0.62, width: 0.42, height: 0.36, rng });
-    scoop.position.set(-0.02, 0.19, 0.02);
-    scoop.rotation.y = -0.5;
-    plated.add(scoop);
-
     // Berries tucked around the base, where they sit in the photograph.
     const berries = [
       [raspberry(FOOD.raspberry, { radius: 0.115, rng }), -0.42, 0.26],
-      [raspberry(FOOD.raspberry, { radius: 0.105, rng }), 0.36, 0.34],
+      [raspberry(FOOD.raspberry, { radius: 0.105, rng }), 0.52, 0.3],
       [raspberry(FOOD.raspberry, { radius: 0.1, rng }), 0.06, 0.48],
       [blackberry(FOOD.blackberry, { radius: 0.12, rng }), -0.17, 0.45],
       [blackberry(FOOD.blackberry, { radius: 0.115, rng }), 0.47, 0.08],
@@ -170,7 +185,7 @@ const SCENES = {
 
     // The fan of shards, rising from behind the quenelle.
     const fan = new Group();
-    fan.position.set(0, 0.34, -0.02);
+    fan.position.set(0, 0.38, -0.02);
     for (let i = 0; i < 9; i++) {
       const sh = shard(i % 2 ? FOOD.chocolate : FOOD.chocolateDark, {
         length: 0.34 + rng() * 0.2,
@@ -181,6 +196,7 @@ const SCENES = {
       fan.add(sh);
     }
     plated.add(fan);
+    bake(plated);
 
     return {
       root,
@@ -226,7 +242,7 @@ const SCENES = {
       c.rotation.set(Math.PI / 2 + (rng() - 0.5) * 0.5, rng() * Math.PI, (rng() - 0.5) * 0.4);
       chives.add(c);
     }
-    bowl.add(chives);
+    bowl.add(bake(chives));
 
     const almonds = new Group();
     for (let i = 0; i < 16; i++) {
@@ -237,7 +253,7 @@ const SCENES = {
       f.rotation.set((rng() - 0.5) * 0.9, rng() * Math.PI, (rng() - 0.5) * 0.9);
       almonds.add(f);
     }
-    bowl.add(almonds);
+    bowl.add(bake(almonds));
 
     // Measured off the photograph: the slice is 0.71 of the soup surface
     // across. The surface here is 1.37 units wide, so the slice is about
@@ -323,6 +339,7 @@ const SCENES = {
           scale: 1.05,
         });
         h.position.set(spec.offset[0] * 0.3, 0.035, spec.offset[1] * 0.3);
+        bake(h);
         h.visible = false;
         cell.add(h);
         return h;
@@ -398,6 +415,7 @@ const SCENES = {
       f.rotation.set((rng() - 0.5) * 1.2, rng() * Math.PI, (rng() - 0.5) * 1.2);
       plated.add(f);
     }
+    bake(plated);
 
     return {
       root,
@@ -424,10 +442,15 @@ export function mountDishScene(canvas, sceneName, { reduced = false } = {}) {
   const scene = new Scene();
   const camera = new PerspectiveCamera(34, 1, 0.1, 100);
 
-  const renderer = new WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'low-power' });
+  // WebGPU where the browser has it, WebGL 2 where it does not -- older
+  // iOS, and WebViews that have not enabled it. The node materials in
+  // dishMaterials.js compile to either, so the fallback is invisible.
+  const renderer = new WebGPURenderer({ canvas, alpha: true, antialias: true, powerPreference: 'low-power' });
   renderer.setClearAlpha(0);
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = PCFSoftShadowMap;
+  // PCFSoftShadowMap is WebGL-only; under this renderer PCF with a filter
+  // radius (key.shadow.radius, below) gives the same soft edge.
+  renderer.shadowMap.type = PCFShadowMap;
 
   const key = new DirectionalLight(0xffffff, 3.0);
   key.position.set(-2.6, 4.2, 2.8);
@@ -469,7 +492,11 @@ export function mountDishScene(canvas, sceneName, { reduced = false } = {}) {
   let paused = reduced;
   let frame = null;
   let disposed = false;
+  // Unlike WebGLRenderer, this one has to be initialised -- it may be
+  // negotiating a GPU device -- and it cannot draw until that finishes.
+  let ready = false;
   const start = performance.now();
+  const now = () => (paused ? 9.2 : (performance.now() - start) / 1000);
 
   function fit() {
     const rect = canvas.getBoundingClientRect();
@@ -482,6 +509,7 @@ export function mountDishScene(canvas, sceneName, { reduced = false } = {}) {
   }
 
   function draw(seconds) {
+    if (!ready) return;
     built.update(seconds);
     renderer.render(scene, camera);
   }
@@ -490,22 +518,40 @@ export function mountDishScene(canvas, sceneName, { reduced = false } = {}) {
     if (disposed) return;
     frame = requestAnimationFrame(loop);
     if (paused) return;
-    draw((performance.now() - start) / 1000);
+    draw(now());
   }
 
   const observer =
     typeof ResizeObserver !== 'undefined'
       ? new ResizeObserver(() => {
           fit();
-          draw(paused ? 9.2 : (performance.now() - start) / 1000);
+          draw(now());
         })
       : null;
   observer?.observe(canvas);
 
-  fit();
-  // Reduced motion still gets the dish, held at a moment where the soup's
-  // assembly has finished rather than at its empty first frame.
-  draw(reduced ? 9.2 : 0);
+  // A GPU can be lost from under a page -- a driver reset, the OS
+  // reclaiming memory from a backgrounded app. The tour is decoration and
+  // the next step mounts a fresh renderer, so the honest response is to
+  // stop drawing into a dead context rather than to throw every frame.
+  renderer.onDeviceLost = () => {
+    ready = false;
+  };
+
+  renderer
+    .init()
+    .then(() => {
+      if (disposed) return;
+      ready = true;
+      fit();
+      // Reduced motion still gets the dish, held at a moment where the
+      // soup's assembly has finished rather than at its empty first frame.
+      draw(now());
+    })
+    .catch(() => {
+      // Neither WebGPU nor WebGL 2. The slot keeps its aria-label and its
+      // background; there is nothing more useful to do.
+    });
   loop();
 
   return {
@@ -516,6 +562,7 @@ export function mountDishScene(canvas, sceneName, { reduced = false } = {}) {
     },
     dispose() {
       disposed = true;
+      ready = false;
       if (frame !== null) cancelAnimationFrame(frame);
       observer?.disconnect();
       scene.traverse((o) => {
@@ -523,8 +570,12 @@ export function mountDishScene(canvas, sceneName, { reduced = false } = {}) {
         o.geometry.dispose();
         for (const m of Array.isArray(o.material) ? o.material : [o.material]) m.dispose();
       });
+      // Browsers cap live GL contexts per page and the tour makes one per
+      // step, so the fallback's context is given back explicitly rather
+      // than left for the garbage collector.
+      const gl = renderer.backend?.gl;
       renderer.dispose();
-      renderer.forceContextLoss?.();
+      gl?.getExtension('WEBGL_lose_context')?.loseContext();
     },
   };
 }

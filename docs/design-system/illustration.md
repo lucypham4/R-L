@@ -25,14 +25,53 @@ slot is a confusing way to lose an hour.
 ## Everything is geometry
 
 `src/lib/dishFood.js` is a kit of food shapes and `dishScene.js` plates
-them. A quenelle is a tapered ellipsoid with a flattened underside. A
-blackberry is a cluster of drupelets — which is what makes it read as a
-blackberry rather than as a dark marble. The scallion oil is a tube swept
-along an Archimedean spiral. Toast is extruded from an outline, because
-its silhouette is the whole thing.
+them. A quenelle is lofted from a rounded-triangle cross-section — two
+spoon faces meeting in a ridge, and a flat face to sit on — because an
+ellipsoid has no faces and reads as a dumpling. A blackberry is a cluster
+of drupelets, which is what makes it read as a blackberry rather than as
+a dark marble. The scallion oil is a tube swept along an Archimedean
+spiral. Toast is extruded from an outline, because its silhouette is the
+whole thing.
 
 Nothing is textured, and the tour ships **no images at all** — only
 `palettes.json`, a few hundred bytes.
+
+### Surfaces are procedural
+
+Geometry gets a piece's silhouette right; what a flat colour cannot give
+it is the surface. `src/lib/dishMaterials.js` writes those in TSL (see
+the `webgpu-threejs-tsl` skill in `.claude/skills/`):
+
+- **Toast** — Worley noise at two scales for the air pockets in the
+  crumb, fractal noise for uneven browning, charred patches on the crust.
+  Face and crust are one material, told apart by which way the surface
+  faces, so there is no seam.
+- **Ice cream** — noise stretched along the quenelle's length for the
+  spoon's drag lines, fine Worley dimpling for ice crystals, and sheen for
+  the soft bloom cold cream has at a grazing angle.
+- **Soup** — faint swirl ridges spiralling out from the centre, kept
+  subtle so the oil stays the spiral the eye follows.
+
+Every pattern is keyed to the piece's own space (`positionLocal`), so it
+turns with the food. Keyed to world space it would slide across the
+surface as the dish rotated.
+
+Relief comes from `proceduralBump()` rather than three's `bumpMap()`.
+`bumpMap()` finds a height's slope by re-sampling a *texture* at nudged
+UVs; a noise function ignores UVs, so the slope comes out zero and the
+bump silently disappears.
+
+### The renderer
+
+`WebGPURenderer`, which uses WebGPU where the browser has it and falls
+back to WebGL 2 where it does not — older iOS, and WebViews that have
+not enabled it. Node materials compile to either. Two consequences:
+
+- It initialises asynchronously, so `mountDishScene` draws nothing until
+  `renderer.init()` resolves.
+- `three/webgpu` is heavier than `three`: the tour's lazy chunk is about
+  260KB gzipped against 147KB before. It still loads only when the tour
+  opens, never with the gallery.
 
 ### Why not the photographs
 
@@ -79,6 +118,12 @@ mount.
 **Build variants once and hide them.** The archive riffles through fifteen
 heaps by flipping `visible`, not by rebuilding meshes five times a second.
 
+**Bake what has settled.** Built food is hundreds of small meshes, and
+each is a draw call — twice, with shadows. Once a group's pieces are
+placed, `bake()` merges them into one mesh per surface. It leaves node
+materials alone: they pattern themselves in their own local space, which
+merging would move.
+
 **Compose for the widest moment.** A rotation's widest silhouette is
 transient, and a camera crops it silently.
 
@@ -120,6 +165,11 @@ there is no DOM to measure inside a canvas:
 - **Cycling**: the archive's mean frame colour keeps changing. Coverage
   does not work here — nine dishes swapping textures keep the same
   silhouettes.
+
+The suite renders the scenes at 1x. Headless Chromium has no GPU, and on
+SwiftShader the renderer's multisampled antialiasing makes a 2x frame
+take seconds. Nothing the suite asserts depends on resolution, and on a
+phone's GPU the antialiasing is close to free, so the app keeps it.
 
 Two things that make this suite awkward, both worth keeping in mind
 before adding to it. Screenshots are expensive, so one test taking forty
