@@ -11,6 +11,7 @@ import {
   Mesh,
   Shape,
   SphereGeometry,
+  TorusGeometry,
   TubeGeometry,
   Vector3,
 } from 'three/webgpu';
@@ -21,11 +22,10 @@ import { iceCreamMaterial, soupMaterial, toastMaterial, toy } from './dishMateri
  *
  * Everything here is real geometry: a quenelle is lofted from a rounded
  * triangle, a blackberry is a cluster of drupelets, the scallion oil is a
- * tube swept along an Archimedean spiral. That is the point -- a
+ * tube swept along a hand-drawn spiral. That is the point -- a
  * photograph lying on a surface holds up only while the camera barely
  * moves, and the moment a dish turns far enough to matter, flatness
- * shows. These pieces have their own silhouettes and throw shadows on
- * the plate under them.
+ * shows. These pieces have their own silhouettes, so a dish can turn.
  *
  * They are painted like toys (dishMaterials.js): unlit, each coloured by
  * a soft gradient, after the low-poly "tiny treats" cake used as the
@@ -49,9 +49,8 @@ export function seeded(seed) {
  *
  * Built food is many small meshes -- sixteen drupelets to a blackberry,
  * fifty-odd chives on a soup -- and every mesh is a draw call, twice over
- * once shadows are on. The renderer's per-call overhead, not the pixels,
- * is what that costs; on a software GPU it cut the frame rate by two
- * thirds. Once a group's pieces are placed they never move relative to
+ * once it has an outline, each with the renderer's per-call overhead.
+ * Once a group's pieces are placed they never move relative to
  * each other, so they can be baked: geometry transformed into the group's
  * space and concatenated, one mesh per distinct surface.
  *
@@ -70,20 +69,19 @@ export function bake(group) {
     if (!key) return;
     let bucket = buckets.get(key);
     if (!bucket) {
-      bucket = { material: o.material, positions: [], normals: [], receive: false };
+      bucket = { material: o.material, positions: [], normals: [] };
       buckets.set(key, bucket);
     }
     const geo = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
     geo.applyMatrix4(new Matrix4().multiplyMatrices(toGroup, o.matrixWorld));
     bucket.positions.push(geo.attributes.position.array);
     bucket.normals.push(geo.attributes.normal.array);
-    bucket.receive ||= o.receiveShadow;
     geo.dispose();
     o.geometry.dispose();
     baked.push(o);
   });
   for (const o of baked) o.removeFromParent();
-  for (const { material, positions, normals, receive } of buckets.values()) {
+  for (const { material, positions, normals } of buckets.values()) {
     const join = (parts) => {
       const out = new Float32Array(parts.reduce((n, a) => n + a.length, 0));
       let at = 0;
@@ -97,8 +95,6 @@ export function bake(group) {
     geo.setAttribute('position', new Float32BufferAttribute(join(positions), 3));
     geo.setAttribute('normal', new Float32BufferAttribute(join(normals), 3));
     const mesh = new Mesh(geo, material);
-    mesh.castShadow = true;
-    mesh.receiveShadow = receive;
     group.add(mesh);
   }
   return group;
@@ -203,8 +199,6 @@ export function quenelle(colour, { length = 0.62, width = 0.42, height = 0.36, r
   if (rng) rough(geo, rng, 0.03);
 
   const mesh = new Mesh(geo, iceCreamMaterial({ cream: colour, height }));
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
   mesh.userData.ridgeAt = (t) => {
     const [y] = outline(0);
     return new Vector3((t - 0.5) * length, PIVOT + (y - PIVOT) * taper(t), 0);
@@ -236,9 +230,6 @@ export function blackberry(colour, { radius = 0.075, rng } = {}) {
     );
     g.add(d);
   }
-  g.traverse((o) => {
-    if (o.isMesh) o.castShadow = true;
-  });
   return g;
 }
 
@@ -262,19 +253,7 @@ export function raspberry(colour, { radius = 0.07, rng } = {}) {
     );
     g.add(d);
   }
-  g.traverse((o) => {
-    if (o.isMesh) o.castShadow = true;
-  });
   return g;
-}
-
-/** A tempered-chocolate shard: a thin tapered spike. */
-export function shard(colour, { length = 0.3, thickness = 0.011 } = {}) {
-  const geo = new CylinderGeometry(thickness * 0.35, thickness, length, 7, 1);
-  geo.translate(0, length / 2, 0);
-  const mesh = new Mesh(geo, toy(colour));
-  mesh.castShadow = true;
-  return mesh;
 }
 
 /** A crumb of streusel, toasted nut, or anything else granular. */
@@ -282,7 +261,6 @@ export function crumb(colour, { size = 0.03, rng } = {}) {
   const r = rng ?? seeded(11);
   const geo = rough(new IcosahedronGeometry(size, 0), r, 0.5, 0.7);
   const mesh = new Mesh(geo, toy(colour));
-  mesh.castShadow = true;
   return mesh;
 }
 
@@ -295,51 +273,130 @@ export function flake(colour, { length = 0.075, rng } = {}) {
   }
   geo.computeVertexNormals();
   if (rng) rough(geo, rng, 0.2);
-  const mesh = new Mesh(geo, toy(colour));
-  mesh.castShadow = true;
+  // Flat: a highlight would flash across the whole face at once.
+  const mesh = new Mesh(geo, toy(colour, { shine: false }));
   return mesh;
 }
 
 /** A chopped chive: a short length of hollow green stem. */
 export function chive(colour, { length = 0.028, radius = 0.009 } = {}) {
-  const mesh = new Mesh(new CylinderGeometry(radius, radius, length, 8, 1), toy(colour));
-  mesh.castShadow = true;
+  const mesh = new Mesh(new CylinderGeometry(radius, radius, length, 8, 1), toy(colour, { shine: false }));
   return mesh;
 }
 
 /**
- * The scallion oil, swept along an Archimedean spiral.
+ * The scallion oil, as it comes out of a squeezed bottle: a spiral, but a
+ * hand-drawn one.
  *
- * This is the piece that most repays being built rather than painted: it
- * is a raised bead of oil sitting on the soup, so it catches a highlight
- * along its length and lays a soft shadow beside itself. Flat on a
- * texture it is a green line; here it is a drizzle.
+ * A mathematically clean Archimedean spiral reads as a graphic, not as
+ * oil. A hand squeezing a bottle while circling it lays down something
+ * looser -- the rings unevenly spaced, the centre drifting, the circle
+ * slightly egg-shaped, the line swelling where the hand paused and
+ * thinning where it hurried, and trailing off at the end. All of that is
+ * here, seeded so the same hand draws it every time.
+ *
+ * It can be drawn on a length at a time, the way it is squeezed out
+ * (`userData.drawTo(u)`); `userData.curve.getPointAt(u)` is the tip.
  */
-export function spiral(colour, { innerRadius = 0.1, outerRadius = 0.62, turns = 2.6, thickness = 0.016 } = {}) {
+export function drizzle(colour, { innerRadius = 0.05, outerRadius = 0.55, turns = 2.2, thickness = 0.016, seed = 3 } = {}) {
+  const r = seeded(seed);
+  const phase = Array.from({ length: 6 }, () => r() * Math.PI * 2);
   const points = [];
-  const steps = 200;
+  const steps = 240;
   for (let i = 0; i <= steps; i++) {
     const t = i / steps;
-    const angle = t * Math.PI * 2 * turns;
-    const r = innerRadius + (outerRadius - innerRadius) * t;
-    points.push(new Vector3(Math.cos(angle) * r, Math.sin(t * 9) * 0.004, Math.sin(angle) * r));
+    // Uneven pace round the circle: the hand speeds up and slows down.
+    const angle = t * Math.PI * 2 * turns + 0.45 * Math.sin(t * 7.3 + phase[0]);
+    const radius =
+      innerRadius +
+      (outerRadius - innerRadius) * Math.pow(t, 0.85) +
+      0.03 * Math.sin(t * 19 + phase[1]) +
+      0.014 * Math.sin(t * 43 + phase[2]);
+    // The centre wanders a little as the hand circles.
+    const cx = 0.05 * Math.sin(t * 3.1 + phase[3]);
+    const cz = 0.04 * Math.sin(t * 2.3 + phase[4]);
+    points.push(
+      new Vector3(cx + Math.cos(angle) * radius * 1.06, Math.sin(t * 9 + phase[5]) * 0.003, cz + Math.sin(angle) * radius * 0.94)
+    );
   }
   const curve = new CatmullRomCurve3(points);
-  const SEGMENTS = 220;
+  const SEGMENTS = 260;
   const RADIAL = 8;
-  const mesh = new Mesh(new TubeGeometry(curve, SEGMENTS, thickness, RADIAL, false), toy(colour));
-  mesh.castShadow = true;
-  // So it can be drawn on a length at a time, the way it is squeezed out:
+  const geo = new TubeGeometry(curve, SEGMENTS, thickness, RADIAL, false);
+
+  // Swell and thin along the length: TubeGeometry lays out one ring of
+  // RADIAL + 1 vertices per segment, round curve.getPointAt(i / SEGMENTS),
+  // so each ring can be scaled about its own centre.
+  const pos = geo.attributes.position;
+  const centre = new Vector3();
+  const v = new Vector3();
+  for (let i = 0; i <= SEGMENTS; i++) {
+    const u = i / SEGMENTS;
+    const flow = 0.8 + 0.35 * Math.sin(u * 31 + phase[0]) * Math.sin(u * 11 + phase[2]);
+    // A blob where the squeeze began; thinning to a tail where it let go.
+    const ends = 1 + 0.5 * Math.exp(-u * 40) - 0.6 * Math.pow(u, 6);
+    const k = Math.max(0.3, flow * ends);
+    curve.getPointAt(u, centre);
+    for (let j = 0; j <= RADIAL; j++) {
+      const idx = i * (RADIAL + 1) + j;
+      v.fromBufferAttribute(pos, idx).sub(centre).multiplyScalar(k).add(centre);
+      pos.setXYZ(idx, v.x, v.y, v.z);
+    }
+  }
+  geo.computeVertexNormals();
+
+  const mesh = new Mesh(geo, toy(colour));
+  mesh.userData.curve = curve;
   // TubeGeometry lays its indices down the path in order, RADIAL * 6 per
   // segment, so a draw range over the first n segments is the first n
-  // pieces of the drizzle. The tip at fraction u is curve.getPointAt(u).
-  mesh.userData.curve = curve;
+  // pieces of the drizzle.
   mesh.userData.drawTo = (u) => {
     const n = Math.round(Math.min(1, Math.max(0, u)) * SEGMENTS);
     mesh.geometry.setDrawRange(0, n * RADIAL * 6);
     mesh.visible = n > 0;
   };
   return mesh;
+}
+
+/**
+ * A starburst of piped chocolate, from the dessert photograph: thin
+ * lines radiating from a knot at the centre, each ending in a small bead
+ * where the piping bag lifted off.
+ *
+ * Built in its own XY plane, spokes spread across `arc` radians centred
+ * on +Y. `droop` bends each spoke's far end along -Z as it goes, so a
+ * burst laid across the ice cream can sag over its sides.
+ */
+export function starburst(colour, { spokes = 9, length = 0.34, arc = Math.PI * 1.1, droop = 0, thickness = 0.009, seed = 1 } = {}) {
+  const r = seeded(seed);
+  const g = new Group();
+  const material = toy(colour);
+  const knot = new Mesh(new SphereGeometry(thickness * 2.1, 12, 10), material);
+  g.add(knot);
+  for (let i = 0; i < spokes; i++) {
+    const a = -arc / 2 + (arc * (i + 0.5)) / spokes + (r() - 0.5) * 0.12;
+    const len = length * (0.72 + r() * 0.4);
+    const dir = new Vector3(Math.sin(a), Math.cos(a), 0);
+    const side = new Vector3(Math.cos(a), -Math.sin(a), 0);
+    const wobble = (r() - 0.5) * 0.05;
+    const pts = [];
+    for (let k = 0; k <= 5; k++) {
+      const t = k / 5;
+      pts.push(
+        dir
+          .clone()
+          .multiplyScalar(t * len)
+          .addScaledVector(side, Math.sin(t * Math.PI) * wobble)
+          .add(new Vector3(0, 0, -droop * t * t * len))
+      );
+    }
+    const curve = new CatmullRomCurve3(pts);
+    g.add(new Mesh(new TubeGeometry(curve, 16, thickness, 6, false), material));
+    const bead = new Mesh(new SphereGeometry(thickness * 1.5, 10, 8), material);
+    bead.position.copy(curve.getPointAt(1));
+    g.add(bead);
+  }
+  return g;
 }
 
 /** A ribbon of shaved courgette, swept along a curve and twisted. */
@@ -365,8 +422,6 @@ export function ribbon(colour, { length = 0.5, width = 0.09, rng, seed = 1 } = {
   for (let i = 0; i < pos.count; i++) pos.setY(i, pos.getY(i) * 0.22);
   geo.computeVertexNormals();
   const mesh = new Mesh(geo, toy(colour));
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
   return mesh;
 }
 
@@ -375,7 +430,6 @@ export function curd(colour, { size = 0.055, rng } = {}) {
   const r = rng ?? seeded(17);
   const geo = rough(new IcosahedronGeometry(size, 1), r, 0.42, 0.78);
   const mesh = new Mesh(geo, toy(colour));
-  mesh.castShadow = true;
   return mesh;
 }
 
@@ -419,8 +473,6 @@ export function toast(crustColour, crumbColour, { length = 1.3, width = 0.95, de
   // One material for face and crust alike -- it tells them apart by which
   // way the surface faces (see toastMaterial), so there is no seam.
   const slab = new Mesh(geo, toastMaterial({ crumb: crumbColour, crust: crustColour, fade }));
-  slab.castShadow = true;
-  slab.receiveShadow = true;
   g.add(slab);
 
   return g;
@@ -436,7 +488,11 @@ export function liquid(colour, { radius = 0.62, dome = 0.012 } = {}) {
   }
   geo.computeVertexNormals();
   const mesh = new Mesh(geo, soupMaterial({ soup: colour }));
-  mesh.receiveShadow = true;
+  // For the toon outline: a band round the rim of the disc (see
+  // addOutlines -- a hull cannot outline an open dome).
+  const ring = new TorusGeometry(radius, 0.016, 6, 96);
+  ring.rotateX(Math.PI / 2);
+  mesh.userData.ringGeometry = ring;
   return mesh;
 }
 

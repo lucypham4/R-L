@@ -27,13 +27,17 @@ export default function SceneArt({ art, ratio }) {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return undefined;
-    const handle = mountDishScene(canvas, art.scene, { reduced: prefersReducedMotion() });
+    // The toon outline is on unless a step's art says `outline: false`.
+    const handle = mountDishScene(canvas, art.scene, {
+      reduced: prefersReducedMotion(),
+      outline: art.outline !== false,
+    });
     sceneRef.current = handle;
     return () => {
       handle.dispose();
       sceneRef.current = null;
     };
-  }, [art.scene]);
+  }, [art.scene, art.outline]);
 
   useEffect(() => {
     sceneRef.current?.setPaused(reduced);

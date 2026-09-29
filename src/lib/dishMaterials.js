@@ -1,40 +1,63 @@
-import { Color, MeshBasicNodeMaterial, SRGBColorSpace } from 'three/webgpu';
-import { atan, color, float, mix, normalLocal, normalWorld, positionLocal, smoothstep, uniform, vec3 } from 'three/tsl';
+import { BackSide, Color, MeshBasicNodeMaterial, SRGBColorSpace } from 'three/webgpu';
+import {
+  atan,
+  cameraViewMatrix,
+  color,
+  float,
+  max,
+  mix,
+  normalLocal,
+  normalView,
+  normalWorld,
+  positionLocal,
+  positionView,
+  smoothstep,
+  uniform,
+  vec3,
+  vec4,
+} from 'three/tsl';
 
 /**
- * The food's surfaces, in the style of a hand-painted toy.
+ * The tour's surfaces, painted like a sticker-sheet illustration.
  *
- * The reference is a low-poly cake slice from a "tiny treats" set: no
- * lighting at all, every part coloured by a soft gradient -- lighter where
- * it faces up, deeper where it turns away -- so the form reads from the
- * colour alone. Nothing is textured, there is no noise, no pitting, no
- * specular. Food drawn this way reads instantly at thumbnail size and
- * never looks like a failed photograph.
+ * The references are a low-poly "tiny treats" cake and a drawn lemon
+ * cake on a lavender-white plate. What they share: no lighting at all;
+ * every part coloured by a soft gradient, lighter where it faces up and
+ * deeper where it turns away, so form reads from colour alone; crisp
+ * white "shine balls" -- a highlight dot with a smaller one beside it --
+ * on anything round; and, optionally, an outline in a darker shade of
+ * each part's own colour (addOutlines, below).
  *
- * So these are unlit materials (MeshBasicNodeMaterial) with the shading
- * painted in: a gradient, multiplied by a soft wrap from one fixed
- * direction. The direction is the key light's, so the food agrees with
- * the shadows it casts on the (lit) ceramic under it.
- *
- * Small pieces -- a drupelet, a chive, a crumb -- shade by their normal
- * alone, which survives bake() merging them. Large pieces also run a
- * gradient up their own height, which is what gives the reference its
- * look; that is keyed to positionLocal and so is only used on meshes
- * that are never baked.
+ * So everything here is unlit (MeshBasicNodeMaterial) with the shading
+ * painted in. The gradient is weighted by a fixed light direction; the
+ * shine balls are a toon highlight -- a hard-edged cut of the half-vector
+ * term -- so they sit where a real highlight would and stay put as a dish
+ * turns under them.
  */
 
-// Matches the key light in dishScene.js (-2.6, 4.2, 2.8).
 const LIGHT = vec3(-0.46, 0.74, 0.5).normalize();
 
 /** 0 facing away from the light, 1 facing it. */
 const wrap = () => normalWorld.dot(LIGHT).mul(0.5).add(0.5);
 
-/** The painted shade: never black, gently brighter toward the light. */
-const shade = () => float(0.72).add(wrap().mul(0.36));
+/**
+ * The shine balls: a round highlight, and a smaller one just below and
+ * to the side of it. Hard-edged on purpose -- a soft specular is what a
+ * photograph has; a drawn highlight is a white shape.
+ */
+function shine() {
+  const toEye = positionView.negate().normalize();
+  const light = cameraViewMatrix.mul(vec4(LIGHT, 0)).xyz.normalize();
+  const h = light.add(toEye).normalize();
+  const big = smoothstep(0.945, 0.952, normalView.dot(h));
+  const h2 = h.add(vec3(0.2, -0.24, 0)).normalize();
+  const small = smoothstep(0.985, 0.988, normalView.dot(h2));
+  return max(big, small);
+}
 
 // Lifted and deepened in HSL, as a painter would mix them. Lerping toward
-// white instead washes every colour toward grey, and the reference is
-// all clear, saturated pastels.
+// white instead washes every colour toward grey, and both references are
+// clear, saturated pastels.
 function shift(c, dl, ds) {
   const hsl = {};
   const out = new Color(c);
@@ -44,19 +67,32 @@ function shift(c, dl, ds) {
 }
 const lighter = (c, k) => shift(c, k * 0.6, k * 0.15);
 const deeper = (c, k) => shift(c, -k * 0.5, k * 0.2);
+/** The outline: the part's own colour, much darker and a little richer --
+ *  gold round a lemon, green round a leaf, violet round a white plate. */
+const inked = (c) => shift(c, -0.3, 0.25);
+
+function withFade(material) {
+  const opacity = uniform(1);
+  material.transparent = true;
+  material.opacityNode = opacity;
+  material.userData.opacity = opacity;
+  return material;
+}
 
 const cache = new Map();
 
 /**
- * A piece of food in the toy style.
+ * A piece in the painted style.
  *
- * `top` and `bottom` default to the colour lifted and deepened. Pass
- * `range: [y0, y1]` to also run the gradient up the piece's own height
- * (not bake-safe). `fade: true` makes it able to fade in and out, via
+ * `top`/`bottom` default to the colour lifted and deepened. `range:
+ * [y0, y1]` also runs the gradient up the piece's own height (not
+ * bake-safe). `shine: false` for flat pieces, where a highlight would
+ * flash across the whole face at once. `outline` overrides the ink
+ * colour, or `false` for none. `fade: true` exposes
  * `material.userData.opacity`.
  */
-export function toy(colour, { top, bottom, range = null, fade = false } = {}) {
-  const key = [colour, top, bottom, range?.join(','), fade].join('|');
+export function toy(colour, { top, bottom, range = null, fade = false, shine: shiny = true, outline } = {}) {
+  const key = [colour, top, bottom, range?.join(','), fade, shiny, outline].join('|');
   if (!fade && cache.has(key)) return cache.get(key);
 
   const hi = color(top ? new Color(top) : lighter(colour, 0.16));
@@ -66,12 +102,11 @@ export function toy(colour, { top, bottom, range = null, fade = false } = {}) {
     : wrap();
 
   const material = new MeshBasicNodeMaterial();
-  material.colorNode = mix(lo, hi, t).mul(range ? float(1) : float(0.9).add(wrap().mul(0.14)));
+  const base = mix(lo, hi, t).mul(range ? float(1) : float(0.9).add(wrap().mul(0.14)));
+  material.colorNode = shiny ? mix(base, color('#ffffff'), shine()) : base;
+  material.userData.outline = outline === false ? null : new Color(outline ?? inked(colour));
   if (fade) {
-    const opacity = uniform(1);
-    material.transparent = true;
-    material.opacityNode = opacity;
-    material.userData.opacity = opacity;
+    withFade(material);
   } else {
     // Merged by bake() only when the shading does not depend on where
     // the piece sits in its own space.
@@ -91,13 +126,14 @@ export function iceCreamMaterial({ cream, height }) {
   const up = smoothstep(0, height, positionLocal.y);
   const base = mix(color(deeper(lighter(cream, 0.1), 0.12).lerp(new Color('#f3c9a2'), 0.35)), color(lighter(cream, 0.4)), up);
   const drag = positionLocal.z.mul(90).sin().mul(0.025).add(1);
-  material.colorNode = base.mul(shade()).mul(drag);
+  material.colorNode = mix(base.mul(float(0.84).add(wrap().mul(0.2))).mul(drag), color('#ffffff'), shine());
+  material.userData.outline = new Color('#d9a45a');
   return material;
 }
 
 /**
  * A slice of toast: a golden face, paler toward its middle where it
- * browned least, inside a darker crust. Face and crust are told apart by
+ * browned least, inside a darker crust. No shine. Face and crust are told apart by
  * which way the surface points, so there is no seam between them.
  */
 export function toastMaterial({ crumb, crust, fade = false }) {
@@ -106,21 +142,21 @@ export function toastMaterial({ crumb, crust, fade = false }) {
   const centre = smoothstep(0.55, 0.05, positionLocal.xz.length());
   const faceColour = mix(color(new Color(crumb).lerp(new Color(crust), 0.62)), color(new Color(crumb).lerp(new Color(crust), 0.25)), centre);
   const crustColour = mix(color(deeper(crust, 0.35)), color(crust), wrap());
-  material.colorNode = mix(crustColour, faceColour, face).mul(shade());
-  if (fade) {
-    const opacity = uniform(1);
-    material.transparent = true;
-    material.opacityNode = opacity;
-    material.userData.opacity = opacity;
-  }
+  // Matte: bread does not shine, and a highlight on the crust's bevel
+  // read as a glazed plastic edge.
+  material.colorNode = mix(crustColour, faceColour, face).mul(float(0.84).add(wrap().mul(0.2)));
+  material.userData.outline = inked(crust);
+  if (fade) withFade(material);
   return material;
 }
 
 /**
  * Soup: brightest at the centre, deepening toward the rim, with faint
- * bands spiralling out where it was levelled with a spoon. The disc it
- * sits on has radius 1 and is scaled to the bowl, so these are in units
- * of the soup's own radius.
+ * bands spiralling out where it was levelled with a spoon. The disc has
+ * radius 1 and is scaled to the bowl, so these are in units of the
+ * soup's own radius. No toon highlight -- the surface is nearly flat, so
+ * one would flash across all of it at once; the soup's shine balls are
+ * placed as shapes instead (see soup() in dishScene.js).
  */
 export function soupMaterial({ soup }) {
   const material = new MeshBasicNodeMaterial();
@@ -129,5 +165,136 @@ export function soupMaterial({ soup }) {
   const bands = r.mul(22).sub(angle).sin().mul(0.5).add(0.5).mul(smoothstep(0.05, 0.25, r));
   const radial = mix(color(lighter(soup, 0.22)), color(deeper(soup, 0.12)), smoothstep(0.1, 1, r));
   material.colorNode = radial.mul(bands.mul(0.05).add(0.97));
+  // Outlined by a ring at its edge rather than a hull -- see addOutlines.
+  material.userData.outline = null;
+  material.userData.ring = inked(soup);
   return material;
+}
+
+/**
+ * A falling stream -- soup from above, oil from above -- that fades out
+ * toward its top, so it reads as poured from somewhere out of shot
+ * without anything having to be drawn doing the pouring. The stream's
+ * geometry runs from y = 0 (top) down to y = -1.
+ */
+export function streamMaterial(colour) {
+  const material = new MeshBasicNodeMaterial();
+  material.colorNode = mix(color(deeper(colour, 0.18)), color(colour), wrap());
+  material.transparent = true;
+  material.opacityNode = smoothstep(0, -0.3, positionLocal.y);
+  material.depthWrite = false;
+  return material;
+}
+
+/** Plain white, for a shine ball placed as a shape. */
+export function whiteMaterial() {
+  const material = new MeshBasicNodeMaterial();
+  material.colorNode = color('#ffffff');
+  material.userData.outline = null;
+  return material;
+}
+
+const hulls = new Map();
+const smoothed = new WeakMap();
+
+/**
+ * The geometry a hull is pushed out from. A mesh with faceted normals --
+ * a crumb, or anything baked, which is unindexed -- has several normals
+ * at each corner, so pushing out along them tears the hull apart at every
+ * edge and the outline breaks into dark specks. The hull gets a copy
+ * whose normals are averaged over every vertex at the same position.
+ * Indexed geometry is already smooth and is shared as it is, which also
+ * keeps a draw range (the oil drawing itself on) in step with its hull.
+ */
+function hullGeometry(geometry) {
+  if (geometry.index) return geometry;
+  if (smoothed.has(geometry)) return smoothed.get(geometry);
+  const pos = geometry.attributes.position;
+  const nor = geometry.attributes.normal;
+  const sums = new Map();
+  const keys = [];
+  for (let i = 0; i < pos.count; i++) {
+    const k = `${pos.getX(i).toFixed(4)},${pos.getY(i).toFixed(4)},${pos.getZ(i).toFixed(4)}`;
+    keys.push(k);
+    const acc = sums.get(k) ?? [0, 0, 0];
+    acc[0] += nor.getX(i);
+    acc[1] += nor.getY(i);
+    acc[2] += nor.getZ(i);
+    sums.set(k, acc);
+  }
+  const out = geometry.clone();
+  const n = out.attributes.normal;
+  for (let i = 0; i < pos.count; i++) {
+    const [x, y, z] = sums.get(keys[i]);
+    const len = Math.hypot(x, y, z) || 1;
+    n.setXYZ(i, x / len, y / len, z / len);
+  }
+  smoothed.set(geometry, out);
+  return out;
+}
+
+function hullMaterial(ink, width, opacity) {
+  const key = `${ink.getHexString()}|${width.toFixed(4)}`;
+  if (!opacity && hulls.has(key)) return hulls.get(key);
+  const material = new MeshBasicNodeMaterial();
+  material.side = BackSide;
+  material.colorNode = color(ink);
+  material.positionNode = positionLocal.add(normalLocal.mul(width));
+  if (opacity) {
+    material.transparent = true;
+    material.opacityNode = opacity;
+  } else {
+    hulls.set(key, material);
+  }
+  return material;
+}
+
+/**
+ * The toon outline, as an inverted hull: each outlined mesh gets a copy
+ * of itself pushed out along its normals, drawn back faces only, in its
+ * ink colour. Where the copy shows past the original is the outline.
+ *
+ * It is a pass over a finished scene, not part of building one, so a
+ * scene reads the same with or without it, and the choice is one flag.
+ * The hull is a child of its mesh, so it follows every move, fade and
+ * visibility change the mesh makes; instanced meshes share their
+ * instance matrices with theirs, so every sprinkled chive gets its own
+ * outline as it falls.
+ */
+export function addOutlines(root) {
+  const meshes = [];
+  root.traverse((o) => {
+    if (o.isMesh && !o.userData.isHull) meshes.push(o);
+  });
+  for (const mesh of meshes) {
+    const { outline, ring, opacity } = mesh.material.userData;
+    if (ring) {
+      mesh.add(ringFor(mesh, ring));
+      continue;
+    }
+    if (!outline) continue;
+    mesh.geometry.computeBoundingSphere();
+    // Thicker on big pieces, never so thick a chive disappears into it.
+    const width = Math.min(0.016, Math.max(0.0045, mesh.geometry.boundingSphere.radius * 0.07));
+    const material = hullMaterial(outline, width, opacity);
+    const shell = hullGeometry(mesh.geometry);
+    const hull = mesh.isInstancedMesh
+      ? Object.assign(new mesh.constructor(shell, material, mesh.count), { instanceMatrix: mesh.instanceMatrix })
+      : new mesh.constructor(shell, material);
+    hull.userData.isHull = true;
+    hull.frustumCulled = false;
+    hull.renderOrder = -1;
+    mesh.add(hull);
+  }
+}
+
+function ringFor(mesh, ink) {
+  // A band round the edge of the soup's unit disc (liquid() supplies the
+  // geometry): the line where the soup meets the bowl. As the disc's
+  // child it scales with it as the soup rises.
+  const material = new MeshBasicNodeMaterial();
+  material.colorNode = color(ink);
+  const ring = new mesh.constructor(mesh.userData.ringGeometry, material);
+  ring.userData.isHull = true;
+  return ring;
 }

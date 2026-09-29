@@ -1,21 +1,12 @@
 import {
-  AmbientLight,
-  Color,
-  ConeGeometry,
   CylinderGeometry,
-  DirectionalLight,
-  DoubleSide,
   Euler,
   Group,
   InstancedMesh,
   LatheGeometry,
   Matrix4,
   Mesh,
-  MeshBasicMaterial,
-  MeshStandardMaterial,
-  PCFShadowMap,
   PerspectiveCamera,
-  PlaneGeometry,
   Quaternion,
   Scene,
   SphereGeometry,
@@ -29,6 +20,7 @@ import {
   chive,
   crumb,
   curd,
+  drizzle,
   flake,
   heap,
   liquid,
@@ -36,11 +28,10 @@ import {
   raspberry,
   ribbon,
   seeded,
-  shard,
-  spiral,
+  starburst,
   toast,
 } from './dishFood';
-import { toy } from './dishMaterials';
+import { addOutlines, streamMaterial, toy, whiteMaterial } from './dishMaterials';
 import PALETTES from '../assets/dishes/palettes.json';
 
 /**
@@ -49,15 +40,14 @@ import PALETTES from '../assets/dishes/palettes.json';
  * Every vessel is a lathe -- a profile curve spun around its axis -- and
  * everything in it is geometry too: a quenelle is lofted from a rounded
  * triangle, a blackberry is a cluster of drupelets, the scallion oil is a
- * tube swept along an Archimedean spiral. See dishFood.js for the kit, and
+ * tube swept along a hand-drawn spiral. See dishFood.js for the kit, and
  * dishMaterials.js for the surfaces.
  *
  * An earlier pass projected the photographs onto the vessels instead.
  * That reads well from the angle the photograph was taken at and falls
  * apart either side of it, because a picture of food has no silhouette of
  * its own -- so the scenes could only turn through a few degrees. Built
- * food can be lit, can cast shadows on the plate under it, and can be
- * looked at from anywhere.
+ * food has a silhouette of its own and can be looked at from anywhere.
  *
  * The photographs are still the reference. Every colour here was sampled
  * from them (`scripts/dish-assets/palettes.py`), the proportions were
@@ -66,9 +56,6 @@ import PALETTES from '../assets/dishes/palettes.json';
  */
 
 const CAMERA_ELEVATION = (55 * Math.PI) / 180;
-
-// The same dark ceramic in every photograph.
-const CERAMIC = '#463f36';
 
 // Sampled from the chef's photographs. Where a sampled mean sat in
 // shadow, the value here is the lit quartile instead -- a mean taken
@@ -91,9 +78,12 @@ const FOOD = {
   ricotta: '#efe6d4',
 };
 
-function ceramicMaterial() {
-  return new MeshStandardMaterial({ color: new Color(CERAMIC), roughness: 0.62, metalness: 0.04 });
-}
+// White dishware, shaded lavender where it turns from the light and inked
+// violet, after the plate in the reference illustration. The inside of a
+// vessel carries no outline -- only its outer silhouette does.
+const PLATE = { colour: '#ffffff', top: '#ffffff', bottom: '#c2b1ee', outline: '#9b7ddf' };
+const plateOutside = () => toy(PLATE.colour, { top: PLATE.top, bottom: PLATE.bottom, outline: PLATE.outline });
+const plateInside = () => toy(PLATE.colour, { top: PLATE.top, bottom: '#d9cdf6', outline: false });
 
 /** The inside of a vessel: centre, out and up to the rim. */
 function innerProfile(radius, depth) {
@@ -125,20 +115,38 @@ function outerProfile(radius, depth) {
  *  food can be set down on it rather than floated above it. */
 function vessel(radius, depth) {
   const group = new Group();
-  const inner = new Mesh(new LatheGeometry(innerProfile(radius, depth), 128), ceramicMaterial());
-  inner.receiveShadow = true;
-  const outer = new Mesh(new LatheGeometry(outerProfile(radius, depth), 128), ceramicMaterial());
-  outer.castShadow = true;
-  outer.receiveShadow = true;
+  const inner = new Mesh(new LatheGeometry(innerProfile(radius, depth), 128), plateInside());
+  const outer = new Mesh(new LatheGeometry(outerProfile(radius, depth), 128), plateOutside());
   group.add(inner, outer);
+
+  // Shine balls on the rim, as on the plate in the reference: a dash and
+  // a dot, back-left toward the light. They are fixed to the light, not
+  // to the dish -- mountDishScene turns this group against the dish's own
+  // rotation every frame -- and a round rim looks the same from any
+  // angle, so they stay put while the dish turns under them.
+  const sparkle = new Group();
+  for (const [a, length, width] of [
+    [3.5, 0.075, 0.018],
+    [3.86, 0.022, 0.016],
+  ]) {
+    const dot = new Mesh(new SphereGeometry(1, 16, 8), whiteMaterial());
+    dot.scale.set(length * radius, 0.004, width * radius);
+    dot.position.set(Math.cos(a) * radius * 0.975, depth + 0.006, Math.sin(a) * radius * 0.975);
+    // Long axis along the rim.
+    dot.rotation.y = -a - Math.PI / 2;
+    sparkle.add(dot);
+  }
+  group.add(sparkle);
+  group.userData.sparkle = sparkle;
+
   group.userData.floorAt = (r) => depth * Math.pow(Math.min(1, r / radius), 2.1);
   return group;
 }
 
 const SCENES = {
   /**
-   * The dessert: a quenelle of ice cream on crumble, with berries and a
-   * fan of tempered-chocolate shards.
+   * The dessert: a quenelle of ice cream with chopped nuts on its ridge,
+   * berries round it, and two starbursts of piped chocolate.
    */
   dessert() {
     const rng = seeded(21);
@@ -193,19 +201,19 @@ const SCENES = {
       plated.add(b);
     }
 
-    // The fan of shards, rising from behind the quenelle.
-    const fan = new Group();
-    fan.position.set(0, 0.38, -0.02);
-    for (let i = 0; i < 9; i++) {
-      const sh = shard(i % 2 ? FOOD.chocolate : FOOD.chocolateDark, {
-        length: 0.34 + rng() * 0.2,
-        thickness: 0.009 + rng() * 0.004,
-      });
-      sh.rotation.z = (i / 8 - 0.5) * 1.9;
-      sh.rotation.x = -0.25 + rng() * 0.2;
-      fan.add(sh);
-    }
-    plated.add(fan);
+    // Two starbursts of piped chocolate, as in the photograph: one
+    // standing up behind the quenelle, fanned upward; one laid across
+    // its front, spokes all the way round and sagging over its sides.
+    const behind = starburst(FOOD.chocolate, { spokes: 9, length: 0.42, arc: Math.PI * 1.05, thickness: 0.0065, seed: 4 });
+    behind.position.set(0.04, 0.44, -0.16);
+    behind.rotation.set(-0.3, -0.1, 0);
+    plated.add(behind);
+    const across = starburst(FOOD.chocolate, { spokes: 9, length: 0.3, arc: Math.PI * 1.8, droop: 0.5, thickness: 0.006, seed: 9 });
+    across.position.set(-0.22, 0.34, 0.2);
+    // Laid nearly flat, its droop (local -Z) pointing down, on the
+    // quenelle's front slope rather than over its middle.
+    across.rotation.set(-Math.PI / 2 + 0.5, 0, 0.5);
+    plated.add(across);
     bake(plated);
 
     return {
@@ -222,10 +230,13 @@ const SCENES = {
    * The squash soup, assembled the way it is in the kitchen, one
    * component at a time and each piece on its own:
    *
-   *   an empty bowl on its plate; soup ladled in until it fills; the
+   *   an empty bowl on its plate; soup poured in until it fills; the
    *   toast set down on the plate beside the bowl; the scallion oil
-   *   squeezed on from a bottle as a spiral, drawn from the centre out;
-   *   the chives sprinkled on piece by piece; then the almonds.
+   *   squeezed on in a loose, hand-drawn spiral from the centre out; the
+   *   chives sprinkled on piece by piece; then the almonds.
+   *
+   * No utensils are drawn. The soup and the oil each fall as a stream
+   * from out of shot, fading out toward the top.
    *
    * Nothing arrives as a clump. Every chive and every almond flake falls
    * on its own, at its own moment, from its own spot, tumbling as it
@@ -247,33 +258,30 @@ const SCENES = {
     // The bowl's widest point, at its rim, plus clearance.
     const BOWL_CLEAR = BOWL_R * 1.035 + 0.03;
 
-    // Everything poured, squeezed or sprinkled happens in the bowl's own
-    // space; SURFACE is where the soup finishes, in that space.
+    // Everything poured or sprinkled happens in the bowl's own space;
+    // SURFACE is where the soup finishes, in that space.
     const SURFACE = 0.3;
     // Inverts vessel()'s floor curve: how wide the soup is at a depth.
     const widthAt = (y) => BOWL_R * Math.pow(Math.max(0, y) / BOWL_DEPTH, 1 / 2.1) * 0.99;
 
     const soupTop = liquid(FOOD.soup, { radius: 1, dome: 0.014 });
     bowl.add(soupTop);
+    // Shine balls on the soup, placed as shapes: its surface is too flat
+    // for a toon highlight, which would flash across all of it at once.
+    // In the disc's unit space, toward the light, so they scale with it.
+    for (const [x, z, rx, rz] of [
+      [-0.36, -0.34, 0.1, 0.06],
+      [-0.2, -0.47, 0.045, 0.03],
+    ]) {
+      const dot = new Mesh(new SphereGeometry(1, 16, 8), whiteMaterial());
+      dot.scale.set(rx, 0.004, rz);
+      dot.position.set(x, 0.014, z);
+      soupTop.add(dot);
+    }
 
-    // --- The ladle, and the stream from its lip. The ladle turns about
-    // its lip, so the stream always leaves from the same point.
-    const LIP = new Vector3(0.1, 0.74, 0.02);
-    const steel = toy('#b9bdc3', { top: '#e6e8eb', bottom: '#8d9298', fade: true });
-    steel.side = DoubleSide;
-    const ladle = new Group();
-    ladle.position.copy(LIP);
-    const cup = new Mesh(new SphereGeometry(0.15, 28, 12, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), steel);
-    cup.position.x = 0.15;
-    const handle = new Mesh(new CylinderGeometry(0.014, 0.014, 0.5, 8), steel);
-    handle.position.set(0.3 + Math.sin(0.75) * 0.25, Math.cos(0.75) * 0.25, 0);
-    handle.rotation.z = -0.75;
-    const ladleSoup = new Mesh(new CylinderGeometry(0.13, 0.13, 0.01, 28), toy(FOOD.soup, { fade: true }));
-    ladleSoup.position.set(0.15, -0.035, 0);
-    ladle.add(cup, handle, ladleSoup);
-    bowl.add(ladle);
-
-    const pour = new Mesh(new CylinderGeometry(1, 0.72, 1, 14, 1, true), toy(FOOD.soup));
+    // The soup's stream: from out of shot, straight down to the surface.
+    const FROM = new Vector3(0.1, 1.05, 0.02);
+    const pour = new Mesh(new CylinderGeometry(1, 0.8, 1, 14, 1, true), streamMaterial(FOOD.soup));
     pour.geometry.translate(0, -0.5, 0);
     bowl.add(pour);
 
@@ -303,39 +311,37 @@ const SCENES = {
     rest.y = plate.userData.floorAt(Math.hypot(rest.x, rest.z)) - floor + 0.004;
     root.add(slice);
 
-    // --- The scallion oil, the bottle it is squeezed from, and the
-    // thread of oil between the two.
+    // --- The scallion oil, drawn on as it is squeezed, with a thread of
+    // oil falling onto its tip from out of shot, and a few stray drops
+    // flicked off as the hand circles.
     const OIL_Y = SURFACE + 0.012;
-    const oil = spiral(FOOD.oil, { innerRadius: 0.05, outerRadius: 0.55, turns: 2.4, thickness: 0.016 });
+    const oil = drizzle(FOOD.oil, { innerRadius: 0.05, outerRadius: 0.55, turns: 2.2, thickness: 0.017, seed: 5 });
     oil.position.y = OIL_Y;
     bowl.add(oil);
-
-    const bottleBody = toy('#cfdca6', { top: '#eef3d6', bottom: '#9fb06e', fade: true });
-    const bottleCap = toy('#f1ede4', { top: '#ffffff', bottom: '#c9c3b6', fade: true });
-    const bottle = new Group();
-    const tilt = new Group();
-    tilt.rotation.z = 0.32;
-    const nozzle = new Mesh(new ConeGeometry(0.02, 0.08, 12), bottleCap);
-    nozzle.rotation.z = Math.PI;
-    nozzle.position.y = 0.04;
-    const shoulder = new Mesh(new CylinderGeometry(0.03, 0.075, 0.06, 20), bottleCap);
-    shoulder.position.y = 0.11;
-    const body = new Mesh(new CylinderGeometry(0.075, 0.075, 0.26, 20), bottleBody);
-    body.position.y = 0.27;
-    tilt.add(nozzle, shoulder, body);
-    bottle.add(tilt);
-    bowl.add(bottle);
-    const NOZZLE_UP = 0.3;
-
-    const thread = new Mesh(new CylinderGeometry(1, 1, 1, 8, 1, true), toy(FOOD.oil));
+    const thread = new Mesh(new CylinderGeometry(1, 1, 1, 8, 1, true), streamMaterial(FOOD.oil));
     thread.geometry.translate(0, -0.5, 0);
     bowl.add(thread);
+    const THREAD_UP = 0.6;
+    const drops = [];
+    for (let i = 0; i < 7; i++) {
+      const u = 0.12 + (i / 7) * 0.8 + rng() * 0.05;
+      const at = oil.userData.curve.getPointAt(u);
+      const away = new Vector3(at.x, 0, at.z).normalize().multiplyScalar(0.04 + rng() * 0.05);
+      const drop = new Mesh(new SphereGeometry(0.014 + rng() * 0.008, 12, 8), toy(FOOD.oil));
+      drop.scale.y = 0.45;
+      drop.position.set(at.x + away.x, OIL_Y, at.z + away.z);
+      drop.userData.u = u;
+      bowl.add(drop);
+      drops.push(drop);
+    }
 
     // --- Chives and almonds: one InstancedMesh each, every instance
     // falling on its own.
     function sprinkle(mesh, count, place, window, fall) {
       const inst = new InstancedMesh(mesh.geometry, mesh.material, count);
-      inst.castShadow = true;
+      // Its bounds would be computed while every instance is hidden and
+      // then never again, culling pieces that have since landed.
+      inst.frustumCulled = false;
       const pieces = [];
       for (let i = 0; i < count; i++) {
         const { position, rotation, scale } = place(i);
@@ -411,36 +417,19 @@ const SCENES = {
     }
 
     const T = {
-      ladleIn: [0.5, 0.95],
-      tipIn: [0.95, 1.35],
-      pour: [1.25, 3.4],
-      tail: 0.28,
-      tipOut: [3.5, 3.9],
-      ladleOut: [3.9, 4.35],
-      fill: [1.4, 3.6],
-      toast: [4.5, 5.5],
-      bottleIn: [5.7, 6.0],
-      squeeze: [6.05, 8.7],
-      bottleOut: [8.75, 9.1],
+      pour: [0.8, 3.0],
+      tail: 0.3,
+      fill: [0.95, 3.2],
+      toast: [3.9, 4.9],
+      squeeze: [5.4, 8.4],
     };
     const CYCLE = 16;
     const span = (t, [a, b]) => Math.min(1, Math.max(0, (t - a) / (b - a)));
-    const smooth = (x) => x * x * (3 - 2 * x);
 
     return {
       root,
       update(time) {
         const t = time % CYCLE;
-
-        // Ladle: in, tip, hold while pouring, tip back, away.
-        const inAmt = smooth(span(t, T.ladleIn));
-        const outAmt = smooth(span(t, T.ladleOut));
-        steel.userData.opacity.value = inAmt * (1 - outAmt);
-        ladle.visible = inAmt > 0 && outAmt < 1;
-        ladle.position.set(LIP.x, LIP.y + (1 - inAmt) * 0.12 + outAmt * 0.12, LIP.z);
-        ladle.rotation.z = 1.05 * smooth(span(t, T.tipIn)) * (1 - smooth(span(t, T.tipOut)));
-        ladleSoup.material.userData.opacity.value = steel.userData.opacity.value;
-        ladleSoup.scale.setScalar(Math.max(0.001, 1 - span(t, T.pour)));
 
         // Soup rising in the bowl.
         const fill = 1 - Math.pow(1 - span(t, T.fill), 2);
@@ -450,14 +439,14 @@ const SCENES = {
         const w = widthAt(level);
         soupTop.scale.set(w, 1, w);
 
-        // The stream: its head falls from the lip to the soup, it runs
-        // while the ladle is tipped, and its tail follows it down.
-        const head = Math.max(level, LIP.y - Math.max(0, t - T.pour[0]) * 3.2);
-        const tail = t < T.pour[1] ? LIP.y : LIP.y - ((t - T.pour[1]) / T.tail) * (LIP.y - level);
+        // The stream: its head falls to the soup, it runs while pouring,
+        // and its tail follows it down.
+        const head = Math.max(level, FROM.y - Math.max(0, t - T.pour[0]) * 3.4);
+        const tail = t < T.pour[1] ? FROM.y : FROM.y - ((t - T.pour[1]) / T.tail) * (FROM.y - level);
         const length = tail - head;
         pour.visible = t > T.pour[0] && length > 0.005;
-        pour.position.set(LIP.x, tail, LIP.z);
-        pour.scale.set(0.03, Math.max(0.001, length), 0.03);
+        pour.position.set(FROM.x, tail, FROM.z);
+        pour.scale.set(0.042, Math.max(0.001, length), 0.042);
 
         // Toast: down from above onto the plate, with a little settle.
         const drop = span(t, T.toast);
@@ -467,31 +456,21 @@ const SCENES = {
         const bounce = drop > 0.72 ? Math.sin(((drop - 0.72) / 0.28) * Math.PI) * 0.025 * (1 - drop) * 3 : 0;
         slice.position.set(rest.x, rest.y + 0.6 * (1 - fallK * fallK) + bounce, rest.z);
 
-        // Oil, drawn out from the centre as the bottle travels over it.
+        // Oil, drawn out from the centre, a thread falling onto its tip.
         const squeeze = span(t, T.squeeze);
         oil.userData.drawTo(squeeze);
-        const bIn = smooth(span(t, T.bottleIn));
-        const bOut = smooth(span(t, T.bottleOut));
-        const bottleOpacity = bIn * (1 - bOut);
-        bottleBody.userData.opacity.value = bottleOpacity;
-        bottleCap.userData.opacity.value = bottleOpacity;
-        bottle.visible = bottleOpacity > 0;
         const tip = oil.userData.curve.getPointAt(Math.max(0.001, squeeze));
-        bottle.position.set(tip.x, OIL_Y + tip.y + NOZZLE_UP + (1 - bIn) * 0.1 + bOut * 0.12, tip.z);
-        const flowing = t > T.squeeze[0] && t < T.squeeze[1];
-        thread.visible = flowing;
-        // The nozzle's tip is the bottle's origin (the tilt turns about
-        // it), so the thread runs straight down from there to the tip.
-        const nozzleY = bottle.position.y;
-        thread.position.set(tip.x, nozzleY, tip.z);
-        thread.scale.set(0.009, nozzleY - (OIL_Y + tip.y), 0.009);
+        thread.visible = t > T.squeeze[0] && t < T.squeeze[1];
+        thread.position.set(tip.x, OIL_Y + tip.y + THREAD_UP, tip.z);
+        thread.scale.set(0.012, THREAD_UP, 0.012);
+        for (const d of drops) d.visible = squeeze > d.userData.u;
 
         settle(chives, t);
         settle(almonds, t);
 
         root.rotation.y = Math.sin(time * 0.18) * 0.1;
       },
-      frame: 1.28,
+      frame: 1.22,
       // Reduced motion holds here: the dish assembled, before the cut.
       still: 14.5,
     };
@@ -628,41 +607,29 @@ export const SCENE_NAMES = Object.keys(SCENES);
 /**
  * Mounts a scene into `canvas`.
  *
+ * `outline` draws the toon outline round every piece (see addOutlines in
+ * dishMaterials.js); without it the pieces are held by their gradients
+ * and shine alone.
+ *
  * `dispose()` is not optional. Three keeps geometries, materials and the
  * GL context off the JS heap, browsers cap how many live contexts a page
  * may have, and the tour creates a new one on every step.
  */
-export function mountDishScene(canvas, sceneName, { reduced = false } = {}) {
+export function mountDishScene(canvas, sceneName, { reduced = false, outline = true } = {}) {
   const scene = new Scene();
   const camera = new PerspectiveCamera(34, 1, 0.1, 100);
 
   // WebGPU where the browser has it, WebGL 2 where it does not -- older
   // iOS, and WebViews that have not enabled it. The node materials in
   // dishMaterials.js compile to either, so the fallback is invisible.
+  //
+  // No lights and no shadows: every surface is painted (unlit), after
+  // the reference illustrations, so there is nothing for either to do.
   const renderer = new WebGPURenderer({ canvas, alpha: true, antialias: true, powerPreference: 'low-power' });
   renderer.setClearAlpha(0);
-  renderer.shadowMap.enabled = true;
-  // PCFSoftShadowMap is WebGL-only; under this renderer PCF with a filter
-  // radius (key.shadow.radius, below) gives the same soft edge.
-  renderer.shadowMap.type = PCFShadowMap;
-
-  const key = new DirectionalLight(0xffffff, 3.0);
-  key.position.set(-2.6, 4.2, 2.8);
-  key.castShadow = true;
-  key.shadow.mapSize.set(1024, 1024);
-  key.shadow.camera.left = -3;
-  key.shadow.camera.right = 3;
-  key.shadow.camera.top = 3;
-  key.shadow.camera.bottom = -3;
-  key.shadow.radius = 3;
-  key.shadow.bias = -0.0008;
-  scene.add(key);
-  const fill = new DirectionalLight(0xffffff, 0.55);
-  fill.position.set(3, 1.4, -2);
-  scene.add(fill);
-  scene.add(new AmbientLight(0xffffff, 1.3));
 
   const built = (SCENES[sceneName] ?? SCENES.dessert)();
+  if (outline) addOutlines(built.root);
   scene.add(built.root);
 
   // Each scene composes at its own size, so it says how far back the
@@ -671,17 +638,6 @@ export function mountDishScene(canvas, sceneName, { reduced = false } = {}) {
   const dist = 4.6 * (built.frame ?? 1);
   camera.position.set(0, Math.sin(CAMERA_ELEVATION) * dist, Math.cos(CAMERA_ELEVATION) * dist);
   camera.lookAt(0, 0, 0);
-
-  // Catches the shadow and nothing else, so a dish sits on something
-  // without a visible surface appearing under it.
-  const ground = new Mesh(
-    new PlaneGeometry(14, 14),
-    new MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.1, depthWrite: false })
-  );
-  ground.geometry.rotateX(-Math.PI / 2);
-  ground.position.y = -0.02;
-  ground.visible = false;
-  scene.add(ground);
 
   let paused = reduced;
   let frame = null;
@@ -704,9 +660,24 @@ export function mountDishScene(canvas, sceneName, { reduced = false } = {}) {
     camera.updateProjectionMatrix();
   }
 
+  // Every vessel's rim shine, turned against the dish's yaw each frame so
+  // it stays toward the light (see vessel()).
+  const sparkles = [];
+  built.root.traverse((o) => {
+    if (o.userData.sparkle) sparkles.push(o.userData.sparkle);
+  });
+  const yaw = new Euler();
+  const turn = new Quaternion();
+
   function draw(seconds) {
     if (!ready) return;
     built.update(seconds);
+    built.root.updateMatrixWorld(true);
+    for (const sp of sparkles) {
+      sp.parent.getWorldQuaternion(turn);
+      yaw.setFromQuaternion(turn, 'YXZ');
+      sp.rotation.y = -yaw.y;
+    }
     renderer.render(scene, camera);
   }
 

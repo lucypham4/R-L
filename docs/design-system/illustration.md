@@ -38,24 +38,26 @@ Nothing is textured, and the tour ships **no images at all** — only
 
 ### Painted like toys
 
-The reference for the food is a low-poly cake slice from a "tiny treats"
-set: no lighting at all, every part coloured by a soft
-gradient — lighter where it faces up, deeper where it turns away — so
-form reads from colour alone. `src/lib/dishMaterials.js` does the same:
+The references are a low-poly "tiny treats" cake and a drawn lemon cake on
+a lavender-white plate. `src/lib/dishMaterials.js` paints everything the
+way they do:
 
-- **`toy(colour)`** — an unlit material whose colour runs between a lifted
-  and a deepened version of the sampled colour, weighted by how much the
-  surface faces the key light. The ends are shifted in HSL, not lerped
-  toward white, which would wash every colour grey.
-- **Ice cream, toast, soup** — the same idea with a gradient of their own:
-  the quenelle warms from butter at the ridge to peach at the base; the
-  toast's face is paler at its middle inside a darker crust; the soup is
-  brightest at its centre.
-
-The food is unlit, but the ceramic is not, so the food still casts
-shadows onto it — which is what sits it in the bowl rather than on top
-of the picture. The shading direction matches the key light so the two
-agree.
+- **No lighting.** Every surface is unlit; its colour runs between a
+  lifted and a deepened version of the sampled colour, weighted by how
+  much it faces a fixed light direction. The ends are shifted in HSL, not
+  lerped toward white, which would wash every colour grey.
+- **Shine balls.** Round things get a crisp white highlight dot and a
+  smaller companion — a hard-edged cut of the half-vector term, so they
+  sit where a highlight would and stay put as a dish turns. Flat things
+  (flakes, chives, the soup, the toast) do not; there a highlight flashes
+  across the whole face at once. The soup and every vessel's rim get
+  their shine balls as placed shapes instead.
+- **White dishware.** Every plate and bowl is white, shaded lavender and
+  inked violet, after the plate in the reference.
+- **The toon outline** is an inverted hull in a darker shade of each
+  part's own colour, added as a pass over a finished scene
+  (`addOutlines`). It is on by default; a step's art turns it off with
+  `outline: false` in `onboardingSteps.js`.
 
 An earlier pass went the other way — pitted crumb from Worley noise,
 spoon drag as bump — which was the wrong direction for this look, and
@@ -119,10 +121,11 @@ mount.
 heaps by flipping `visible`, not by rebuilding meshes five times a second.
 
 **Nothing moves in clumps.** The soup's timeline is the model: the
-empty bowl and plate first, then soup ladled in until it fills, the toast
-set down beside the bowl, the oil squeezed on from a bottle as a spiral
-drawn from the centre out, then the chives sprinkled on piece by piece,
-then the almonds. Every chive and flake is an instance of one
+empty bowl and plate first, then soup poured in until it fills, the toast
+set down beside the bowl, the oil squeezed on as a loose, hand-drawn
+spiral from the centre out, then the chives sprinkled on piece by piece,
+then the almonds. No utensils are drawn: the soup and the oil fall as
+streams from out of shot, fading out toward the top. Every chive and flake is an instance of one
 `InstancedMesh` with its own start time, fall and tumble — they must not
 arrive as a group.
 
