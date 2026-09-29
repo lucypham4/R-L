@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import Avatar from './Avatar';
 import Button from './Button';
 import FilterSheet from './FilterSheet';
 import MealCard from './MealCard';
@@ -24,6 +25,10 @@ export default function Gallery({
   // The chef's own gallery goes without one: the wordmark says enough. A
   // public page passes its own, under the chef's name.
   tagline,
+  // The chef's picture, top right, which opens Settings. A public page
+  // leaves it out: its visitors have no settings to open.
+  avatarUrl,
+  onOpenSettings,
 }) {
   const [search, setSearch] = useState('');
   const [selectedCuisines, setSelectedCuisines] = useState([]);
@@ -96,6 +101,11 @@ export default function Gallery({
           <h1 className="gallery-title">{title}</h1>
           {tagline && <p className="gallery-tagline">{tagline}</p>}
         </div>
+        {onOpenSettings && (
+          <button type="button" className="gallery-avatar" onClick={onOpenSettings} aria-label="Settings">
+            <Avatar src={avatarUrl} size={36} />
+          </button>
+        )}
       </header>
 
       <div className="gallery-search-row">

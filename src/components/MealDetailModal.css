@@ -674,8 +674,11 @@
   color: var(--color-ink);
 }
 
+/* Inset by the body's own padding and rounded, like a photo anywhere
+   else in the app. The share button draws the photo into this box. */
 .share-card-image {
-  width: 100%;
+  margin: 32px 32px 0;
+  border-radius: var(--radius-media);
   aspect-ratio: 1 / 1;
   display: flex;
   align-items: center;

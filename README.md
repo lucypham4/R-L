@@ -51,7 +51,8 @@ page and cross-device access possible on top of that.
    once (adds the `photos` column meals now use for up to 6 photos each),
    then `supabase/page-theme-migration.sql` once (adds the `page_theme`
    column that stores each chef's light/dark choice for their public
-   page).
+   page), then `supabase/avatar-migration.sql` once (adds the
+   `avatar_url` column for the profile picture set in Settings).
 3. In Cloudinary, create an **unsigned** upload preset (Settings → Upload →
    Upload presets → Add upload preset, signing mode "Unsigned"). Unsigned
    presets are what let the browser upload directly without exposing your
@@ -204,9 +205,9 @@ worth reading before adding UI:
   query.
 - [`docs/design-system/illustration.md`](docs/design-system/illustration.md)
   — the art slots and the Rive setup.
-- [`docs/design-system/shape.md`](docs/design-system/shape.md) — why the
-  app is square-cornered, the two radius tokens that are exceptions, and
-  why photos get a hairline outline rather than a shadow.
+- [`docs/design-system/shape.md`](docs/design-system/shape.md) — the
+  no-straight-corners rule, the four radius tokens that carry it, and why
+  photos get a hairline outline rather than a shadow.
 
 Theme follows the operating system by default. The Appearance control in
 Settings cycles System → Light → Dark and remembers the choice.

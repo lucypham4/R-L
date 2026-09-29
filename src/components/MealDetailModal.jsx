@@ -33,14 +33,29 @@ function loadImage(src) {
 // resources), so the photo is drawn onto the finished canvas by hand
 // instead of relying on the library for it. The photo box is always a
 // full-width square at the very top of the card, so no need to measure it.
-function drawPhotoCover(canvas, img) {
+/**
+ * Draws the photo into `box` ({ x, y, size, radius }, in canvas pixels),
+ * cropped square and clipped to its rounded corners. The path is drawn
+ * with arcTo because CanvasRenderingContext2D.roundRect is newer than the
+ * iOS 15 the app still supports.
+ */
+function drawPhotoCover(canvas, img, { x, y, size, radius }) {
   const ctx = canvas.getContext('2d');
-  const size = canvas.width;
   const imgRatio = img.naturalWidth / img.naturalHeight;
   const sSize = imgRatio > 1 ? img.naturalHeight : img.naturalWidth;
   const sx = imgRatio > 1 ? (img.naturalWidth - sSize) / 2 : 0;
   const sy = imgRatio > 1 ? 0 : (img.naturalHeight - sSize) / 2;
-  ctx.drawImage(img, sx, sy, sSize, sSize, 0, 0, size, size);
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.arcTo(x + size, y, x + size, y + size, radius);
+  ctx.arcTo(x + size, y + size, x, y + size, radius);
+  ctx.arcTo(x, y + size, x, y, radius);
+  ctx.arcTo(x, y, x + size, y, radius);
+  ctx.closePath();
+  ctx.clip();
+  ctx.drawImage(img, sx, sy, sSize, sSize, x, y, size, size);
+  ctx.restore();
 }
 
 // The space between a photo leaving the side of the view and the next one
@@ -487,15 +502,25 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep, p
   async function handleShare() {
     setShareStatus('working');
     try {
+      const PIXEL_RATIO = 2;
       const canvas = await toCanvas(shareCardRef.current, {
-        pixelRatio: 2,
+        pixelRatio: PIXEL_RATIO,
         skipFonts: true,
         backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim() || '#faf9f6',
       });
 
       if (heroPhotoUrl) {
         const img = await loadImage(heroPhotoUrl);
-        drawPhotoCover(canvas, img);
+        // Where the card laid out the photo's slot, scaled to the canvas.
+        const slot = shareCardRef.current.querySelector('.share-card-image');
+        const card = shareCardRef.current.getBoundingClientRect();
+        const rect = slot.getBoundingClientRect();
+        drawPhotoCover(canvas, img, {
+          x: (rect.left - card.left) * PIXEL_RATIO,
+          y: (rect.top - card.top) * PIXEL_RATIO,
+          size: rect.width * PIXEL_RATIO,
+          radius: parseFloat(getComputedStyle(slot).borderTopLeftRadius) * PIXEL_RATIO,
+        });
       }
 
       const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));

@@ -33,8 +33,15 @@
   overflow: hidden;
   background: var(--color-surface);
   border: 1px solid var(--color-line);
+  /* The photo's own corner, so the crop is framed the way it will be
+     shown everywhere else. */
+  border-radius: var(--radius-media);
   cursor: grab;
   touch-action: none;
+}
+
+.photo-crop-viewport-round {
+  border-radius: 50%;
 }
 
 .photo-crop-viewport:active {
@@ -51,13 +58,21 @@
   width: 320px;
   max-width: 100%;
   margin-top: var(--space-lg);
+  border-radius: var(--radius-pill);
+  /* The browser's own blue otherwise. */
+  accent-color: var(--color-accent);
 }
 
+/* Looks like .add-meal-mode-toggle, whose buttons it uses. */
 .photo-crop-aspect-toggle {
   display: inline-flex;
   align-self: flex-start;
+  gap: 2px;
   margin-top: var(--space-md);
+  padding: 2px;
   border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  background: var(--color-card);
 }
 
 .photo-crop-card .add-meal-footer {

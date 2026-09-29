@@ -1,62 +1,86 @@
 # Shape
 
-Staj is a square-cornered system. `--radius: 0` is the default for
-buttons, text fields and anything sitting *in* the page, and that is
-deliberate — the hard corners are what make the app read as an editorial
-archive rather than a generic consumer app. Don't round something just
-because it looks friendlier in isolation.
+Nothing in Staj has a straight corner. Every box you can see — a button,
+a field, a toggle, a sheet, a photo, the share image's photo — has its
+corners rounded, and always by one of four tokens, so the curves agree
+with each other instead of each component inventing its own.
 
-The exceptions are all tokens, so they get used consistently instead of
-being reinvented as magic numbers in each component.
+The app used to be square-cornered, with rounding as the exception for
+things that floated. That made the page itself read as hard and the
+floating things as soft, and the two sat badly together once most of what
+a chef touches (sheets, photos, the nav pill, the bubbles) was already
+round. So the default went the other way.
+
+`tests/corners.spec.js` holds the rule: it visits every screen the app
+can show and measures each visible box for a square corner.
 
 ## Tokens
 
 | Token | Value | Use |
 | --- | --- | --- |
-| `--radius` | `0` | The default. Buttons, fields, anything in the page. |
-| `--radius-media` | `12px` | Photographs and illustrations. |
-| `--radius-surface` | `18px` | Surfaces that float above the page: modals, cards, sheets. |
-| `--radius-pill` | `999px` | Fully-rounded controls: bubble pickers, the floating nav pill. |
+| `--radius` | `12px` | The default. Buttons, fields, the search bar, the dropzone, anything in the page. |
+| `--radius-media` | `12px` | Photographs and illustrations, and the frames that stand in for them (the crop viewport, the sketch canvas). |
+| `--radius-surface` | `18px` | Surfaces that float above the page: modals, cards, sheets, the empty gallery's card. |
+| `--radius-pill` | `999px` | Fully-rounded controls: bubble pickers, the segmented toggles, the floating nav pill. |
 
-## Why a floating surface is rounded
+`--radius` and `--radius-media` share a value but not a meaning: one is
+the interface's corner, the other the photo's. Keep them as two tokens so
+either can move without dragging the other along.
 
-The rule isn't "square" so much as "square where the page is". A square
-corner reads as a panel welded to the viewport. That is right for the
-gallery, which *is* the page, and wrong for a modal, which is a card
-resting on top of one — the corner is the main thing telling you which of
-the two you are looking at.
+A button's radius comes from the global `button` rule, so a small one
+(the edit bar's Done, the share button) reaches a pill once it's
+shorter than 24px: the corner simply can't be larger than half the side.
+That's intended.
 
-Everything that floats takes `--radius-surface`: the add-meal card, the
-photo crop card, the action sheet, the filter sheet, and the dish view on
-a screen wide enough for it to float over the gallery. On a phone the
-dish view *is* the page, edge to edge, so it's square.
+## Which corners count
 
-The two bottom sheets round their **top corners only**
-(`var(--radius-surface) var(--radius-surface) 0 0`). They sit flush
-against the bottom of the viewport, so rounding all four would leave a
-sliver of scrim showing under each bottom corner — the radius is there to
-say "this rests on top of the page", and the edge it rests against has no
-corner to round.
+A corner counts if you can see it: both its edges are drawn, by a fill
+that differs from what's behind it, a border, a shadow, or an image.
 
-## The dish sheet changes which one it is
+- **A corner that is the screen's own corner doesn't.** A sheet flush with
+  the bottom of the viewport has no bottom corners to round: the device
+  supplies them. The two bottom sheets therefore round their **top
+  corners only** (`var(--radius-surface) var(--radius-surface) 0 0`) —
+  their top corners *do* count, even though their sides are flush,
+  because the top edge meets the side of the screen in a corner you see.
+- **An edge that fades out has no corner.** The dish header's backdrop
+  runs on into a gradient below it, so there's no hard bottom edge to
+  meet the screen's side.
+- **The share card's edges are the image's edges.** It's drawn off-screen
+  and saved as a JPEG, which can't have transparent corners, so its own
+  corners are the picture's frame, as the screen's are for the app. The
+  photo *inside* it is inset and rounded, and MealDetailModal clips the
+  photo it draws onto the canvas to the same rounded box.
 
-The dish view's sheet is the one surface that is both. At rest it's a card
-lying on the page — inset from the sides and the bottom by `--space-md`,
-rounded on all four corners, since it doesn't touch an edge. Pulled up,
-it becomes the page: flush, and square. The inset and the radius shrink
-together across the whole drag rather than switching at the end, so
-there's no moment where a rounded card visibly snaps square. The corner
-is carrying the same meaning it always does; it just changes its answer
-as the sheet does.
+## Nested corners
+
+Something inset inside a rounded box takes the box's radius minus the
+inset, so the two curves run parallel: the filter button sits 4px inside
+the search field at `calc(var(--radius) - 4px)`.
+
+Where a fill would meet a divider, there's no divider. The segmented
+toggles (photo or sketch, 1:1 or 4:5) used to be boxes split by rules,
+with the chosen side filled in: that fill met the rule in two square
+corners. Now they're built like the nav pill — the chosen option is a pill
+of its own, inset inside the toggle's pill.
+
+## The dish sheet
+
+The dish view's sheet rests as a card lying on the page — inset from the
+sides and the bottom by `--space-md`, rounded on all four corners, since
+it doesn't touch an edge. Pulled up, it becomes a bottom sheet: flush with
+the sides and the bottom, its top corners still rounded. The lower
+corners flatten into the screen's own across the whole drag rather than
+at the end, so there's no moment where they visibly snap. The top corners
+never flatten.
 
 ## Why media is rounded
 
-A photograph is content sitting *on* the page, not a piece of the page's
-chrome. Rounding it separates the two: the sharp corners stay a property
-of the interface, while the dish reads as an object placed on it. It also
-does practical work — a sketch on a white canvas, or a background-removed
-PNG, has edges that otherwise dissolve into the cream background with
-nothing to say where the image stops.
+A photograph is content sitting *on* the page. Rounding it makes the dish
+read as an object placed there, and it does practical work — a sketch on
+a white canvas, or a background-removed PNG, has edges that otherwise
+dissolve into the cream background with nothing to say where the image
+stops.
 
 Anything rounded that contains an image also needs `overflow: hidden`.
 `object-fit: cover` paints right over a parent's `border-radius` and

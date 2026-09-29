@@ -172,12 +172,15 @@ export function dishSheetFrame(t, g, quantise = false) {
   };
 
   // The card's shape. At rest it floats, inset on three sides and rounded
-  // on all four corners; open, it is the page, flush and square. The
-  // corners flatten across the whole drag rather than at the end, so
-  // there's no moment where a rounded card visibly snaps square.
+  // on all four corners. Open, it's a sheet flush with the sides and the
+  // bottom of the screen, with its top corners still rounded, like every
+  // other bottom sheet. The lower corners flatten into the screen's own
+  // across the whole drag rather than at the end, so they never visibly
+  // snap.
   const card = {
     side: g.insetX * (1 - p1),
     bottom: g.insetB * (1 - p1),
+    top: g.radius,
     r: g.radius * (1 - p1),
     flush: p1 >= 1,
   };
@@ -224,9 +227,7 @@ export function applyDishSheetFrame(els, f) {
 
   const { card } = f;
   if (els.surface) {
-    els.surface.style.clipPath = card.flush
-      ? 'none'
-      : `inset(0 ${card.side}px round ${card.r}px ${card.r}px 0 0)`;
+    els.surface.style.clipPath = `inset(0 ${card.side}px round ${card.top}px ${card.top}px 0 0)`;
   }
   if (els.frame) {
     const s = els.frame.style;

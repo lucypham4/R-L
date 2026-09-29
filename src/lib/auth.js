@@ -103,6 +103,23 @@ export async function updatePassword(password) {
 }
 
 /**
+ * Changes a signed-in chef's password, from Settings. Supabase would do it
+ * without the current one, but asking for it means a device left signed
+ * in isn't enough to take the account over. Checking it is a sign-in with
+ * it, which also leaves the session fresh, as Supabase's "secure password
+ * change" setting wants before it lets a password change.
+ */
+export async function changePassword(email, currentPassword, newPassword) {
+  const { error: checkError } = await supabase.auth.signInWithPassword({ email, password: currentPassword });
+  if (checkError) {
+    if (checkError.code === 'invalid_credentials') throw new Error("That isn't your current password.");
+    throw checkError;
+  }
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) throw error;
+}
+
+/**
  * A link from one of our emails that didn't work comes back with the
  * reason in the address bar's hash, and supabase-js leaves it there.
  * Returns what to tell the chef, or null, and tidies the address.

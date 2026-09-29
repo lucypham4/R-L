@@ -1,6 +1,7 @@
 .onboarding-art {
   width: 100%;
   margin-top: 24px;
+  border-radius: var(--radius-media);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -22,10 +23,12 @@
 }
 
 .onboarding-art-image,
-.onboarding-art-rive {
+.onboarding-art-rive,
+.onboarding-art-rive canvas {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  border-radius: var(--radius-media);
 }
 
 .onboarding-art-label {
