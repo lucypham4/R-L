@@ -1,25 +1,25 @@
 import { lazy, Suspense } from 'react';
 import './OnboardingArt.css';
 
-// Pulled in only when a step actually uses Rive art; see RiveArt.jsx for
-// why it's worth the extra chunk.
-const RiveArt = lazy(() => import('./RiveArt'));
+// Pulled in only when a step actually uses a 3D scene; see SceneArt.jsx
+// for why it's worth the extra chunk.
+const SceneArt = lazy(() => import('./SceneArt'));
 
 // One slot, three possible fillings, so the tour's four panels can mix
 // animated and static art without each one needing its own component:
 //
-//   { kind: 'rive',  src, artboard, stateMachine, alt }
+//   { kind: 'scene', scene, alt }
 //   { kind: 'image', src, alt }
 //   undefined  -> the labelled placeholder, unchanged from before
 //
 // See onboardingSteps.js for the registry that decides which is which.
 export default function OnboardingArt({ art, label, hint, ratio = '16 / 9' }) {
-  if (art?.kind === 'rive') {
+  if (art?.kind === 'scene') {
     return (
       // The fallback is an empty box of the same aspect ratio, so the
-      // card doesn't reflow when the Rive chunk finishes loading.
+      // card doesn't reflow when the three.js chunk finishes loading.
       <Suspense fallback={<div className="onboarding-art onboarding-art-filled" style={{ aspectRatio: ratio }} />}>
-        <RiveArt art={art} ratio={ratio} />
+        <SceneArt art={art} ratio={ratio} />
       </Suspense>
     );
   }

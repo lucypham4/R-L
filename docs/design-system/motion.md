@@ -83,8 +83,8 @@ invisible.
 
 Motion driven from JavaScript can't read CSS tokens, so it asks
 `src/lib/motion.js` instead — `prefersReducedMotion()`,
-`onReducedMotionChange()` and `scrollToTop()`. The Rive tour art uses it to
-hold its state machine on the first frame.
+`onReducedMotionChange()` and `scrollToTop()`. The tour's 3D art uses it to
+hold its render loop on the first frame.
 
 ## Patterns in use
 

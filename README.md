@@ -165,17 +165,20 @@ the sign-in form.
 
 A short, skippable welcome tour (`src/components/OnboardingTour.jsx`) runs
 once per browser (or once per account, if signed in). Its four art slots
-each take an animated Rive artboard, a static image, or neither, in which
-case they fall back to a labelled placeholder showing the size that slot
-wants. The cover slot currently holds an animated Rive illustration; the
-other three are still placeholders.
+each take an animated 3D scene, a static image, or neither, in which case
+they fall back to a labelled placeholder showing the size that slot wants.
+
+All four currently hold three.js scenes — a plate, a bowl, a ring of
+plates and a plate lifting away — built from geometry rather than loaded
+from model files, so there is nothing to fetch, nothing to fail offline,
+and the ceramics follow the light and dark themes.
 
 Swapping art in is a one-entry change in
 `src/components/onboardingSteps.js`. See
 [`docs/design-system/illustration.md`](docs/design-system/illustration.md)
-for the details, including how to read artboard and state-machine names
-out of a `.riv` file and why the Rive WebAssembly is self-hosted rather
-than pulled from a CDN.
+for the details, including how to prototype a new scene outside the app
+and how to bring in a sculpted `.glb` when one outgrows the procedural
+approach.
 
 ### Design system
 
@@ -188,7 +191,7 @@ worth reading before adding UI:
   against the tokens is reduced-motion correct without its own media
   query.
 - [`docs/design-system/illustration.md`](docs/design-system/illustration.md)
-  — the art slots and the Rive setup.
+  — the art slots, the 3D scenes, and how to prototype a new one.
 - [`docs/design-system/shape.md`](docs/design-system/shape.md) — why the
   app is square-cornered, the two radius tokens that are exceptions, and
   why photos get a hairline outline rather than a shadow.

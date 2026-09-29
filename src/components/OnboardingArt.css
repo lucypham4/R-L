@@ -21,11 +21,19 @@
   background: none;
 }
 
-.onboarding-art-image,
-.onboarding-art-rive {
+.onboarding-art-image {
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+/* The canvas is sized in device pixels by the renderer; these two rules
+   are what it measures itself against, so they have to resolve to a real
+   box rather than collapsing to the canvas's 300x150 intrinsic default. */
+.onboarding-art-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .onboarding-art-label {

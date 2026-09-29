@@ -2,7 +2,7 @@
 //
 // CSS handles reduced motion on its own, by neutralising the movement
 // tokens in tokens.css. But motion driven from JS -- a smooth scroll, a
-// Rive state machine -- can't read those tokens, so it asks here
+// three.js animation loop -- can't read those tokens, so it asks here
 // instead. Keeping the query in one module means there's a single answer
 // to "does this user want movement" across the whole app.
 
