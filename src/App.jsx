@@ -4,6 +4,7 @@ import Gallery from './components/Gallery';
 import MealDetailModal from './components/MealDetailModal';
 import AddMealForm from './components/AddMealForm';
 import SignInScreen from './components/SignInScreen';
+import NewPasswordScreen from './components/NewPasswordScreen';
 import ChooseUsername from './components/ChooseUsername';
 import LocalImportPrompt from './components/LocalImportPrompt';
 import OnboardingTour from './components/OnboardingTour';
@@ -14,7 +15,7 @@ import { isSupabaseConfigured } from './lib/supabase';
 import { isCloudinaryConfigured } from './lib/cloudinary';
 import { fetchMeals, insertMeal, deleteMeal } from './lib/mealsApi';
 import { fetchChefProfile, updateChefPageTheme } from './lib/chefsApi';
-import { getSession, onAuthChange, signOut } from './lib/auth';
+import { getSession, onAuthChange, signOut, isRecoveringPassword, takeEmailLinkError } from './lib/auth';
 import { loadLocalMeals, saveLocalMeals, createLocalMeal } from './lib/localMeals';
 import { scrollToTop } from './lib/motion';
 import { leaveDish, pushDish, replaceDish } from './lib/dishHistory';
@@ -73,7 +74,11 @@ function AdminApp() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showSignIn, setShowSignIn] = useState(false);
   const [signInMode, setSignInMode] = useState('signin');
+  const [signInNotice, setSignInNotice] = useState('');
   const [session, setSession] = useState(null);
+  // Arrived from a password-reset link: signed in, but with a new password
+  // still to choose.
+  const [recoveringPassword, setRecoveringPassword] = useState(isRecoveringPassword);
   const [sessionChecked, setSessionChecked] = useState(!isSupabaseConfigured);
   const [chefProfile, setChefProfile] = useState(null);
   const [chefProfileChecked, setChefProfileChecked] = useState(!isSupabaseConfigured);
@@ -110,11 +115,22 @@ function AdminApp() {
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
+    // A reset or confirmation link that had expired: say so on the
+    // sign-in screen, where there's a way to ask for another.
+    const linkError = takeEmailLinkError();
+    if (linkError) {
+      setSignInNotice(linkError);
+      setShowSignIn(true);
+    }
     getSession()
       .then(setSession)
       .catch(() => {})
       .finally(() => setSessionChecked(true));
-    return onAuthChange(setSession);
+    return onAuthChange((next, event) => {
+      setSession(next);
+      if (event === 'PASSWORD_RECOVERY') setRecoveringPassword(true);
+      else if (!next) setRecoveringPassword(false);
+    });
   }, []);
 
   // A signed-in account needs a chef profile (display name + page slug)
@@ -220,6 +236,7 @@ function AdminApp() {
 
   function handleRequestSignIn() {
     setSignInMode('signin');
+    setSignInNotice('');
     setShowSignIn(true);
   }
 
@@ -274,8 +291,14 @@ function AdminApp() {
     return null;
   }
 
+  if (session && recoveringPassword) {
+    return <NewPasswordScreen email={session.user.email} onDone={() => setRecoveringPassword(false)} />;
+  }
+
   if (showSignIn && !session) {
-    return <SignInScreen initialMode={signInMode} onGuest={() => setShowSignIn(false)} />;
+    return (
+      <SignInScreen initialMode={signInMode} initialNotice={signInNotice} onGuest={() => setShowSignIn(false)} />
+    );
   }
 
   if (session && !chefProfileChecked) {

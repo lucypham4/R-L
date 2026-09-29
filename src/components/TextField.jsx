@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import './TextField.css';
 
 let idCounter = 0;
@@ -23,9 +24,11 @@ export function Label({ htmlFor, required, optional, children }) {
   );
 }
 
-export function TextInput({ id, error, className = '', ...props }) {
-  return <input id={id} className={`field-input ${error ? 'field-input-error' : ''} ${className}`} {...props} />;
-}
+export const TextInput = forwardRef(function TextInput({ id, error, className = '', ...props }, ref) {
+  return (
+    <input ref={ref} id={id} className={`field-input ${error ? 'field-input-error' : ''} ${className}`} {...props} />
+  );
+});
 
 export function TextArea({ id, error, className = '', ...props }) {
   return (

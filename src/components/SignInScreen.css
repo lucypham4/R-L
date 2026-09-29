@@ -38,6 +38,20 @@
   margin-top: var(--space-2xl);
 }
 
+/* Tucked under the password it's about, rather than spaced out like the
+   form's other rows. */
+.signin-forgot {
+  display: block;
+  margin: 4px 0 0 auto;
+  padding: 4px 0;
+  font: 400 0.8125rem/1.5 var(--font-sans);
+  color: var(--color-muted);
+}
+
+.signin-forgot:hover {
+  color: var(--color-ink);
+}
+
 .signin-notice {
   font: 400 0.8125rem/1.5 var(--font-sans);
   color: var(--color-note-ink);
