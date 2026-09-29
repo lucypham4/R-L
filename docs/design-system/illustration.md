@@ -31,7 +31,10 @@ ellipsoid has no faces and reads as a dumpling. A blackberry is a cluster
 of drupelets, which is what makes it read as a blackberry rather than as
 a dark marble. The scallion oil is a tube swept along a hand-drawn
 spiral. Toast is extruded from an outline, because its silhouette is the
-whole thing.
+whole thing. A courgette ribbon is a real strip — a thin rectangle carried
+down a curve, turning about it — with its skin as a stripe down one edge;
+the salad stacks them in narrowing rings and throws more over the top,
+so the pile is about as tall as it is wide, as in the photograph.
 
 `src/lib/dishMinis.js` builds the archive's nine dishes the same way, at
 plate scale: scallops with their crust on a pool of purée, a glazed rib on
@@ -64,7 +67,9 @@ way they do:
   (`addOutlines`). It is on by default; a step's art turns it off with
   `outline: false` in `onboardingSteps.js`. Its width follows a piece's
   size, except where that misleads: a chocolate spoke is long but thin,
-  so it sets its own hairline (`outlineWidth`).
+  so it sets its own hairline (`outlineWidth`). The line is a gradient,
+  not a flat ink: lighter where it faces the light, deeper round the far
+  side, as the line round the lemons in the reference runs gold to orange.
 
 An earlier pass went the other way — pitted crumb from Worley noise,
 spoon drag as bump — which was the wrong direction for this look, and

@@ -17,7 +17,7 @@ import {
   Vector2,
   Vector3,
 } from 'three/webgpu';
-import { iceCreamMaterial, soupMaterial, toastMaterial, toy, whiteMaterial } from './dishMaterials';
+import { iceCreamMaterial, ribbonMaterial, soupMaterial, toastMaterial, toy, whiteMaterial } from './dishMaterials';
 
 /**
  * Food, built rather than photographed.
@@ -403,37 +403,88 @@ export function starburst(colour, { spokes = 9, length = 0.34, arc = Math.PI * 1
   return g;
 }
 
-/** A ribbon of shaved courgette, swept along a curve and twisted. */
-export function ribbon(colour, { length = 0.5, width = 0.09, rng, seed = 1 } = {}) {
-  const r = rng ?? seeded(seed);
-  const points = [];
-  const steps = 7;
-  const swing = 0.4 + r() * 0.5;
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
-    points.push(
-      new Vector3(
-        Math.sin(t * Math.PI * swing * 2) * length * 0.42,
-        Math.sin(t * Math.PI * 1.6) * 0.07 + t * 0.03,
-        (t - 0.5) * length
-      )
-    );
+/**
+ * A shaved ribbon of courgette: a thin, wide strip swept along a path,
+ * turning as it goes.
+ *
+ * Built as a real strip -- a flat rectangle of cross-section carried down
+ * the curve -- rather than a squashed tube, so it has a broad face, two
+ * crisp edges (one of them skin, see ribbonMaterial) and a true twist.
+ * At each point the face is turned to look away from `axis` (the centre
+ * of the pile it belongs to), then rotated about the path by `twist(t)`,
+ * which is what lets a ribbon lie against the pile, curl off it, and fold
+ * back over its neighbours.
+ */
+export function courgetteRibbon(points, { width = 0.11, thickness = 0.012, twist = () => 0, edges = 1, flesh, skin, axis = new Vector3() } = {}) {
+  const curve = new CatmullRomCurve3(points);
+  const N = 56;
+  const positions = [];
+  const uvs = [];
+  const index = [];
+  const T = new Vector3();
+  const out = new Vector3();
+  const face = new Vector3();
+  const side = new Vector3();
+  const p = new Vector3();
+  let lastOut = new Vector3(1, 0, 0);
+  for (let i = 0; i <= N; i++) {
+    const t = i / N;
+    curve.getPointAt(t, p);
+    curve.getTangentAt(t, T);
+    out.set(p.x - axis.x, 0, p.z - axis.z);
+    if (out.lengthSq() < 1e-6) out.copy(lastOut);
+    out.normalize();
+    lastOut = out.clone();
+    // The face looks away from the pile's axis, square to the path...
+    face.copy(out).addScaledVector(T, -out.dot(T)).normalize();
+    // ...then turns about the path.
+    face.applyAxisAngle(T, twist(t));
+    side.crossVectors(T, face).normalize();
+    // Four corners of the cross-section: across the width, through the
+    // thickness. v runs across the width, for the skin stripe.
+    for (const [a, b, v] of [
+      [-0.5, 0.5, 0],
+      [0.5, 0.5, 1],
+      [0.5, -0.5, 1],
+      [-0.5, -0.5, 0],
+    ]) {
+      positions.push(
+        p.x + side.x * width * a + face.x * thickness * b,
+        p.y + side.y * width * a + face.y * thickness * b,
+        p.z + side.z * width * a + face.z * thickness * b
+      );
+      uvs.push(t, v);
+    }
   }
-  // A very flat tube is a ribbon; scaling one axis after the fact keeps
-  // the sweep's twist without needing a custom extrusion.
-  const geo = new TubeGeometry(new CatmullRomCurve3(points), 44, width * 0.5, 6, false);
-  const pos = geo.attributes.position;
-  for (let i = 0; i < pos.count; i++) pos.setY(i, pos.getY(i) * 0.22);
+  for (let i = 0; i < N; i++) {
+    for (let k = 0; k < 4; k++) {
+      const a = i * 4 + k;
+      const b = i * 4 + ((k + 1) % 4);
+      // Wound so each side's normal points out of the strip: going
+      // round the cross-section is +side then -face, and along x round
+      // gives the outward direction.
+      index.push(a, b, a + 4, b, b + 4, a + 4);
+    }
+  }
+  // Close the two ends, facing back along the path and on along it.
+  index.push(0, 2, 1, 0, 3, 2);
+  const e = N * 4;
+  index.push(e, e + 1, e + 2, e, e + 2, e + 3);
+  const geo = new BufferGeometry();
+  geo.setAttribute('position', new Float32BufferAttribute(positions, 3));
+  geo.setAttribute('uv', new Float32BufferAttribute(uvs, 2));
+  geo.setIndex(index);
   geo.computeVertexNormals();
-  const mesh = new Mesh(geo, toy(colour));
-  return mesh;
+  return new Mesh(geo, ribbonMaterial({ flesh, skin, edges }));
 }
 
 /** A spoonful of ricotta: a soft irregular blob. */
-export function curd(colour, { size = 0.055, rng } = {}) {
+export function curd(colour, { size = 0.055, rng, outline } = {}) {
   const r = rng ?? seeded(17);
   const geo = rough(new IcosahedronGeometry(size, 1), r, 0.42, 0.78);
-  const mesh = new Mesh(geo, toy(colour));
+  // Matte: fresh cheese doesn't shine, and a highlight on every facet
+  // of a crumble read as sugar.
+  const mesh = new Mesh(geo, toy(colour, { outline, shine: false }));
   return mesh;
 }
 

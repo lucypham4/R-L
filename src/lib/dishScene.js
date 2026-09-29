@@ -19,13 +19,13 @@ import {
   blackberry,
   chive,
   crumb,
+  courgetteRibbon,
   curd,
   drizzle,
   flake,
   liquid,
   quenelle,
   raspberry,
-  ribbon,
   seeded,
   starburst,
   toast,
@@ -470,7 +470,17 @@ const SCENES = {
     };
   },
 
-  /** Shaved courgette with ricotta and toasted almonds, lifting. */
+  /**
+   * Shaved courgette, piled high, with goat cheese, almonds and herbs,
+   * lifting -- from the chef's photograph: wide, thin ribbons, each with
+   * its stripe of dark skin, looping up and folding back over one
+   * another into a mound about as tall as it is wide.
+   *
+   * The ribbons are laid in rings, one layer on the last, each ring
+   * narrower and higher -- that is where the height comes from. Every
+   * ribbon arches up and over along its run round the pile, some throwing
+   * a loop partway, and turns about its own length as it goes.
+   */
   zucchini() {
     const rng = seeded(43);
     const root = new Group();
@@ -478,38 +488,147 @@ const SCENES = {
     root.add(bowl);
 
     const plated = new Group();
-    plated.position.y = 0.04;
+    plated.position.y = 0.03;
     bowl.add(plated);
 
-    for (let i = 0; i < 15; i++) {
-      const a = rng() * Math.PI * 2;
-      const r = Math.sqrt(rng()) * 0.28;
-      const rb = ribbon(rng() > 0.55 ? FOOD.zucchini : FOOD.zucchiniPale, {
-        length: 0.42 + rng() * 0.24,
-        width: 0.1 + rng() * 0.04,
-        rng,
-        seed: i * 13 + 3,
+    const FLESH = '#d9e3a0';
+    const SKIN = '#2f5a24';
+    const LAYERS = [
+      { count: 8, radius: 0.42, base: 0.02, arch: 0.16 },
+      { count: 7, radius: 0.34, base: 0.15, arch: 0.18 },
+      { count: 6, radius: 0.25, base: 0.29, arch: 0.18 },
+      { count: 4, radius: 0.15, base: 0.43, arch: 0.18 },
+    ];
+    const along = []; // points on the pile's surface, for the toppings
+    LAYERS.forEach((layer, li) => {
+      for (let k = 0; k < layer.count; k++) {
+        const a0 = (k / layer.count) * Math.PI * 2 + li * 0.7 + rng() * 0.4;
+        const sweep = (1.5 + rng() * 1.1) * (rng() > 0.5 ? 1 : -1);
+        const loop = rng() < 0.4;
+        const pts = [];
+        for (let n = 0; n <= 16; n++) {
+          const t = n / 16;
+          const a = a0 + sweep * t;
+          // Tucks in toward the middle of its run, the way a ribbon
+          // pressed onto a pile bows over it.
+          const r = layer.radius * (1 - 0.18 * Math.sin(Math.PI * t)) + (rng() - 0.5) * 0.02;
+          let y = layer.base + layer.arch * Math.pow(Math.sin(Math.PI * t), 0.8);
+          let x = Math.cos(a) * r;
+          let z = Math.sin(a) * r;
+          if (loop && t > 0.3 && t < 0.75) {
+            // A loop thrown partway: up and out, over, and back in.
+            const u = (t - 0.3) / 0.45;
+            const lr = 0.065;
+            y += lr * (1 - Math.cos(u * Math.PI * 2));
+            x += Math.cos(a) * lr * Math.sin(u * Math.PI * 2);
+            z += Math.sin(a) * lr * Math.sin(u * Math.PI * 2);
+          }
+          pts.push(new Vector3(x, y, z));
+        }
+        const tw0 = (rng() - 0.5) * 1.1;
+        const tw1 = (rng() - 0.5) * 2.4;
+        const roll = rng();
+        const rb = courgetteRibbon(pts, {
+          width: 0.1 + rng() * 0.04,
+          thickness: 0.011,
+          twist: (t) => tw0 + tw1 * t,
+          edges: roll < 0.65 ? 1 : roll < 0.85 ? 2 : 0,
+          flesh: FLESH,
+          skin: SKIN,
+        });
+        plated.add(rb);
+        along.push(pts[8]);
+      }
+    });
+
+    // Ribbons thrown right over the top, crossing the middle -- without
+    // them the rings leave a hollow at the centre and the pile reads as a
+    // wreath rather than a mound. Each is faced up at its crest: its
+    // face is taken looking away from a point off to one side of its run,
+    // then turned a quarter.
+    for (let k = 0; k < 8; k++) {
+      const dir = (k / 8) * Math.PI + rng() * 0.3;
+      const across = new Vector3(Math.cos(dir), 0, Math.sin(dir));
+      const offset = new Vector3(-across.z, 0, across.x).multiplyScalar((rng() - 0.5) * 0.14);
+      const pts = [];
+      for (let n = 0; n <= 16; n++) {
+        const t = n / 16;
+        const d = (t - 0.5) * 0.62;
+        const y = 0.2 + 0.52 * Math.pow(Math.cos((t - 0.5) * Math.PI), 1.3) + (rng() - 0.5) * 0.01;
+        pts.push(new Vector3(across.x * d + offset.x, y, across.z * d + offset.z));
+      }
+      const side = new Vector3(-across.z, 0, across.x).multiplyScalar(5);
+      const tw = (rng() - 0.5) * 1.4;
+      const rb = courgetteRibbon(pts, {
+        width: 0.11 + rng() * 0.03,
+        thickness: 0.011,
+        axis: side,
+        twist: (t) => Math.PI / 2 + tw * (t - 0.5),
+        edges: rng() < 0.7 ? 1 : 2,
+        flesh: FLESH,
+        skin: SKIN,
       });
-      rb.position.set(Math.cos(a) * r, 0.05 + rng() * 0.1, Math.sin(a) * r);
-      rb.rotation.set((rng() - 0.5) * 0.7, rng() * Math.PI, (rng() - 0.5) * 0.7);
       plated.add(rb);
+      along.push(pts[5], pts[11]);
     }
 
+    // Goat cheese: soft crumbles tucked into the pile, and a few fallen,
+    // inked a cool grey rather than the gold its cream colour would give.
     for (let i = 0; i < 9; i++) {
+      const at = along[Math.floor(rng() * along.length)];
+      const c = curd('#f6f4ec', { size: 0.045 + rng() * 0.035, rng, outline: '#aeb8c4' });
+      c.position.set(at.x * 1.12, at.y + 0.03, at.z * 1.12);
+      plated.add(c);
+    }
+    for (let i = 0; i < 3; i++) {
       const a = rng() * Math.PI * 2;
-      const r = 0.1 + Math.sqrt(rng()) * 0.34;
-      const c = curd(FOOD.ricotta, { size: 0.04 + rng() * 0.03, rng });
-      c.position.set(Math.cos(a) * r, bowl.userData.floorAt(r) + 0.05 + rng() * 0.08, Math.sin(a) * r);
+      const r = 0.52 + rng() * 0.12;
+      const c = curd('#f6f4ec', { size: 0.05 + rng() * 0.02, rng, outline: '#aeb8c4' });
+      c.position.set(Math.cos(a) * r, bowl.userData.floorAt(r) + 0.02, Math.sin(a) * r);
       plated.add(c);
     }
 
-    for (let i = 0; i < 18; i++) {
-      const a = rng() * Math.PI * 2;
-      const r = 0.08 + Math.sqrt(rng()) * 0.42;
-      const f = flake(FOOD.almond, { length: 0.06 + rng() * 0.035, rng });
-      f.position.set(Math.cos(a) * r, bowl.userData.floorAt(r) + 0.035 + rng() * 0.1, Math.sin(a) * r);
-      f.rotation.set((rng() - 0.5) * 1.2, rng() * Math.PI, (rng() - 0.5) * 1.2);
+    // Almonds: slivers on the pile, halves in the bowl round it.
+    for (let i = 0; i < 12; i++) {
+      const at = along[Math.floor(rng() * along.length)];
+      const f = flake(FOOD.almond, { length: 0.07 + rng() * 0.03, rng });
+      f.position.set(at.x * 1.1, at.y + 0.04, at.z * 1.1);
+      f.rotation.set((rng() - 0.5) * 1.4, rng() * Math.PI, (rng() - 0.5) * 1.4);
       plated.add(f);
+    }
+    for (let i = 0; i < 6; i++) {
+      const a = rng() * Math.PI * 2;
+      const r = 0.5 + rng() * 0.16;
+      const half = new Mesh(new SphereGeometry(1, 16, 10), toy('#9e5b38', { top: '#c98458', bottom: '#6a361c' }));
+      half.scale.set(0.07, 0.022, 0.042);
+      half.position.set(Math.cos(a) * r, bowl.userData.floorAt(r) + 0.02, Math.sin(a) * r);
+      half.rotation.y = rng() * 3;
+      plated.add(half);
+    }
+
+    // Herbs cut in a fine chiffonade, and lemon zest, over the top.
+    for (let i = 0; i < 26; i++) {
+      const a = rng() * Math.PI * 2;
+      const r = Math.sqrt(rng()) * 0.22;
+      const pts = [];
+      const dir = rng() * Math.PI * 2;
+      for (let n = 0; n <= 4; n++) {
+        const t = n / 4;
+        pts.push(new Vector3(Math.cos(dir) * t * 0.1, Math.sin(t * 3) * 0.012, Math.sin(dir) * t * 0.1));
+      }
+      // A quarter turn lays the strip flat: its face would otherwise look
+      // out from the pile's axis, standing it on edge.
+      const strip = courgetteRibbon(pts, { width: 0.012, thickness: 0.005, edges: 0, flesh: '#3b6a26', skin: '#2a4c1a', twist: () => Math.PI / 2 });
+      const top = 0.72 - (r / 0.22) * 0.2;
+      strip.position.set(Math.cos(a) * r, top + rng() * 0.04, Math.sin(a) * r);
+      plated.add(strip);
+    }
+    for (let i = 0; i < 6; i++) {
+      const a = rng() * Math.PI * 2;
+      const r = Math.sqrt(rng()) * 0.2;
+      const z = crumb('#f2d24a', { size: 0.01, rng });
+      z.position.set(Math.cos(a) * r, 0.7 - (r / 0.2) * 0.15, Math.sin(a) * r);
+      plated.add(z);
     }
     bake(plated);
 

@@ -6,6 +6,7 @@ import {
   float,
   max,
   mix,
+  modelWorldMatrix,
   normalLocal,
   normalView,
   normalWorld,
@@ -13,6 +14,7 @@ import {
   positionView,
   smoothstep,
   uniform,
+  uv,
   vec3,
   vec4,
 } from 'three/tsl';
@@ -135,6 +137,32 @@ export function iceCreamMaterial({ cream, height }) {
 }
 
 /**
+ * A shaved ribbon of courgette: pale, faintly green flesh with a stripe
+ * of dark skin down one long edge -- or both, from the outside of the
+ * vegetable, or neither, from its middle. Read across the ribbon's width
+ * from its UVs (v runs 0 to 1 edge to edge), so the stripe follows every
+ * twist of the strip.
+ */
+export function ribbonMaterial({ flesh, skin, edges = 1 }) {
+  const key = `ribbon|${flesh}|${skin}|${edges}`;
+  if (cache.has(key)) return cache.get(key);
+  const v = uv().y;
+  const far = smoothstep(0.84, 0.9, v);
+  const near = edges > 1 ? smoothstep(0.16, 0.1, v) : float(0);
+  const stripe = edges > 0 ? max(far, near) : float(0);
+  const fleshColour = mix(color(deeper(flesh, 0.22)), color(lighter(flesh, 0.22)), wrap());
+  const skinColour = mix(color(deeper(skin, 0.25)), color(lighter(skin, 0.12)), wrap());
+  const material = new MeshBasicNodeMaterial();
+  // No toon highlight: a ribbon is broad and flat, so one flashes across
+  // its whole width at once and reads as a hole in the pile.
+  material.colorNode = mix(fleshColour, skinColour, stripe);
+  material.userData.outline = inked(skin);
+  material.userData.outlineWidth = 0.0035;
+  cache.set(key, material);
+  return material;
+}
+
+/**
  * A slice of toast: a golden face, paler toward its middle where it
  * browned least, inside a darker crust. No shine. Face and crust are told apart by
  * which way the surface points, so there is no seam between them.
@@ -241,7 +269,14 @@ function hullMaterial(ink, width, opacity) {
   if (!opacity && hulls.has(key)) return hulls.get(key);
   const material = new MeshBasicNodeMaterial();
   material.side = BackSide;
-  material.colorNode = color(ink);
+  // A gradient, not a flat line -- lighter where the outline faces the
+  // light, deepening round the far side, as the inked line round the
+  // lemons in the reference runs from gold to orange. Taken from the
+  // geometry's own normal in world space: the hull is drawn back faces
+  // only, and the view-facing normal nodes flip for those.
+  const outward = modelWorldMatrix.mul(vec4(normalLocal, 0)).xyz.normalize();
+  const lit = outward.dot(LIGHT).mul(0.5).add(0.5);
+  material.colorNode = mix(color(shift(ink, -0.08, 0.06)), color(shift(ink, 0.2, -0.04)), smoothstep(0.25, 0.85, lit));
   material.positionNode = positionLocal.add(normalLocal.mul(width));
   if (opacity) {
     material.transparent = true;
@@ -296,7 +331,7 @@ function ringFor(mesh, ink) {
   // geometry): the line where the soup meets the bowl. As the disc's
   // child it scales with it as the soup rises.
   const material = new MeshBasicNodeMaterial();
-  material.colorNode = color(ink);
+  material.colorNode = mix(color(shift(ink, -0.08, 0.06)), color(shift(ink, 0.2, -0.04)), smoothstep(0.25, 0.85, wrap()));
   const ring = new mesh.constructor(mesh.geometry.userData.ringGeometry, material);
   ring.userData.isHull = true;
   return ring;
