@@ -129,15 +129,51 @@ thing is ever sharp, so the eye is never asked to choose:
    `--dur-refocus`. The asymmetry is deliberate and measured: focus is lost
    almost instantly and regained slowly. Losing it fast says *stop reading
    this*; regaining it slowly says *start reading here*.
-3. *The photo doesn't move.* It's the fixed point the other two happen
-   around. The one exception is a step taken from part-way down a
-   recipe: the next dish opens at the top of its own recipe rather than
-   at the same depth in a different one, so the sheet scrolls back to
-   open and the photo grows back out of its thumbnail as it goes.
+3. *The photo slides along the shelf.* It's the thing under your finger
+   when you swipe, so it goes where the finger takes it, and a step taken
+   any other way moves it the same way. See below.
 
 The name is on screen twice — large over the resting sheet, small in the
 header — and both copies dissolve together, so the step reads the same
 whichever state the sheet is in.
+
+**Swiping between dishes** (`MealDetailModal`, `src/lib/dishSwipe.js`). A
+horizontal drag carries the photo sideways under the finger while the
+neighbour's photo comes in from the side you're heading, a photo-width and
+a gap behind it. The text below drops out of focus over `--dur-defocus` as
+soon as the drag is recognised. Let go past a third of the way
+(`COMMIT_FRACTION`), or with a flick (`FLING_VELOCITY`), and the step
+finishes: the two photos carry on over `--dur-move` while the name
+dissolves and the new text focus-pulls in. Short of that, both photos
+settle back on `--ease-spring` and the text comes back over
+`--dur-refocus` — lost fast, regained slowly, as in the focus pull.
+
+- *One way dishes move.* The step arrows and the arrow keys take the same
+  slide as a swipe, just from a standing start, so the shelf has one
+  direction whichever way you ask to move along it.
+- *The ends resist.* Past the first or last dish the drag follows the
+  finger less and less (`rubberBand`) instead of stopping dead, which
+  reads as "that's the end" rather than as the app not listening.
+- *A pause cancels a flick.* Velocity is measured at release, and a finger
+  that stopped before lifting has none: it was placed, not thrown.
+- *Collapsed, the photo stays put.* It's a thumbnail in the header there,
+  and a thumbnail sliding off the side reads as the header breaking; the
+  text still defocuses and the step still happens. A step taken from
+  part-way down a recipe opens the next dish at the top of its own recipe
+  rather than at the same depth in a different one.
+- *Vertical is the sheet's.* A drag has to be clearly more horizontal than
+  vertical before it counts as a swipe; anything else is left to the
+  sheet's scroll.
+- *The ghost.* A second photo element, `.dish-ghost`, stands in for
+  whichever photo isn't the current dish's: the neighbour arriving during
+  a drag, the outgoing dish leaving during a step. Offsets use the
+  `translate` property rather than `transform`, so they compose with the
+  transform the sheet writes instead of replacing it.
+
+Under reduced motion `--dur-move` is zero, so the slide collapses to a swap
+and a step is the dissolve and the focus pull alone. The photo still
+follows a finger while it's down: that is direct manipulation, like
+scrolling, not animation.
 
 `--ease-focus` exists for 1 and 2. The app's other curves are front-loaded,
 which is right for something arriving or leaving and wrong here: a

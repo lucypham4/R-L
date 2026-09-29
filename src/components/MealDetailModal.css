@@ -29,6 +29,9 @@
   overflow: hidden;
   background: var(--color-bg);
   container-type: size;
+  /* Horizontal drags are the dish swipe everywhere in the view, including
+     ones that start on a button in the stage, outside the scroller. */
+  touch-action: pan-y;
 }
 
 /* Sized against the dish view itself where the browser can, which is what
@@ -83,6 +86,13 @@
 
 .dish-scroller::-webkit-scrollbar {
   display: none;
+}
+
+/* The scroller takes focus when the dish opens, so the keyboard scrolls
+   the recipe straight away. It's the whole view, not a control, so it
+   draws no ring. */
+.dish-scroller:focus {
+  outline: none;
 }
 
 .dish-spacer {
@@ -362,7 +372,7 @@
   padding: 0 var(--space-md);
 }
 
-.dish-close {
+.dish-back {
   justify-self: start;
   display: flex;
   align-items: center;
@@ -372,14 +382,14 @@
   color: var(--color-ink);
 }
 
-.dish-close svg,
+.dish-back svg,
 .dish-step svg {
   width: 22px;
   height: 22px;
   transition: scale var(--dur-press) var(--ease-spring);
 }
 
-.dish-close:active svg,
+.dish-back:active svg,
 .dish-step:active:not(:disabled) svg {
   scale: var(--press-scale);
 }
@@ -441,8 +451,10 @@
 }
 
 /* The photo hugs its own shape, bounded by the plate -- never
-   letterboxed. See docs/design-system/shape.md. */
-.dish-photo {
+   letterboxed. See docs/design-system/shape.md. The ghost is a second
+   photo for slides between dishes, and looks the same. */
+.dish-photo,
+.dish-ghost {
   position: absolute;
   inset: 0;
   margin: auto;
@@ -458,6 +470,11 @@
   transform-origin: 50% 50%;
   will-change: transform;
   pointer-events: none;
+}
+
+/* Only there while a photo is sliding along the shelf. */
+.dish-ghost[hidden] {
+  display: none;
 }
 
 /* Collapsed, the thumbnail is a way back up to the photo. */

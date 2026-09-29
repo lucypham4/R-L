@@ -3,6 +3,7 @@ import Gallery from './Gallery';
 import MealDetailModal from './MealDetailModal';
 import { fetchChefBySlug, DEFAULT_PAGE_THEME } from '../lib/chefsApi';
 import { fetchMeals } from '../lib/mealsApi';
+import { leaveDish, pushDish, replaceDish } from '../lib/dishHistory';
 import './PublicChefPage.css';
 
 export default function PublicChefPage({ slug }) {
@@ -67,18 +68,26 @@ export default function PublicChefPage({ slug }) {
   );
   const openIndex = sortedMeals.findIndex((m) => String(m.id) === String(openMealId));
   const openMeal = openIndex >= 0 ? sortedMeals[openIndex] : null;
+  const prevMeal = openMeal ? sortedMeals[openIndex + 1] : undefined;
+  const nextMeal = openMeal ? sortedMeals[openIndex - 1] : undefined;
 
   function handleOpenMeal(meal) {
-    const url = new URL(window.location);
-    url.searchParams.set('meal', meal.id);
-    window.history.pushState({}, '', url);
+    pushDish(meal.id);
     setOpenMealId(meal.id);
   }
 
+  // A client reading a chef's page steps between dishes the same way the
+  // chef does: by swipe, arrow or arrow key. `delta` is in the modal's
+  // numbering, which runs opposite to newest-first sortedMeals.
+  function handleStepMeal(delta) {
+    const next = sortedMeals[openIndex - delta];
+    if (!next) return;
+    replaceDish(next.id);
+    setOpenMealId(next.id);
+  }
+
   function closeMeal() {
-    const url = new URL(window.location);
-    url.searchParams.delete('meal');
-    window.history.pushState({}, '', url);
+    leaveDish();
     setOpenMealId(null);
   }
 
@@ -117,6 +126,9 @@ export default function PublicChefPage({ slug }) {
           index={sortedMeals.length - openIndex}
           total={sortedMeals.length}
           onClose={closeMeal}
+          onStep={handleStepMeal}
+          prevMeal={prevMeal}
+          nextMeal={nextMeal}
         />
       )}
     </div>
