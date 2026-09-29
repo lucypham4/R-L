@@ -108,16 +108,87 @@ const run = async () => {
     }
   }, { reducedMotion: 'reduce' });
 
+  // 4-5. The sheet, driven by a real touch drag rather than by setting
+  // scrollTop, so what's recorded is what a finger gets: the drag starts
+  // on the photo, a release past half-way snaps open, a release short of
+  // it snaps back. Needs a recipe long enough for the header to collapse.
+  const LONG = [...MEALS];
+  LONG[0] = {
+    ...MEALS[0],
+    // A second photo sits at the end of the recipe, and gives it the
+    // length to scroll.
+    photos: [beet, cacio],
+    method: [
+      'Roast half the beets in salt until a knife slides through.',
+      'Slice the rest paper thin and dress them while they are still raw.',
+      'Grate the horseradish over at the last moment, so it keeps its heat.',
+      'Split the dill oil with a little of the beet juice and spoon it round.',
+      'Season with flaky salt and serve before the slices start to weep.',
+    ],
+    note: 'Wear gloves for the beets, or accept the colour.',
+  };
+  // Raw touch points: Input.synthesizeScrollGesture looks like the obvious
+  // tool, but headless Chromium ignores it and nothing scrolls. `distance`
+  // is how far the sheet is pulled up; negative pulls it back down.
+  // `from` is where the finger goes down, as a fraction of the height.
+  const drag = async (page, distance, from, ms = 600) => {
+    const cdp = await page.context().newCDPSession(page);
+    const box = await page.locator('.dish').boundingBox();
+    const x = box.x + box.width / 2;
+    const y0 = box.y + box.height * from;
+    const steps = Math.max(8, Math.round(ms / 16));
+    const at = (i) => [{ x, y: y0 - (distance * i) / steps, id: 1 }];
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: at(0) });
+    for (let i = 1; i <= steps; i++) {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: at(i) });
+      await page.waitForTimeout(16);
+    }
+    await page.waitForTimeout(100);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  };
+  const sheetScene = async (page) => {
+    await page.locator('.meal-card').first().click();
+    await page.waitForTimeout(1000);
+    const S = await page.evaluate(() => document.querySelector('.dish-sheet').offsetTop);
+    await drag(page, S * 0.3, 0.4); // from the photo, short of half-way: settles back
+    await page.waitForTimeout(900);
+    await drag(page, S * 0.62, 0.4); // past it: settles open
+    await page.waitForTimeout(1100);
+    await drag(page, 420, 0.8); // on into the recipe: the header collapses
+    await page.waitForTimeout(1100);
+    await drag(page, -700, 0.12, 700); // all the way back down
+    await page.waitForTimeout(900);
+  };
+  await scene(browser, '4-sheet', LONG, sheetScene, { hasTouch: true, isMobile: true });
+  await scene(browser, '5-sheet-reduced', LONG, sheetScene, { hasTouch: true, isMobile: true, reducedMotion: 'reduce' });
+
   // Stills worth having alongside the video.
   const context = await browser.newContext({ viewport: { width: 420, height: 880 }, deviceScaleFactor: 2 });
   const page = await context.newPage();
-  await seed(page, MEALS);
+  await seed(page, LONG);
   await page.goto(BASE);
   await page.waitForTimeout(1100);
   await page.screenshot({ path: path.join(OUT, 'still-gallery.png') });
   await page.locator('.meal-card').first().click();
   await page.waitForTimeout(1200);
   await page.screenshot({ path: path.join(OUT, 'still-dish.png') });
+  // The sheet's other two rests.
+  const sheetTo = (top) =>
+    page.evaluate(async (t) => {
+      document.querySelector('.dish-scroller').scrollTo({ top: t, behavior: 'instant' });
+      await new Promise((r) => setTimeout(r, 300));
+    }, top);
+  const S = await page.evaluate(() => document.querySelector('.dish-sheet').offsetTop);
+  await sheetTo(S);
+  await page.screenshot({ path: path.join(OUT, 'still-sheet-open.png') });
+  // The recipe's extra photo loads lazily, and until it has, the recipe
+  // is too short to scroll far enough to collapse the header.
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll('.dish-more-photo')].every((img) => img.complete && img.naturalHeight > 0)
+  );
+  await sheetTo(S + 400);
+  await page.screenshot({ path: path.join(OUT, 'still-sheet-collapsed.png') });
+  await sheetTo(0);
   // Mid-dissolve: both titles up at once.
   await page.getByRole('button', { name: 'Previous dish' }).click();
   await page.waitForTimeout(250);

@@ -42,7 +42,8 @@ uses each:
 - `rise-in` — the app's one entrance gesture: fade up over `--rise`.
 
 Component-specific keyframes stay in that component's stylesheet
-(`filter-sheet-rise`, `onboarding-slide`, `filter-dot-pop`).
+(`filter-sheet-rise`, `onboarding-slide`, `filter-dot-pop`,
+`dish-sheet-enter`).
 
 A keyframe used by two components belongs in `global.css`. `modal-rise`
 previously lived in `MealDetailModal.css` while `MealActionSheet.css` also
@@ -83,8 +84,10 @@ invisible.
 
 Motion driven from JavaScript can't read CSS tokens, so it asks
 `src/lib/motion.js` instead — `prefersReducedMotion()`,
-`onReducedMotionChange()` and `scrollToTop()`. The Rive tour art uses it to
-hold its state machine on the first frame.
+`onReducedMotionChange()`, `scrollToTop()` and `scrollElementTo()`, and
+`tokenMs()` for a timer or Web Animation that has to last as long as a
+token says. The Rive tour art uses it to hold its state machine on the
+first frame.
 
 ## Patterns in use
 
@@ -127,8 +130,14 @@ thing is ever sharp, so the eye is never asked to choose:
    almost instantly and regained slowly. Losing it fast says *stop reading
    this*; regaining it slowly says *start reading here*.
 3. *The photo doesn't move.* It's the fixed point the other two happen
-   around. On mobile the card is anchored to the top of the overlay
-   (`align-self: flex-start`) precisely so a shorter dish can't slide it.
+   around. The one exception is a step taken from part-way down a
+   recipe: the next dish opens at the top of its own recipe rather than
+   at the same depth in a different one, so the sheet scrolls back to
+   open and the photo grows back out of its thumbnail as it goes.
+
+The name is on screen twice — large over the resting sheet, small in the
+header — and both copies dissolve together, so the step reads the same
+whichever state the sheet is in.
 
 `--ease-focus` exists for 1 and 2. The app's other curves are front-loaded,
 which is right for something arriving or leaving and wrong here: a
@@ -138,6 +147,68 @@ moment worth seeing flashes past in 90ms of 500.
 Don't reach for the cross-dissolve on a paragraph. Two overlapping lines of
 display type read as one title becoming another; two overlapping
 paragraphs read as a rendering bug.
+
+**The dish sheet** (`MealDetailModal`, `src/lib/dishSheet.js`). The dish
+view has three rests: *resting* (the name and photo large, a card peeking
+up from the bottom with the meta line, a two-line summary, the date and
+the serves), *open* (the card has become the page; a smaller name and
+photo at its top, the recipe below) and *collapsed* (the photo a
+thumbnail beside a left-aligned name, the recipe scrolling under).
+
+One scroll position drives all of it. There's no animation to fire and
+nothing to time: every piece that appears in more than one rest is a
+single element whose position is a function of how far the sheet has
+been pulled, so a drag stopped half-way leaves everything half-way, and
+reversing the drag reverses the change. That's the whole reason it feels
+connected to the finger.
+
+- *Layout lives in CSS; the script only interpolates.* Each rest is laid
+  out by the stylesheet — the resting boxes are the elements' own, the
+  collapsed ones are the header's own, the open photo box is an invisible
+  slot — and `dishSheet.js` measures those boxes and moves pieces between
+  them. To change what a rest looks like, change the CSS; the motion
+  follows.
+- *Two rests snap, the recipe doesn't.* `scroll-snap-type: y mandatory`
+  with snap points at resting and open. The sheet is taller than the
+  view, so once it's open the recipe scrolls freely; only a release
+  between the two settles on the nearer one. There is a third snap point
+  at the very end of the recipe, and it isn't optional: Chrome decides
+  whether the sheet covers the view at the *requested* position, before
+  clamping, so without it a wheel tick, the End key or a fling asking for
+  anywhere past the end snapped the reader all the way back to rest.
+- *Things attached to the scroll are scrolled; only things that morph
+  are scripted.* A scroll handler lands a frame behind the compositor, so
+  anything the script positions lags the content by that frame. The card
+  and its contents are ordinary scrolled content for that reason, and so
+  is the recipe. The card's lower edge has to hold still while the sheet
+  scrolls up through it, and nothing inside a scroller can, so that edge
+  is drawn from outside: `.dish-frame` paints the page colour everywhere
+  but a card-shaped hole.
+- *Pieces that would cross don't travel.* The meta line starts below the
+  photo and ends above the name, so any path between the two goes through
+  both. The card has its own copy, which rides up with it and fades, and
+  the header's copy arrives in place.
+- *The name hands over, briefly.* The large name and the small one travel
+  together and cross between 45% and 55% of the drag — much shorter than
+  a step's dissolve, because the large name wraps and the small one
+  doesn't, and a long overlap reads as three lines of ghosted type.
+- *The photo arcs into its thumbnail*, across first and then up, because
+  the straight line runs through the end of the name as it slides left.
+- *The card's corners flatten across the whole drag.* It rests as a card
+  on the page and ends as the page; see `shape.md`.
+
+Under reduced motion the travelling pieces — the names, the meta line,
+the photo, the arrows — stop travelling. They hold their rest position
+until the half-way mark, then jump to the next one and fade in where they
+land, over `--dur-color`. What only fades or changes shape stays
+continuous. The scroll itself is untouched: moving content under a
+finger is scrolling, not animation.
+
+`tests/dish-sheet-motion.spec.js` samples the whole journey and asserts
+it numerically — the photo only ever shrinks, never by a jump, and
+passes through sizes that are neither rest — and drives it with real
+touch points, since `Input.synthesizeScrollGesture` does nothing in
+headless Chromium.
 
 **Depth of field** (`.app-stage`). The gallery behind an open dish blurs,
 dims and scales back a hair. It does the work a heavy scrim would, without
