@@ -1,21 +1,41 @@
 # Shape
 
-Meal Diary is a square-cornered system. `--radius: 0` is the default for
-buttons, text fields, cards, modals and sheets, and that is deliberate —
-the hard corners are what make the app read as an editorial archive
-rather than a generic consumer app. Don't round something just because it
-looks friendlier in isolation.
+Staj is a square-cornered system. `--radius: 0` is the default for
+buttons, text fields and anything sitting *in* the page, and that is
+deliberate — the hard corners are what make the app read as an editorial
+archive rather than a generic consumer app. Don't round something just
+because it looks friendlier in isolation.
 
-There are exactly two exceptions, and both are tokens so they get used
-consistently instead of being reinvented as magic numbers.
+The exceptions are all tokens, so they get used consistently instead of
+being reinvented as magic numbers in each component.
 
 ## Tokens
 
 | Token | Value | Use |
 | --- | --- | --- |
-| `--radius` | `0` | The default. Buttons, fields, cards, modals, sheets. |
+| `--radius` | `0` | The default. Buttons, fields, anything in the page. |
 | `--radius-media` | `12px` | Photographs and illustrations. |
+| `--radius-surface` | `18px` | Surfaces that float above the page: modals, cards, sheets. |
 | `--radius-pill` | `999px` | Fully-rounded controls: bubble pickers, the floating nav pill. |
+
+## Why a floating surface is rounded
+
+The rule isn't "square" so much as "square where the page is". A square
+corner reads as a panel welded to the viewport. That is right for the
+gallery, which *is* the page, and wrong for a modal, which is a card
+resting on top of one — the corner is the main thing telling you which of
+the two you are looking at.
+
+Everything that floats takes `--radius-surface`: the dish modal, the
+add-meal card, the photo crop card, the action sheet and the filter
+sheet.
+
+The two bottom sheets round their **top corners only**
+(`var(--radius-surface) var(--radius-surface) 0 0`). They sit flush
+against the bottom of the viewport, so rounding all four would leave a
+sliver of scrim showing under each bottom corner — the radius is there to
+say "this rests on top of the page", and the edge it rests against has no
+corner to round.
 
 ## Why media is rounded
 
@@ -41,6 +61,26 @@ bounds honestly.
 
 More generally: **gate hover-only effects behind `@media (hover: hover)`**.
 An un-gated `:hover` rule is a latent stuck-state bug on every phone.
+
+## Dividers, and why the black ones went
+
+The dish modal used to be cut up by 2px `--color-ink` rules: under the
+plate header, between the photo and the text, and between the ingredients
+and the method. At that weight a divider isn't a separator, it's a
+structural claim — it says these are different documents, when they are
+four parts of one card. Three of them also landed within a few hundred
+pixels of each other, which turned a recipe into a form.
+
+They're gone, and the spacing that was already there does the work.
+A gap of 22px separates two blocks perfectly well; a black bar separates
+them *and* shouts about it. The one surviving rule is the share card's
+footer hairline, at `--color-line`, which has a real job: it marks where
+the recipe stops and the app's byline starts on an image that leaves the
+app entirely.
+
+If you reach for a divider, ask what it's separating and whether space
+would say the same thing. If it genuinely needs a line, use `--divider`
+(a hairline at `--color-line`), never ink.
 
 ## Photos are never letterboxed
 

@@ -180,6 +180,20 @@ function AdminApp() {
     setOpenMealId(meal.id);
   }
 
+  // Step through the archive from inside the open dish. `delta` is in the
+  // numbering the modal shows ("No. 12 of 47"), which runs opposite to
+  // sortedMeals -- that's newest-first, so the highest number is index 0.
+  // Stepping replaces the history entry rather than pushing one, so Back
+  // still leaves the modal instead of walking every dish you passed.
+  function handleStepMeal(delta) {
+    const next = sortedMeals[openIndex - delta];
+    if (!next) return;
+    const url = new URL(window.location);
+    url.searchParams.set('meal', next.id);
+    window.history.replaceState({}, '', url);
+    setOpenMealId(next.id);
+  }
+
   function closeMeal() {
     const url = new URL(window.location);
     url.searchParams.delete('meal');
@@ -328,7 +342,12 @@ function AdminApp() {
 
       {loadError && <p className="app-config-notice app-config-error">{loadError}</p>}
 
-      <Gallery meals={sortedMeals} onOpenMeal={handleOpenMeal} onAddMeal={() => setShowAddForm(true)} onDeleteMeal={handleDeleteMeal} />
+      {/* The gallery recedes behind an open dish rather than just dimming
+          under a scrim: the depth of field is what makes the dish read as
+          the thing in focus. */}
+      <div className={`app-stage ${openMeal ? 'app-stage-receded' : ''}`}>
+        <Gallery meals={sortedMeals} onOpenMeal={handleOpenMeal} onAddMeal={() => setShowAddForm(true)} onDeleteMeal={handleDeleteMeal} />
+      </div>
 
       {openMeal && (
         <MealDetailModal
@@ -336,6 +355,7 @@ function AdminApp() {
           index={sortedMeals.length - openIndex}
           total={sortedMeals.length}
           onClose={closeMeal}
+          onStep={handleStepMeal}
         />
       )}
 

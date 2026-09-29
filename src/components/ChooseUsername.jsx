@@ -57,7 +57,7 @@ export default function ChooseUsername({ userId, onCreated }) {
   return (
     <div className="signin-screen">
       <div className="signin-card">
-        <p className="signin-eyebrow">Meal Diary</p>
+        <p className="signin-eyebrow">Staj</p>
         <h1 className="signin-title">Set up your page</h1>
         <p className="signin-subtitle">Clients will see this page.</p>
 

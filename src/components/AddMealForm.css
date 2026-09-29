@@ -6,6 +6,7 @@
   overflow-y: auto;
   background: var(--color-card);
   border: 1px solid var(--color-line);
+  border-radius: var(--radius-surface);
   padding: 32px 28px;
   box-shadow: var(--shadow-lg);
 }
@@ -277,4 +278,12 @@
   font: 400 0.6875rem/1.45 var(--font-mono);
   color: var(--color-disabled);
   overflow-wrap: anywhere;
+}
+
+/* Serves is a two-digit answer sharing a row with a date. Left to the
+   row's default it takes half the width for no reason. */
+@media (min-width: 560px) {
+  .add-meal-row > .add-meal-serves {
+    flex: 0 0 132px;
+  }
 }

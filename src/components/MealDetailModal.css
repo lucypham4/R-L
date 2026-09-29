@@ -7,8 +7,21 @@
   max-height: 90vh;
   overflow-y: auto;
   background: var(--color-card);
+  border-radius: var(--radius-surface);
   box-shadow: var(--shadow-lg);
   animation: modal-rise var(--dur-move) var(--ease);
+}
+
+/* Stepping between dishes changes how much text the card holds. The
+   overlay centres its child, so a shorter dish would slide the photo and
+   the name up the screen mid-transition -- which fights the point of the
+   effect, where the dish is meant to be the one fixed thing. Anchor the
+   card to the top and let it grow downward instead. Desktop already has a
+   fixed height, so it only matters in the stacked layout. */
+@media (max-width: 767px) {
+  .modal-card {
+    align-self: flex-start;
+  }
 }
 
 @media (min-width: 768px) {
@@ -38,14 +51,11 @@
   display: flex;
   flex-direction: column;
   padding: 24px 26px;
-  border-bottom: 2px solid var(--color-ink);
 }
 
 @media (min-width: 768px) {
   .modal-plate {
     flex: 1;
-    border-bottom: none;
-    border-right: 2px solid var(--color-ink);
   }
 }
 
@@ -53,17 +63,14 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
+  /* Was sitting on a 2px rule that separated it from the photo. With the
+     rule gone the gap has to be explicit, or the label crowds the plate. */
+  margin-bottom: 18px;
 }
 
 .modal-plate-count {
   font: 400 0.9375rem/1.5 var(--font-sans);
   color: var(--color-ink);
-}
-
-.modal-rule {
-  height: 2px;
-  background: var(--color-ink);
-  margin: 12px 0 18px;
 }
 
 .modal-plate .photo-carousel {
@@ -93,15 +100,100 @@
   }
 }
 
+/* The name occupies one line of a stack so the outgoing and incoming
+   titles can sit on the same baseline. The stack has no height of its
+   own -- the incoming title (in normal flow) sets it, and the outgoing
+   one is lifted out of flow on top. */
+.modal-name-stack {
+  position: relative;
+}
+
 .modal-text-name {
   text-align: left;
-  font: 700 1.25rem/1.5 var(--font-serif);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  font: var(--text-dish);
+  letter-spacing: var(--text-dish-ls);
+}
+
+.modal-name-out {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  animation: dissolve-out var(--dur-dissolve) var(--ease-focus) forwards;
+}
+
+.modal-name-in {
+  animation: dissolve-in var(--dur-dissolve) var(--ease-focus);
+}
+
+@keyframes dissolve-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes dissolve-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* The focus pull. The block arrives soft and dim, holds while the name
+   above it dissolves, then resolves. The hold is what keeps the eye on
+   the title during the swap instead of trying to read two things at
+   once, so the percentage below is tied to --dur-dissolve's share of the
+   total: 500ms of 850ms is a shade under 60%. */
+.modal-text-body {
+  animation: focus-pull calc(var(--dur-dissolve) + var(--dur-refocus)) var(--ease-focus);
+}
+
+@keyframes focus-pull {
+  0%,
+  59% {
+    filter: blur(var(--blur-defocus));
+    opacity: var(--opacity-defocus);
+  }
+
+  100% {
+    filter: blur(0);
+    opacity: 1;
+  }
+}
+
+.modal-step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.modal-step-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: var(--divider);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-ink);
+  font: 400 1.125rem/1 var(--font-sans);
+  cursor: pointer;
+  transition: background var(--dur-color) var(--ease), border-color var(--dur-color) var(--ease);
+}
+
+@media (hover: hover) {
+  .modal-step-btn:hover {
+    background: var(--color-surface);
+    border-color: var(--color-line-strong);
+  }
+}
+
+.modal-step-btn:active {
+  transform: scale(var(--press-scale));
 }
 
 .modal-text-sub {
-  margin-top: 8px;
+  margin-top: 12px;
   text-align: left;
   font: 400 0.6875rem/1.5 var(--font-mono);
   letter-spacing: 0.1em;
@@ -208,9 +300,8 @@
 }
 
 .share-card-name {
-  font: 700 1.5rem/1.4 var(--font-serif);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  font: var(--text-dish-share);
+  letter-spacing: var(--text-dish-ls);
 }
 
 .share-card-description {
@@ -246,4 +337,10 @@
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--color-disabled);
+}
+
+.modal-step-btn:disabled {
+  color: var(--color-disabled);
+  border-color: var(--color-line);
+  cursor: default;
 }

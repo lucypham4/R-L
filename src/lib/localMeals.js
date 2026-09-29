@@ -1,3 +1,5 @@
+import { DEFAULT_SERVES, normaliseServes } from './meal';
+
 const KEY = 'meal-diary-local-meals';
 
 /**
@@ -50,7 +52,9 @@ export function createLocalMeal(fields) {
     method: [],
     tags: [],
     note: '',
-    serves: 2,
     ...fields,
+    // After the spread: a form that sent nothing usable shouldn't be able
+    // to write a meal that claims a serving count it was never given.
+    serves: normaliseServes(fields?.serves) ?? DEFAULT_SERVES,
   };
 }

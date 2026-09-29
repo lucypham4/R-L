@@ -20,7 +20,7 @@ export default function Gallery({
   onOpenMeal,
   onAddMeal,
   onDeleteMeal,
-  title = 'Meal Diary',
+  title = 'Staj',
   tagline = 'Private chef · portfolio & archive',
 }) {
   const [search, setSearch] = useState('');

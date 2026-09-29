@@ -1,7 +1,7 @@
-# R-L
+# Staj
 
-A meal-logging app for any chef, a React + Vite app implementing the Meal
-Diary design system, backed by Supabase (data + auth) and Cloudinary
+A meal-logging app for any chef, a React + Vite app implementing the Staj
+design system, backed by Supabase (data + auth) and Cloudinary
 (photos).
 
 **An account is entirely optional.** Open the app and you're straight into
@@ -209,7 +209,7 @@ doesn't have:
 3. `npm run cap:open:ios` to open the project in Xcode.
 4. In Xcode: sign in with an Apple Developer Program account ($99/year),
    set a real bundle identifier under Signing & Capabilities (the
-   placeholder in `capacitor.config.json` is `com.mealdiary.app`, change
+   placeholder in `capacitor.config.json` is `com.staj.app`, change
    it to match your account before submitting), and run on a simulator or
    device to test.
 5. Archive and submit through App Store Connect once it looks right.
