@@ -1,20 +1,29 @@
 import { test, expect } from './support/network';
+import { PNG } from 'pngjs';
 
-// The tour's dish illustrations, pinned.
+// The tour's dish scenes, pinned.
 //
-// Three things have gone wrong here before, and each has a test:
+// Three things have gone wrong here across as many rewrites, and each one
+// has a test:
 //
 //   1. Art that does not move. The Rive cat shipped with timelines that
 //      were named correctly and contained no keyframes, so it never
-//      animated, and a still illustration is a perfectly good-looking
+//      animated -- and a still illustration is a perfectly good-looking
 //      screenshot. Nothing caught it.
-//   2. Art that is cropped. The WebGL version framed each scene with a
-//      camera, and anything outside the frustum was simply gone. These
-//      are the chef's own plating; losing the edge of a dish is not a
-//      rendering detail.
-//   3. Reduced motion removing the picture along with the movement.
+//   2. Art that is cropped. A camera crops silently: there is no element
+//      box to measure, and geometry outside the frustum is simply not
+//      drawn. These are the chef's own plating, so losing the edge of a
+//      dish is not a rendering detail.
+//   3. Reduced motion taking the picture away along with the movement.
+//
+// The scenes render to a canvas, so all of this is measured in pixels.
 
 const SCENES = ['dessert', 'soup', 'archive', 'zucchini'];
+
+// Every assertion here is made by screenshotting and reading pixels, and
+// a scene has to be watched across a cycle rather than sampled once, so
+// these run long by the standards of the rest of the suite.
+test.describe.configure({ timeout: 120_000 });
 
 async function openTour(page) {
   await page.route('**stub.supabase.co/**', (route) =>
@@ -22,138 +31,172 @@ async function openTour(page) {
   );
   // Deliberately no onboarding-seen flag: the tour is the thing under test.
   await page.goto('/');
-  await expect(page.locator('.onboarding-art')).toBeVisible();
-  await page.waitForTimeout(900);
+  await expect(page.locator('.scene-canvas')).toBeVisible();
+  await waitForDish(page);
 }
 
-/** True if the illustration's pixels differ across ~700ms. */
-async function illustrationMoves(page) {
-  const art = page.locator('.onboarding-art');
-  const before = await art.screenshot();
-  await page.waitForTimeout(700);
-  return Buffer.compare(before, await art.screenshot()) !== 0;
+function pixels(buf) {
+  const png = PNG.sync.read(buf);
+  const bg = [png.data[0], png.data[1], png.data[2]];
+  const at = (x, y) => {
+    const i = (y * png.width + x) * 4;
+    return [png.data[i], png.data[i + 1], png.data[i + 2]];
+  };
+  const isBg = (p) => Math.abs(p[0] - bg[0]) + Math.abs(p[1] - bg[1]) + Math.abs(p[2] - bg[2]) <= 14;
+  return { width: png.width, height: png.height, at, isBg };
 }
 
-/**
- * The largest amount, in pixels, by which any layer escapes the stage --
- * negative when every layer is comfortably inside. Sampled repeatedly,
- * because the peak of a scale or a drop is transient and a single reading
- * lands between them.
- */
-async function worstOverflow(page, samples = 14) {
-  let worst = -Infinity;
-  for (let i = 0; i < samples; i++) {
-    const over = await page.locator('.scene-stage').evaluate((stage) => {
-      const s = stage.getBoundingClientRect();
-      return Math.max(
-        ...[...stage.querySelectorAll('img')].map((im) => {
-          const r = im.getBoundingClientRect();
-          return Math.max(s.left - r.left, r.right - s.right, s.top - r.top, r.bottom - s.bottom);
-        })
-      );
-    });
-    worst = Math.max(worst, over);
-    await page.waitForTimeout(170);
+/** How much of the frame the dish covers, as a percentage. */
+function coverage(buf) {
+  const p = pixels(buf);
+  let n = 0;
+  let total = 0;
+  for (let y = 0; y < p.height; y += 3) {
+    for (let x = 0; x < p.width; x += 3) {
+      total++;
+      if (!p.isBg(p.at(x, y))) n++;
+    }
   }
-  return worst;
+  return (n / total) * 100;
 }
 
-test.describe('onboarding illustrations', () => {
-  test('every scene renders, moves, and stays inside its box', async ({ page }) => {
-    await openTour(page);
+/** Pixels of dish touching the border of the frame -- i.e. being cropped. */
+function edgeContact(buf) {
+  const p = pixels(buf);
+  let n = 0;
+  for (let x = 0; x < p.width; x++) {
+    if (!p.isBg(p.at(x, 0))) n++;
+    if (!p.isBg(p.at(x, p.height - 1))) n++;
+  }
+  for (let y = 0; y < p.height; y++) {
+    if (!p.isBg(p.at(0, y))) n++;
+    if (!p.isBg(p.at(p.width - 1, y))) n++;
+  }
+  return n;
+}
 
-    for (const [i, name] of SCENES.entries()) {
-      await page.waitForTimeout(600);
-
-      // Every layer has actually decoded -- a broken src still occupies
-      // layout, so counting elements alone would pass on missing art.
-      //
-      // Polled rather than read once: the archive rewrites its slots'
-      // src several times a second, and an image is briefly not
-      // `complete` while the new one decodes. That is a moment, not a
-      // fault, and asserting on a single sample makes this flaky.
-      await expect
-        .poll(
-          async () =>
-            page.locator('.scene-stage').evaluate((s) => {
-              const imgs = [...s.querySelectorAll('img')];
-              return imgs.length > 0 && imgs.every((im) => im.complete && im.naturalWidth > 0);
-            }),
-          { message: `${name}: every layer loaded`, timeout: 5000 }
-        )
-        .toBe(true);
-
-      expect(await illustrationMoves(page), `${name}: animates`).toBe(true);
-      // A shade of tolerance for sub-pixel rounding; a real crop is tens
-      // of pixels, not fractions of one.
-      expect(await worstOverflow(page), `${name}: nothing cropped`).toBeLessThan(1);
-
-      if (i < SCENES.length - 1) await page.getByRole('button', { name: /next/i }).click();
+/** The frame's mean colour, as a coarse fingerprint. Different dishes
+ *  are different colours, so this changes as the archive cycles, where
+ *  coverage does not -- the silhouettes are all the same size. */
+function meanColour(buf) {
+  const p = pixels(buf);
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  let n = 0;
+  for (let y = 0; y < p.height; y += 4) {
+    for (let x = 0; x < p.width; x += 4) {
+      const c = p.at(x, y);
+      r += c[0];
+      g += c[1];
+      b += c[2];
+      n++;
     }
-  });
+  }
+  return `${Math.round(r / n)},${Math.round(g / n)},${Math.round(b / n)}`;
+}
 
-  test('the soup assembles rather than appearing at once', async ({ page }) => {
+/** Green pixels, which on a bowl of squash soup means garnish. */
+function greenish(buf) {
+  const p = pixels(buf);
+  let n = 0;
+  for (let y = 0; y < p.height; y += 2) {
+    for (let x = 0; x < p.width; x += 2) {
+      const [r, g, b] = p.at(x, y);
+      if (g > r + 6 && g > b + 16 && g > 55) n++;
+    }
+  }
+  return n;
+}
+
+/** Waits until the scene has actually drawn something. */
+async function waitForDish(page) {
+  await expect
+    .poll(async () => coverage(await page.locator('.onboarding-art').screenshot()), { timeout: 20000 })
+    .toBeGreaterThan(4);
+}
+
+async function sample(page, count, gapMs, fn) {
+  const out = [];
+  for (let i = 0; i < count; i++) {
+    out.push(fn(await page.locator('.onboarding-art').screenshot()));
+    await page.waitForTimeout(gapMs);
+  }
+  return out;
+}
+
+test.describe('onboarding dish scenes', () => {
+  // One test per scene rather than one loop over four. Every assertion
+  // here costs a screenshot, and a single test taking forty-odd of them
+  // runs past the timeout once two workers are competing for the GPU.
+  for (const [index, name] of SCENES.entries()) {
+    test(`the ${name} scene draws, moves, and is never cropped`, async ({ page }) => {
+      await openTour(page);
+      for (let i = 0; i < index; i++) await page.getByRole('button', { name: /next/i }).click();
+      await waitForDish(page);
+
+      const art = page.locator('.onboarding-art');
+
+      // Drawn at all -- a scene that failed to build leaves a canvas of
+      // the right size showing nothing.
+      const shot = await art.screenshot();
+      expect(coverage(shot), 'draws a dish').toBeGreaterThan(4);
+
+      // Moving: two frames a beat apart differ.
+      await page.waitForTimeout(650);
+      expect(Buffer.compare(shot, await art.screenshot()) !== 0, 'animates').toBe(true);
+
+      // Never reaching the frame's border. A few pixels would be
+      // antialiasing on a shadow; a real crop is hundreds.
+      const worst = Math.max(...(await sample(page, 8, 220, edgeContact)));
+      expect(worst, 'nothing runs off the frame').toBeLessThan(12);
+    });
+  }
+
+  test('the soup assembles rather than arriving finished', async ({ page }) => {
     await openTour(page);
     await page.getByRole('button', { name: /next/i }).click();
+    await waitForDish(page);
 
-    // Sample a full loop and watch each garnish cross into view. If the
-    // layers were one flat image, or all shared one keyframe, every layer
-    // would reach full opacity in the same frame.
-    const seen = { bread: false, swirl: false, chives: false, almonds: false };
-    const partial = { bread: false, swirl: false, chives: false, almonds: false };
-    for (let i = 0; i < 60; i++) {
-      const o = await page.locator('.scene-stage').evaluate(() => {
-        const read = (cls) => Number(getComputedStyle(document.querySelector(cls)).opacity);
-        return {
-          bread: read('.soup-bread'),
-          swirl: read('.soup-swirl'),
-          chives: read('.soup-chives'),
-          almonds: read('.soup-almonds'),
-        };
-      });
-      for (const k of Object.keys(seen)) {
-        if (o[k] > 0.9) seen[k] = true;
-        if (o[k] < 0.1) partial[k] = true;
-      }
-      await page.waitForTimeout(200);
-    }
-    for (const k of Object.keys(seen)) {
-      expect(seen[k], `${k} becomes visible`).toBe(true);
-      expect(partial[k], `${k} is absent earlier in the loop`).toBe(true);
-    }
+    // Across one 11s cycle the garnish has to both appear and be absent.
+    // Baked into one texture the green count would never change; sharing
+    // one keyframe it would never be partial.
+    const green = await sample(page, 26, 450, greenish);
+    const max = Math.max(...green);
+    const min = Math.min(...green);
+    expect(max, 'garnish appears').toBeGreaterThan(30);
+    expect(min, 'and is absent earlier in the cycle').toBeLessThan(max * 0.3);
   });
 
-  test('the archive cycles through more than one dish per slot', async ({ page }) => {
+  test('the archive riffles through the collection', async ({ page }) => {
     await openTour(page);
-    await page.getByRole('button', { name: /next/i }).click();
-    await page.getByRole('button', { name: /next/i }).click();
-    await expect(page.locator('.archive-slot')).toHaveCount(9);
+    for (let i = 0; i < 2; i++) await page.getByRole('button', { name: /next/i }).click();
+    await waitForDish(page);
 
-    const firstSlot = page.locator('.archive-slot img').first();
-    const seen = new Set();
-    for (let i = 0; i < 24; i++) {
-      seen.add(await firstSlot.getAttribute('src'));
-      await page.waitForTimeout(140);
-    }
-    expect(seen.size, 'a slot riffles through several dishes').toBeGreaterThan(2);
+    // Nine dishes swapping textures several times a second. Compared by
+    // coverage rather than by bytes, so one changed pixel is not a swap.
+    const seen = new Set(await sample(page, 12, 200, meanColour));
+    expect(seen.size, 'the grid keeps changing').toBeGreaterThan(3);
   });
 
-  test('reduced motion keeps the picture and drops the movement', async ({ page }) => {
+  test('reduced motion keeps the dish and drops the movement', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await openTour(page);
 
-    await expect(page.locator('.onboarding-art')).toBeVisible();
-    expect(await illustrationMoves(page), 'held still').toBe(false);
+    const art = page.locator('.onboarding-art');
+    const first = await art.screenshot();
+    // The picture stays. Losing it would be a worse answer for the same
+    // reader than holding it still.
+    expect(coverage(first), 'still draws the dish').toBeGreaterThan(4);
 
-    // The soup is the one that could go blank: its layers are hidden by
-    // the opening frames of their own animations, so switching the
-    // animations off has to leave them visible rather than at 0.
-    await page.getByRole('button', { name: /next/i }).click();
-    await page.waitForTimeout(500);
-    const opacities = await page.locator('.scene-stage').evaluate((s) =>
-      [...s.querySelectorAll('img')].map((im) => Number(getComputedStyle(im).opacity))
-    );
-    expect(opacities.length).toBe(5);
-    expect(opacities.every((o) => o > 0.95), 'every layer of the soup is shown').toBe(true);
+    await page.waitForTimeout(900);
+    expect(Buffer.compare(first, await art.screenshot()) === 0, 'held still').toBe(true);
+  });
+
+  test('the canvas is described for screen readers', async ({ page }) => {
+    await openTour(page);
+    // A canvas is opaque to assistive tech, so the slot carries the
+    // description instead.
+    await expect(page.getByRole('img', { name: /ice cream|chocolate/i })).toBeVisible();
   });
 });

@@ -168,17 +168,18 @@ once per browser (or once per account, if signed in). Its four art slots
 each take an animated 3D scene, a static image, or neither, in which case
 they fall back to a labelled placeholder showing the size that slot wants.
 
-All four currently hold three.js scenes — a plate, a bowl, a ring of
-plates and a plate lifting away — built from geometry rather than loaded
-from model files, so there is nothing to fetch, nothing to fail offline,
-and the ceramics follow the light and dark themes.
+All four currently hold the chef's own dishes rebuilt as 3D objects.
+Each vessel is a lathe and the photograph is projected down onto it,
+which works because a circular plate shot from elevation lands in frame
+as an ellipse — measuring it recovers both the top-down view and the
+angle the camera was at.
 
 Swapping art in is a one-entry change in
 `src/components/onboardingSteps.js`. See
 [`docs/design-system/illustration.md`](docs/design-system/illustration.md)
-for the details, including how to prototype a new scene outside the app
-and how to bring in a sculpted `.glb` when one outgrows the procedural
-approach.
+for the details, including how a photograph is turned into a texture,
+the three different detectors the soup's garnishes needed, and how to
+prototype a new scene outside the app.
 
 ### Design system
 

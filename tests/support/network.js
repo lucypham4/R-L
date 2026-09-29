@@ -20,8 +20,12 @@ import { test as base, expect } from '@playwright/test';
  * usually made part-way through rather than at boot.
  */
 
-// Hosts the app genuinely needs, and which cost nothing to allow.
-const ALLOWED = new Set(['localhost', '127.0.0.1', 'fonts.googleapis.com', 'fonts.gstatic.com']);
+// Only the app under test. Webfonts used to be allowed through, on the
+// grounds that they cost nothing -- but they are fetched over the real
+// network, and Playwright's screenshot waits for fonts to settle, so a
+// slow font host turned every screenshot-based assertion into a timeout.
+// Nothing here asserts on type, and the fallback stack renders fine.
+const ALLOWED = new Set(['localhost', '127.0.0.1']);
 
 // Reaching one of these means the build is pointed at something real.
 const BACKEND = /(^|\.)supabase\.co$|cloudinary\.com$/;
