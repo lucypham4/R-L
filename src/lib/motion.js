@@ -33,3 +33,20 @@ export function onReducedMotionChange(handler) {
 export function scrollToTop() {
   window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
 }
+
+// The same, for any scroll container.
+export function scrollElementTo(el, top) {
+  el.scrollTo({ top, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+}
+
+// Reads a duration token (`--dur-dissolve`, `--dur-color`) as
+// milliseconds. A timer or a Web Animation that has to line up with the
+// CSS reads the token rather than copying its value, so reduced motion,
+// which redefines the tokens, shortens both at once.
+export function tokenMs(name) {
+  if (typeof window === 'undefined') return 0;
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const value = parseFloat(raw);
+  if (Number.isNaN(value)) return 0;
+  return raw.endsWith('ms') ? value : value * 1000;
+}

@@ -64,19 +64,21 @@ test.describe('how many a dish served', () => {
 
     await expect(page.locator('.meal-card')).toHaveCount(1);
     await page.locator('.meal-card').first().click();
-    await expect(page.locator('.modal-text-sub')).toContainText('Serves 12');
-    await expect(page.locator('.modal-text-sub')).not.toContainText('Serves 2,');
+    // The resting sheet's lower edge: the date on the left, the serves on
+    // the right.
+    await expect(page.locator('.dish-peek-facts')).toContainText('Serves 12');
+    await expect(page.locator('.dish-peek-facts')).not.toContainText(/Serves 2\b/);
   });
 
   test('a meal that was never asked claims nothing', async ({ page }) => {
     await boot(page, [LEGACY_MEAL]);
     await page.locator('.meal-card').first().click();
 
-    const sub = page.locator('.modal-text-sub');
-    await expect(sub).toContainText('French');
+    await expect(page.locator('.dish-peek-meta')).toHaveText('French · Main');
+    const facts = page.locator('.dish-peek-facts');
+    await expect(facts).toContainText('5 Jan 2026');
     // Neither a made-up number nor the dangling label the old markup left.
-    await expect(sub).not.toContainText(/Serves/i);
-    await expect(sub).not.toContainText(/·\s*$/);
+    await expect(facts).not.toContainText(/Serves/i);
   });
 
   test('rejects a serving count the card could not print honestly', async ({ page }) => {

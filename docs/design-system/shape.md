@@ -26,9 +26,10 @@ gallery, which *is* the page, and wrong for a modal, which is a card
 resting on top of one — the corner is the main thing telling you which of
 the two you are looking at.
 
-Everything that floats takes `--radius-surface`: the dish modal, the
-add-meal card, the photo crop card, the action sheet and the filter
-sheet.
+Everything that floats takes `--radius-surface`: the add-meal card, the
+photo crop card, the action sheet, the filter sheet, and the dish view on
+a screen wide enough for it to float over the gallery. On a phone the
+dish view *is* the page, edge to edge, so it's square.
 
 The two bottom sheets round their **top corners only**
 (`var(--radius-surface) var(--radius-surface) 0 0`). They sit flush
@@ -36,6 +37,17 @@ against the bottom of the viewport, so rounding all four would leave a
 sliver of scrim showing under each bottom corner — the radius is there to
 say "this rests on top of the page", and the edge it rests against has no
 corner to round.
+
+## The dish sheet changes which one it is
+
+The dish view's sheet is the one surface that is both. At rest it's a card
+lying on the page — inset from the sides and the bottom by `--space-md`,
+rounded on all four corners, since it doesn't touch an edge. Pulled up,
+it becomes the page: flush, and square. The inset and the radius shrink
+together across the whole drag rather than switching at the end, so
+there's no moment where a rounded card visibly snaps square. The corner
+is carrying the same meaning it always does; it just changes its answer
+as the sheet does.
 
 ## Why media is rounded
 
@@ -62,6 +74,14 @@ bounds honestly.
 More generally: **gate hover-only effects behind `@media (hover: hover)`**.
 An un-gated `:hover` rule is a latent stuck-state bug on every phone.
 
+The dish view's photo is outlined with an inset `outline` rather than a
+`border`, for a reason specific to it: it shrinks into a thumbnail by
+`transform: scale()`, which would scale a 12px corner down to 3px and the
+hairline to a quarter of a pixel. The stylesheet divides both back out of
+the scale (`--dish-photo-scale`), so the thumbnail's corner and hairline
+are the same as every other photo's. An outline can change width without
+triggering layout, which a border can't.
+
 ## Dividers, and why the black ones went
 
 The dish modal used to be cut up by 2px `--color-ink` rules: under the
@@ -73,10 +93,13 @@ pixels of each other, which turned a recipe into a form.
 
 They're gone, and the spacing that was already there does the work.
 A gap of 22px separates two blocks perfectly well; a black bar separates
-them *and* shouts about it. The one surviving rule is the share card's
-footer hairline, at `--color-line`, which has a real job: it marks where
-the recipe stops and the app's byline starts on an image that leaves the
-app entirely.
+them *and* shouts about it. Two hairlines survive, both at
+`--color-line`, and each has a real job. The share card's footer rule
+marks where the recipe stops and the app's byline starts, on an image
+that leaves the app entirely. The dish sheet's rule between ingredients
+and method separates two different kinds of list — a set and a sequence
+— where, at the size the ingredient bubbles run to, space alone left the
+first step reading as one more ingredient.
 
 If you reach for a divider, ask what it's separating and whether space
 would say the same thing. If it genuinely needs a line, use `--divider`

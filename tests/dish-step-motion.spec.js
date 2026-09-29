@@ -43,6 +43,12 @@ const MEALS = [
   },
 ];
 
+// The name is rendered twice -- large over the resting sheet and small in
+// the header -- and both dissolve together. The large one is the heading,
+// and the one on screen when the dish first opens.
+const NAME_IN = '.dish-hero-title .dish-name-in';
+const NAME_OUT = '.dish-hero-title .dish-name-out';
+
 async function openNewestDish(page) {
   await page.route('**stub.supabase.co/**', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
@@ -53,7 +59,7 @@ async function openNewestDish(page) {
   }, MEALS);
   await page.goto('/');
   await page.locator('.meal-card').first().click();
-  await expect(page.locator('.modal-card')).toBeVisible();
+  await expect(page.locator('.dish')).toBeVisible();
 }
 
 /** Samples the transition every ~35ms for a second. */
@@ -62,9 +68,9 @@ async function sampleTransition(page) {
   for (let i = 0; i < 28; i++) {
     samples.push(
       await page.evaluate(() => {
-        const body = document.querySelector('.modal-text-body');
-        const out = document.querySelector('.modal-name-out');
-        const inn = document.querySelector('.modal-name-in');
+        const body = document.querySelector('.dish-body-inner');
+        const out = document.querySelector('.dish-hero-title .dish-name-out');
+        const inn = document.querySelector('.dish-hero-title .dish-name-in');
         return {
           blur: body ? getComputedStyle(body).filter : 'none',
           out: out ? Number(getComputedStyle(out).opacity) : null,
@@ -84,7 +90,7 @@ function isBlurred(filter) {
 test.describe('stepping between dishes', () => {
   test('cross-dissolves the name and focus-pulls the body', async ({ page }) => {
     await openNewestDish(page);
-    await expect(page.locator('.modal-name-in')).toHaveText('Charred leek, hazelnut');
+    await expect(page.locator(NAME_IN)).toHaveText('Charred leek, hazelnut');
 
     await page.getByRole('button', { name: 'Previous dish' }).click();
     const samples = await sampleTransition(page);
@@ -98,8 +104,8 @@ test.describe('stepping between dishes', () => {
     expect(isBlurred(samples.at(-1).blur)).toBe(false);
 
     // The name resolves to the dish that was actually stepped to.
-    await expect(page.locator('.modal-name-in')).toHaveText('Cacio e pepe');
-    await expect(page.locator('.modal-name-out')).toHaveCount(0);
+    await expect(page.locator(NAME_IN)).toHaveText('Cacio e pepe');
+    await expect(page.locator(NAME_OUT)).toHaveCount(0);
   });
 
   test('arrows stop at the ends of the archive', async ({ page }) => {
@@ -109,7 +115,7 @@ test.describe('stepping between dishes', () => {
     await expect(page.getByRole('button', { name: 'Previous dish' })).toBeEnabled();
 
     await page.getByRole('button', { name: 'Previous dish' }).click();
-    await expect(page.locator('.modal-name-in')).toHaveText('Cacio e pepe');
+    await expect(page.locator(NAME_IN)).toHaveText('Cacio e pepe');
     await expect(page.getByRole('button', { name: 'Previous dish' })).toBeDisabled();
     await expect(page.getByRole('button', { name: 'Next dish' })).toBeEnabled();
   });
@@ -145,8 +151,8 @@ test.describe('stepping between dishes', () => {
 
     // And the transition still completes, faster.
     await page.getByRole('button', { name: 'Previous dish' }).click();
-    await expect(page.locator('.modal-name-in')).toHaveText('Cacio e pepe');
-    await expect(page.locator('.modal-name-out')).toHaveCount(0);
+    await expect(page.locator(NAME_IN)).toHaveText('Cacio e pepe');
+    await expect(page.locator(NAME_OUT)).toHaveCount(0);
   });
 
   test('the gallery recedes behind an open dish', async ({ page }) => {

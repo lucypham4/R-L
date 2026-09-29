@@ -1,148 +1,261 @@
-.modal-card {
+/* The dish view.
+
+   One scroll container drives three states -- resting, open and
+   collapsed -- and src/lib/dishSheet.js turns its scroll position into
+   where everything else should be. This stylesheet lays out the resting
+   state (the elements' own boxes), the collapsed header (the header's own
+   boxes) and the open state's photo box (a slot). The script only
+   measures those and moves things between them, so to change a layout,
+   change it here. */
+
+.dish {
+  --dish-bar: 56px;
+  --dish-gutter: var(--space-2xl);
+  /* The resting sheet's height, and its inset from the sides and bottom.
+     The inset is what makes it read as a card resting on the page rather
+     than the page itself; it goes to zero as the sheet is pulled up. */
+  --dish-peek: clamp(240px, 39cqh, 340px);
+  --dish-peek-inset: var(--space-md);
+  --dish-peek-inset-b: calc(var(--space-md) + env(safe-area-inset-bottom, 0px));
+  --dish-safe-top: env(safe-area-inset-top, 0px);
+  --dish-thumb: 56px;
+  /* Room either side of the resting photo for the step arrows. */
+  --dish-step-zone: 72px;
+
   position: relative;
-  display: flex;
-  flex-direction: column;
   width: 100%;
-  max-width: 1000px;
-  max-height: 90vh;
-  overflow-y: auto;
-  background: var(--color-card);
-  border-radius: var(--radius-surface);
-  box-shadow: var(--shadow-lg);
-  animation: modal-rise var(--dur-move) var(--ease);
+  height: 100%;
+  overflow: hidden;
+  background: var(--color-bg);
+  container-type: size;
 }
 
-/* Stepping between dishes changes how much text the card holds. The
-   overlay centres its child, so a shorter dish would slide the photo and
-   the name up the screen mid-transition -- which fights the point of the
-   effect, where the dish is meant to be the one fixed thing. Anchor the
-   card to the top and let it grow downward instead. Desktop already has a
-   fixed height, so it only matters in the stacked layout. */
+/* On a phone the dish is the page, edge to edge. On a larger screen it
+   floats over the receded gallery as a card, and the card is the page the
+   sheet rests on. */
 @media (max-width: 767px) {
-  .modal-card {
-    align-self: flex-start;
+  .modal-overlay.dish-overlay {
+    padding: 0;
   }
 }
 
 @media (min-width: 768px) {
-  .modal-card {
-    flex-direction: row;
-    height: 720px;
-    max-height: 90vh;
+  .dish {
+    --dish-safe-top: 0px;
+    --dish-peek-inset-b: var(--space-md);
+    width: min(460px, 100%);
+    height: min(880px, 100%);
+    border-radius: var(--radius-surface);
+    box-shadow: var(--shadow-lg);
+    animation: modal-rise var(--dur-move) var(--ease);
   }
 }
 
-.modal-close {
+/* ---- What scrolls ---------------------------------------------------- */
+
+.dish-scroller {
   position: absolute;
-  top: 16px;
-  right: 16px;
+  inset: 0;
   z-index: 1;
-  width: 38px;
-  height: 38px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* Two rest points, resting and open. The sheet is taller than the view,
+     so once it's open the recipe scrolls freely inside it; only a release
+     between the two snaps. */
+  scroll-snap-type: y mandatory;
+  /* Horizontal gestures are the dish swipe, handled in script. */
+  touch-action: pan-y;
+  scrollbar-width: none;
+}
+
+.dish-scroller::-webkit-scrollbar {
+  display: none;
+}
+
+.dish-spacer {
+  height: calc(100cqh - var(--dish-peek) - var(--dish-peek-inset-b));
+  scroll-snap-align: start;
+}
+
+.dish-sheet {
+  position: relative;
+  min-height: 100cqh;
+  scroll-snap-align: start;
+  animation: dish-sheet-enter var(--dur-enter) var(--ease-out) calc(var(--stagger-step) * 2) both;
+}
+
+/* The sheet arrives from below the screen, which is the one explanation
+   it needs: something that came up from the bottom can be pulled up
+   further. `translate` rather than `transform`, so it composes with the
+   transforms the script writes on the frame that rides in with it. */
+@keyframes dish-sheet-enter {
+  from {
+    translate: 0 calc(var(--dish-peek) + var(--dish-peek-inset-b));
+  }
+}
+
+.dish-surface {
+  position: absolute;
+  inset: 0;
+  background: var(--color-surface);
+  /* The resting shape, so the first frame is right before the script has
+     run. The script takes the corners and sides to zero from here. */
+  clip-path: inset(0 var(--dish-peek-inset) round var(--radius-surface) var(--radius-surface) 0 0);
+}
+
+.dish-peek {
+  position: absolute;
+  top: 0;
+  left: var(--dish-peek-inset);
+  right: var(--dish-peek-inset);
+  height: var(--dish-peek);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 var(--space-xl) var(--space-lg);
+  /* Above the recipe, whose top padding runs up behind the card: at rest
+     the card is what a tap is aimed at. */
+  z-index: 1;
+}
+
+.dish[data-sheet='peek'] .dish-peek {
+  cursor: pointer;
+}
+
+/* Open, the card's contents have faded out and the recipe is what's
+   there, so taps go through to it. The handle still takes them. */
+.dish:not([data-sheet='peek']) .dish-peek {
+  pointer-events: none;
+}
+
+.dish:not([data-sheet='peek']) .dish-handle {
+  pointer-events: auto;
+}
+
+.dish-handle {
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-card);
-  border: 1px solid var(--color-line);
-  font-size: 1rem;
+  width: 64px;
+  height: 22px;
 }
 
-.modal-plate {
+.dish-handle::before {
+  content: '';
+  width: 36px;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--color-muted);
+  transition: scale var(--dur-press) var(--ease-spring);
+}
+
+.dish-handle:active::before {
+  scale: var(--press-scale);
+}
+
+.dish-peek-fade {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
   display: flex;
   flex-direction: column;
-  padding: 24px 26px;
+  align-items: center;
 }
 
-@media (min-width: 768px) {
-  .modal-plate {
-    flex: 1;
-  }
+.dish-peek-meta {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: var(--space-xs);
+  white-space: nowrap;
 }
 
-.modal-plate-header {
+.dish-peek-summary {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
   display: flex;
-  align-items: baseline;
+  align-items: center;
+  justify-content: center;
+}
+
+.dish-lede {
+  font: 400 1.5rem/1.3 var(--font-serif);
+  letter-spacing: -0.005em;
+  text-align: center;
+  text-wrap: balance;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.dish-peek-facts {
+  width: 100%;
+  display: flex;
   justify-content: space-between;
-  /* Was sitting on a 2px rule that separated it from the photo. With the
-     rule gone the gap has to be explicit, or the label crowds the plate. */
-  margin-bottom: 18px;
+  gap: var(--space-md);
 }
 
-.modal-plate-count {
-  font: 400 0.9375rem/1.5 var(--font-sans);
-  color: var(--color-ink);
-}
-
-.modal-plate .photo-carousel {
-  width: 100%;
-}
-
-.modal-plate .photo-carousel-main {
-  max-width: none;
-  width: 100%;
-}
-
-.modal-plate .photo-carousel-empty {
-  font: 400 0.6875rem/1 var(--font-mono);
-  color: var(--color-muted);
-}
-
-.modal-text {
-  display: flex;
-  flex-direction: column;
-  padding: 34px 38px;
-}
-
-@media (min-width: 768px) {
-  .modal-text {
-    flex: 1;
-    overflow-y: auto;
-  }
-}
-
-/* The name occupies one line of a stack so the outgoing and incoming
-   titles can sit on the same baseline. The stack has no height of its
-   own -- the incoming title (in normal flow) sets it, and the outgoing
-   one is lifted out of flow on top. */
-.modal-name-stack {
+.dish-body {
   position: relative;
+  padding: 0 var(--dish-gutter) calc(var(--space-4xl) + env(safe-area-inset-bottom, 0px));
+  opacity: 0;
 }
 
-.modal-text-name {
-  text-align: left;
-  font: var(--text-dish);
-  letter-spacing: var(--text-dish-ls);
+.dish-description {
+  margin-bottom: var(--space-xl);
+  font: 400 0.9375rem/1.65 var(--font-sans);
 }
 
-.modal-name-out {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  animation: dissolve-out var(--dur-dissolve) var(--ease-focus) forwards;
+.dish-ingredients {
+  gap: var(--space-md);
+  padding: 0;
 }
 
-.modal-name-in {
-  animation: dissolve-in var(--dur-dissolve) var(--ease-focus);
+/* Outlined rather than filled: on the sheet's surface, the bubble's usual
+   card fill would read as a raised button. */
+.dish-ingredients .bubble {
+  background: transparent;
+  border-color: var(--color-line-strong);
 }
 
-@keyframes dissolve-out {
-  to {
-    opacity: 0;
-  }
+/* The one rule on the card. Ingredients and method are different kinds of
+   list -- a set and a sequence -- and at the size these bubbles run to,
+   space alone left the first step reading as one more ingredient. A
+   hairline, never ink. See docs/design-system/shape.md. */
+.dish-rule {
+  margin: var(--space-2xl) 0;
+  border: 0;
+  border-top: var(--divider);
 }
 
-@keyframes dissolve-in {
-  from {
-    opacity: 0;
-  }
+.dish-body .dish-method {
+  margin: 0;
+  gap: var(--space-lg);
+  line-height: 1.6;
 }
 
-/* The focus pull. The block arrives soft and dim, holds while the name
-   above it dissolves, then resolves. The hold is what keeps the eye on
-   the title during the swap instead of trying to read two things at
-   once, so the percentage below is tied to --dur-dissolve's share of the
-   total: 500ms of 850ms is a shade under 60%. */
-.modal-text-body {
+.dish-body .dish-note {
+  margin-top: var(--space-2xl);
+}
+
+.dish-more-photo {
+  width: 100%;
+  margin-top: var(--space-2xl);
+  border-radius: var(--radius-media);
+  outline: 1px solid var(--color-line);
+  outline-offset: -1px;
+}
+
+/* The focus pull. When the dish changes, everything that isn't the name
+   arrives soft and dim, holds while the name above it dissolves, then
+   resolves. The hold is what keeps the eye on the title during the swap
+   instead of trying to read two things at once, so the percentage below
+   is tied to --dur-dissolve's share of the total: 500ms of 850ms is a
+   shade under 60%. */
+.dish-focus {
   animation: focus-pull calc(var(--dur-dissolve) + var(--dur-refocus)) var(--ease-focus);
 }
 
@@ -159,57 +272,320 @@
   }
 }
 
-.modal-step {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
+/* ---- What travels ---------------------------------------------------- */
+
+.dish-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  /* Touches fall through to the scroller, so a drag that starts on the
+     photo still pulls the sheet up. Only the controls catch them. */
+  pointer-events: none;
 }
 
-.modal-step-btn {
+.dish-stage button {
+  pointer-events: auto;
+}
+
+/* The page colour around the resting card's sides and bottom, drawn as
+   everything outside a hole the card's shape. It lives out here rather
+   than as a clip on the scrolling surface because the card's lower edge
+   has to stay where it is while the sheet scrolls up through it, and only
+   something outside the scroller can hold still during a scroll. */
+.dish-frame {
+  position: absolute;
+  top: -100%;
+  left: var(--dish-peek-inset);
+  right: var(--dish-peek-inset);
+  bottom: var(--dish-peek-inset-b);
+  border-radius: 0 0 var(--radius-surface) var(--radius-surface);
+  box-shadow: 0 0 0 100vmax var(--color-bg);
+  animation: dish-sheet-enter var(--dur-enter) var(--ease-out) calc(var(--stagger-step) * 2) both;
+}
+
+/* Behind the header once the sheet is open, so the recipe has something
+   to scroll under. Its soft lower edge is what fades a step out as it
+   goes, rather than a hard line cutting it off. */
+.dish-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100%;
+  background: var(--color-surface);
+  opacity: 0;
+}
+
+.dish-backdrop::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: var(--space-xl);
+  background: linear-gradient(var(--color-surface), transparent);
+}
+
+.dish-bar {
+  position: absolute;
+  top: var(--dish-safe-top);
+  left: 0;
+  right: 0;
+  height: var(--dish-bar);
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 0 var(--space-md);
+}
+
+.dish-close {
+  justify-self: start;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: var(--divider);
-  border-radius: var(--radius-pill);
-  background: transparent;
+  width: var(--control-height);
+  height: var(--control-height);
   color: var(--color-ink);
-  font: 400 1.125rem/1 var(--font-sans);
-  cursor: pointer;
-  transition: background var(--dur-color) var(--ease), border-color var(--dur-color) var(--ease);
 }
 
-@media (hover: hover) {
-  .modal-step-btn:hover {
-    background: var(--color-surface);
-    border-color: var(--color-line-strong);
-  }
+.dish-close svg,
+.dish-step svg {
+  width: 22px;
+  height: 22px;
+  transition: scale var(--dur-press) var(--ease-spring);
 }
 
-.modal-step-btn:active {
-  transform: scale(var(--press-scale));
+.dish-close:active svg,
+.dish-step:active:not(:disabled) svg {
+  scale: var(--press-scale);
 }
 
-.modal-text-sub {
-  margin-top: 12px;
-  text-align: left;
-  font: 400 0.6875rem/1.5 var(--font-mono);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+.dish-index {
+  font: 400 0.625rem/1 var(--font-mono);
+  letter-spacing: 0.05em;
   color: var(--color-muted);
 }
 
-.modal-ingredients {
-  margin-top: 22px;
-  padding: 0;
+.dish-share {
+  justify-self: end;
+  margin-right: var(--space-sm);
+  padding: 6px 10px;
+  border: var(--divider);
+  font: 400 0.625rem/1 var(--font-mono);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  transition: color var(--dur-color) var(--ease), border-color var(--dur-color) var(--ease);
 }
 
-.modal-description {
-  margin-top: 22px;
-  font: 400 0.9375rem/1.65 var(--font-sans);
+@media (hover: hover) {
+  .dish-share:hover {
+    border-color: var(--color-line-strong);
+    color: var(--color-ink);
+  }
 }
+
+/* The resting state's name and photo. */
+.dish-hero {
+  position: absolute;
+  top: calc(var(--dish-safe-top) + var(--dish-bar));
+  left: 0;
+  right: 0;
+  bottom: calc(var(--dish-peek) + var(--dish-peek-inset-b));
+  display: flex;
+  flex-direction: column;
+  padding-bottom: var(--space-xl);
+  animation: rise-in var(--dur-enter) var(--ease-out);
+}
+
+.dish-hero-title {
+  position: relative;
+  flex: none;
+  padding: 0 var(--dish-gutter);
+  font: var(--text-dish-hero);
+  letter-spacing: var(--text-dish-ls);
+  text-align: center;
+  text-wrap: balance;
+  transform-origin: 50% 50%;
+}
+
+.dish-plate {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  margin: var(--space-xl) var(--dish-step-zone) 0;
+}
+
+/* The photo hugs its own shape, bounded by the plate -- never
+   letterboxed. See docs/design-system/shape.md. */
+.dish-photo {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  max-width: 100%;
+  max-height: 100%;
+  /* The script scales the photo down to a thumbnail with a transform,
+     which would scale its corner and hairline with it. Dividing them back
+     out keeps a thumbnail's corner the same --radius-media as every other
+     photo in the app. */
+  border-radius: calc(var(--radius-media) / var(--dish-photo-scale, 1));
+  outline: calc(1px / var(--dish-photo-scale, 1)) solid var(--color-line);
+  outline-offset: calc(-1px / var(--dish-photo-scale, 1));
+  transform-origin: 50% 50%;
+  will-change: transform;
+  pointer-events: none;
+}
+
+/* Collapsed, the thumbnail is a way back up to the photo. */
+.dish[data-sheet='collapsed'] .dish-photo {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.dish-photo-empty {
+  width: 200px;
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface);
+  font: 400 0.6875rem/1 var(--font-mono);
+  color: var(--color-muted);
+}
+
+.dish-step {
+  position: absolute;
+  top: 50%;
+  margin-top: calc(var(--control-height) / -2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-height);
+  height: var(--control-height);
+  color: var(--color-ink);
+  transition: color var(--dur-color) var(--ease);
+}
+
+.dish-step-prev {
+  left: calc(var(--space-xl) - var(--dish-step-zone));
+}
+
+.dish-step-next {
+  right: calc(var(--space-xl) - var(--dish-step-zone));
+}
+
+.dish-step:disabled {
+  color: var(--color-disabled);
+  cursor: default;
+}
+
+/* Gone by the first third of the collapse, and out of the tab order with
+   it: nothing should take focus that can't be seen. */
+.dish[data-sheet='collapsed'] .dish-step {
+  visibility: hidden;
+}
+
+/* The header: the collapsed state's layout, and the open state's photo
+   slot below it. */
+.dish-head {
+  position: absolute;
+  top: calc(var(--dish-safe-top) + var(--dish-bar));
+  left: var(--dish-gutter);
+  right: var(--dish-gutter);
+  display: flex;
+  flex-direction: column;
+}
+
+.dish-head-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding-bottom: var(--space-md);
+}
+
+.dish-head-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-xs);
+}
+
+.dish-meta {
+  max-width: 100%;
+  opacity: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dish-bar-title {
+  position: relative;
+  max-width: 100%;
+  min-width: 0;
+  font: var(--text-dish-bar);
+  letter-spacing: var(--text-dish-ls);
+  white-space: nowrap;
+  transform-origin: 50% 50%;
+  opacity: 0;
+}
+
+.dish-bar-title > span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dish-slot-thumb {
+  flex: none;
+  width: var(--dish-thumb);
+  height: var(--dish-thumb);
+}
+
+.dish-slot-photo {
+  align-self: center;
+  width: min(62%, 240px);
+  height: min(150px, 20cqh);
+  margin-top: var(--space-sm);
+  /* The gap between the open header and the recipe. It matches the
+     backdrop's soft edge, which sits in exactly this gap when the sheet
+     is open. */
+  margin-bottom: var(--space-xl);
+}
+
+/* ---- The name's cross-dissolve --------------------------------------- */
+
+/* Outgoing and incoming names sit in the same box, the outgoing one lifted
+   out of flow on top, so both are legible at once part-way through. */
+.dish-name-out {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  animation: dissolve-out var(--dur-dissolve) var(--ease-focus) forwards;
+}
+
+.dish-hero-title .dish-name-out {
+  padding: 0 var(--dish-gutter);
+}
+
+.dish-name-in {
+  animation: dissolve-in var(--dur-dissolve) var(--ease-focus);
+}
+
+@keyframes dissolve-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes dissolve-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ---- Shared with the share card -------------------------------------- */
 
 .modal-method {
   list-style: none;
@@ -240,35 +616,6 @@
   text-align: left;
   transform: rotate(-2.5deg);
   transform-origin: left top;
-}
-
-.modal-footer {
-  margin-top: auto;
-  padding-top: 24px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.modal-share {
-  padding: 6px 10px;
-  border: 1px solid var(--color-line);
-  font: 400 0.625rem/1 var(--font-mono);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--color-muted);
-}
-
-.modal-share:hover {
-  border-color: var(--color-line-strong);
-  color: var(--color-ink);
-}
-
-.modal-index {
-  margin-left: auto;
-  font: 400 0.625rem/1 var(--font-mono);
-  color: var(--color-disabled);
 }
 
 .share-card-clip {
@@ -337,10 +684,4 @@
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--color-disabled);
-}
-
-.modal-step-btn:disabled {
-  color: var(--color-disabled);
-  border-color: var(--color-line);
-  cursor: default;
 }

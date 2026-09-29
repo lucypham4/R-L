@@ -69,6 +69,14 @@
   --text-dish-ls: -0.01em;
   --text-dish-share: 400 2.25rem/1.12 var(--font-serif);
 
+  /* The dish view shows the name at two sizes and travels between them:
+     large over the resting sheet, where the name and the photo are the
+     whole screen, and small in the header once the recipe is open. The
+     ratio between the two is what the name scales by on the way, so
+     change them together. */
+  --text-dish-hero: 400 2.75rem/1.08 var(--font-serif);
+  --text-dish-bar: 400 1.5rem/1.2 var(--font-serif);
+
   --space-xs: 4px;
   --space-sm: 8px;
   --space-md: 12px;
