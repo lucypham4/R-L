@@ -14,7 +14,8 @@
   /* The resting sheet's height, and its inset from the sides and bottom.
      The inset is what makes it read as a card resting on the page rather
      than the page itself; it goes to zero as the sheet is pulled up. */
-  --dish-peek: clamp(240px, 39cqh, 340px);
+  --dish-peek: clamp(240px, 39vh, 340px);
+  --dish-photo-open: min(150px, 20vh);
   --dish-peek-inset: var(--space-md);
   --dish-peek-inset-b: calc(var(--space-md) + env(safe-area-inset-bottom, 0px));
   --dish-safe-top: env(safe-area-inset-top, 0px);
@@ -28,6 +29,18 @@
   overflow: hidden;
   background: var(--color-bg);
   container-type: size;
+}
+
+/* Sized against the dish view itself where the browser can, which is what
+   matters on a larger screen, where the view is a card rather than the
+   whole window. The iOS app still supports iOS 15, whose WebKit has no
+   container units; there the view is always the whole screen, so the
+   viewport-height values above are the same number. */
+@supports (height: 1cqh) {
+  .dish {
+    --dish-peek: clamp(240px, 39cqh, 340px);
+    --dish-photo-open: min(150px, 20cqh);
+  }
 }
 
 /* On a phone the dish is the page, edge to edge. On a larger screen it
@@ -73,7 +86,7 @@
 }
 
 .dish-spacer {
-  height: calc(100cqh - var(--dish-peek) - var(--dish-peek-inset-b));
+  height: calc(100% - var(--dish-peek) - var(--dish-peek-inset-b));
   scroll-snap-align: start;
 }
 
@@ -90,7 +103,7 @@
 
 .dish-sheet {
   position: relative;
-  min-height: 100cqh;
+  min-height: 100%;
   scroll-snap-align: start;
   animation: dish-sheet-enter var(--dur-enter) var(--ease-out) calc(var(--stagger-step) * 2) both;
 }
@@ -557,7 +570,7 @@
 .dish-slot-photo {
   align-self: center;
   width: min(62%, 240px);
-  height: min(150px, 20cqh);
+  height: var(--dish-photo-open);
   margin-top: var(--space-sm);
   /* The gap between the open header and the recipe. It matches the
      backdrop's soft edge, which sits in exactly this gap when the sheet
