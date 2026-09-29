@@ -1,238 +1,158 @@
-# Illustration & 3D
+# Illustration
 
-The onboarding tour has four art slots. Each one takes an animated 3D
+The onboarding tour has four art slots. Each one takes an animated dish
 scene, a static image, or neither — in which case it renders a labelled
-placeholder with the size it wants, so an unfinished slot looks
-intentional rather than broken.
+placeholder, so an unfinished slot looks intentional rather than broken.
 
-All four currently hold 3D scenes: a plate, a bowl, a ring of plates, and
-a plate lifting away from a stack.
+All four currently hold the chef's own dish photographs, composited and
+animated: a dessert, a squash soup assembling itself a component at a
+time, the archive filling up, and a zucchini dish lifting.
 
 ## Swapping art in
 
 `src/components/onboardingSteps.js` is the only file to touch.
 
 ```js
-// A 3D scene
-art: { kind: 'scene', scene: 'plate', alt: 'A plated dish turning slowly' }
+// An animated scene
+art: { kind: 'scene', scene: 'soup', alt: 'A squash soup being assembled' }
 
 // A static image
 art: { kind: 'image', src: importedFile, alt: 'A plate of cacio e pepe' }
 ```
 
-`scene` is one of the names in `src/lib/dishScene.js` — `plate`, `bowl`,
-`archive`, `share`. An unknown name falls back to `plate` rather than
-rendering an empty canvas, because a silently blank box is a confusing
-way to lose an hour.
+`scene` is one of the keys of `SCENES` in `SceneArt.jsx` — `dessert`,
+`soup`, `archive`, `zucchini`. An unknown name falls back to `dessert`
+rather than rendering an empty box, because a silently blank slot is a
+confusing way to lose an hour.
 
-Leave `art` off entirely and the step falls back to its placeholder.
+## Why these are elements, not WebGL
 
-`ratio` controls the slot's aspect ratio. The scenes are objects on empty
-ground rather than wide vistas, so they use `4 / 3` — a 16:9 box bounds
-them by height and strands them in side whitespace.
+An earlier pass built these scenes as three.js geometry, and a pass
+before that as a Rive animation. Both were the wrong shape for what this
+actually is: the chef's own photographs of their own plating.
 
-## Why the scenes are built from code, not model files
+- **Sharpness.** A photograph sampled onto a textured plane is softer
+  than the same photograph in an `<img>`. These are the one thing in the
+  app that should never look second-hand.
+- **Cropping.** `object-fit: contain` inside a padded box cannot crop a
+  dish. A camera frustum crops whatever falls outside it, which is
+  exactly how the WebGL version lost the edges of its scenes.
+- **Weight.** three.js is around 130KB gzipped plus a GL context that has
+  to be disposed by hand on every step of the tour. The scene module is
+  now about 3KB of JavaScript.
 
-`src/lib/dishScene.js` builds its plates and food out of three.js
-geometry rather than loading a `.glb`. Three reasons, in order of how
-much they matter:
+The photographs themselves are about 570KB, lazy-loaded with the tour.
+That is the content, not overhead.
 
-1. **Nothing to fetch.** The previous Rive illustration had to be rescued
-   from a CDN dependency that failed silently inside the Capacitor iOS
-   shell with no network. Geometry built in JS can't fail that way.
-2. **Weight.** The scenes cost a few hundred bytes of code on top of
-   three.js itself. A sculpted plate with a baked texture is a few
-   hundred kilobytes, per scene.
-3. **Theme.** The shapes read their colours from the app's own CSS
-   tokens, so they follow light and dark. A baked model is one palette
-   forever, and looks wrong in the other theme.
+## Preparing an asset
 
-The trade is that a plate here is a profile curve, not something modelled
-by hand. When a scene needs more than that, see **Bringing in a sculpted
-model** below.
+`scripts/dish-assets/` holds the extraction. Photographs come in shot on
+a dark backdrop or already cut out; what the scenes need is a
+transparent PNG per element, with every layer of a multi-part scene
+cropped to the **same box**, so they stack in register with no
+positioning to get wrong.
 
-## How the pieces fit
+### Cutting a dish off a dark backdrop
 
-| File | Job |
+Not with a colour key. The plates are dark ceramic photographed on a dark
+backdrop, so any threshold high enough to reject the background also eats
+the plate rims — the first attempt produced fifteen dishes with arcs
+bitten out of them.
+
+Use **hysteresis**, the way edge detection does. A high threshold seeds
+the regions that are unambiguously the dish (the food, which is bright),
+then the mask grows through everything above a much lower threshold that
+is still connected to a seed. A dark rim is only just above the backdrop,
+but it touches the food, so it comes along; backdrop noise of the same
+value touches nothing and is dropped.
+
+Then erode a couple of pixels before feathering. The last pixels of the
+matte are backdrop-coloured, and against a cream page they read as a dark
+fringe around every plate.
+
+### Splitting a dish into layers
+
+The soup assembly needs the garnishes separated from the soup underneath.
+Three garnishes needed three different detectors, because they are three
+different kinds of thing:
+
+| Element | Found by |
 | --- | --- |
-| `src/lib/dishScene.js` | The scenes. No React, no DOM beyond the canvas. |
-| `src/components/SceneArt.jsx` | Owns the canvas element's lifetime and the two reasons to stop drawing. |
-| `src/components/OnboardingArt.jsx` | Picks scene, image or placeholder. Lazy-loads the first. |
+| Chives | Absolute colour. They sit on the surface and are genuinely green. |
+| Almonds | Luminance. Pale and desaturated against saturated orange. |
+| Scallion oil | **Local** contrast. |
 
-three.js is around 130KB gzipped and the only thing using it is a tour
-each chef sees once, so `SceneArt` is loaded with `React.lazy` and stays
-off the first load of the gallery — the screen chefs actually open every
-day.
+The oil is the interesting one. It is a thin film over orange soup, so it
+is never green in absolute terms — only greener than the soup immediately
+around it. An absolute colour test finds nothing at all. Subtracting a
+heavily blurred copy of the image leaves the ridge, which is what a
+top-hat filter is for, and the spiral comes out cleanly.
 
-### Two rules that aren't optional
+Then the base layer has to have all three painted out, and two different
+holes need two different fills:
 
-**Dispose on unmount.** three keeps geometries, materials and the GL
-context off the JS heap, so letting a canvas go out of scope leaks GPU
-memory. Browsers cap how many live contexts a page may have (commonly
-16), and the tour creates a new one on every step. `mountDishScene`
-returns a `dispose()` that walks the scene and frees everything;
-`SceneArt` calls it in its effect cleanup.
+- **Thin marks** (the garnish) fill by normalised convolution — blur the
+  image and the keep-mask together, divide one by the other, and the hole
+  averages what surrounds it.
+- **Craters** (the region the bread was covering, roughly 500px across)
+  do not. No blur wide enough to span that stays numerically stable; the
+  weights underflow in the middle and the fill comes back an arbitrary
+  colour, which showed up as a brown smear across the plate. Fill by
+  nearest valid pixel instead, then smooth.
 
-**Stop drawing when nothing is watching.** A render loop that keeps
-running in a background tab is a battery cost with nothing to show for
-it. `SceneArt` pauses on `visibilitychange`, and on
-`prefers-reduced-motion`.
+Two things that cost a rebuild each:
 
-### Reduced motion
+**Dilate a mask hard before excluding it as a fill source.** A threshold
+finds the bread's core; just outside it sits a rim of shadow and soft
+edge that is still bread-coloured. Filling from there put the warm smear
+back. 30px of clearance took the share of genuinely-plate source pixels
+from 9% to 76%.
 
-A three.js loop is movement the CSS tokens in `tokens.css` can't reach,
-so the preference is honoured in JS instead, via `src/lib/motion.js`.
-The scene still renders — it is held on its first frame. Removing the
-illustration entirely would be a worse answer than holding it still: the
-point is to lose the motion, not the picture.
+**Constrain a reconstructed shape to the real object.** The plate needed
+a 120px morphological closing to bridge the bite the bread took out of
+its rim — but that also bulged it outward wherever the bread sat proud of
+the plate, hanging a dark slab off the side of the first beat.
+Intersecting with the original silhouette is the fix.
 
-## Tuning the existing scenes
+## Writing a scene
 
-Everything worth changing is a number near the top of a scene function in
-`dishScene.js`.
+Scenes live in `SceneArt.jsx` as small components, with their motion in
+`SceneArt.css`.
 
-| Want | Change |
-| --- | --- |
-| More or less food | `food:` count in the `plated()` call |
-| Food clustered tighter | `spread` in `foodCluster` |
-| A deeper bowl | `rimHeight` and `depth` in `ceramicGeometry` |
-| Slower rotation | the multiplier on `t` in that scene's `update` |
-| Different food colours | `colours.food` in `mountDishScene` |
-| Camera closer | `camera.position` in `mountDishScene` |
+**Stacked layers share one duration.** Every layer of the soup runs an
+11-second animation; each one's timing is written into its keyframe
+percentages rather than into a delay. Five different durations with five
+different delays drift out of step within a couple of loops.
 
-Two things were tuned by trial and are worth not undoing:
+**Size absolutely positioned layers outright.** Setting all four offsets
+stretches a `div` to fit, but an `<img>` is a replaced element: with
+`width: auto` it takes its intrinsic size and hands the leftover space to
+its margins. A 900px source rendered at 900px and overhung the stage by
+650. Give the box an explicit `width`/`height` and let `object-fit`
+letterbox inside it. Percentage `max-width`/`max-height` resolve against
+the stage rather than the inset box, so they also have to go.
 
-**Food density and facet count.** The first pass scattered undivided
-icosahedra evenly across the plate and it read as gravel, or as scattered
-gems. What fixed it was subdividing once (so the lumps are rounder) while
-keeping `flatShading` (so they stay illustrations rather than a failed
-attempt at a photograph), and biasing placement into a mound with a
-minority of pieces allowed to stray. Real plating is a mound with a few
-things fallen away from it, never an even sprinkle.
+**Use `minmax(0, 1fr)` for grid tracks.** A bare `1fr` has an automatic
+minimum of its content's size, so one tall dish pushes its row past its
+share and the bottom row overhangs.
 
-**The food palette is not `--color-accent`.** That red is a signal
-colour sized for a button. At this scale on a pale plate it reads as
-plastic. The food colours are cooked-food colours — herb, olive,
-terracotta, cream, mushroom, and a beet red dark enough to look edible.
+**Leave headroom for the motion.** The stage carries 8% padding, measured
+against the largest excursion any scene makes — the almonds dropping in
+at `translateY(-4%) scale(1.04)`. At 4% they overhung by 17px and the art
+box's `overflow: hidden` took a bite out of them.
 
-**Ceramic colour flips on theme.** `--color-surface` is right in light: a
-plate a shade off the paper. In dark it is `#211f1c` against a `#141311`
-background, and a plate that close to the page disappears — the scene
-becomes food floating in a void. Dark takes `--color-line-strong`
-instead, so the ceramic stands *off* the page. The choice is made from
-the background's luminance rather than a `data-theme` attribute, because
-the theme can also come from the OS preference.
+## Prototyping
 
-## Prototyping a new scene
+You do not need the app running, and you shouldn't — clicking through the
+tour to the right step on every reload is slow. A scene is an HTML file:
+drop the layers into a page, write the keyframes, and refresh.
 
-You do not need the app running to work on a scene, and you shouldn't —
-the edit-reload loop through the tour is slow and you have to click
-through to the right step every time.
+When it looks right, move the markup into a component in `SceneArt.jsx`
+and the keyframes into `SceneArt.css`.
 
-### The fastest loop: a scratch HTML page
-
-Three.js runs from a single script tag. Make a file anywhere, open it in
-a browser, and iterate:
-
-```html
-<!doctype html>
-<meta charset="utf-8" />
-<body style="margin:0;background:#faf9f6">
-<script type="importmap">
-  { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.186/build/three.module.js",
-                 "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186/examples/jsm/" } }
-</script>
-<script type="module">
-  import * as THREE from 'three';
-  import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(32, innerWidth / innerHeight, 0.1, 100);
-  camera.position.set(0, 1.85, 3.1);
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-  renderer.setSize(innerWidth, innerHeight);
-  document.body.append(renderer.domElement);
-  new OrbitControls(camera, renderer.domElement);   // drag to find the angle
-
-  scene.add(new THREE.AmbientLight(0xffffff, 1.5));
-  const key = new THREE.DirectionalLight(0xffffff, 2.1);
-  key.position.set(-2.4, 4, 2.6);
-  scene.add(key);
-
-  // ---- your scene here ----
-  const mesh = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(1, 1),
-    new THREE.MeshStandardMaterial({ color: '#8a9a63', flatShading: true, roughness: 0.88 })
-  );
-  scene.add(mesh);
-
-  renderer.setAnimationLoop((ms) => {
-    mesh.rotation.y = ms / 4000;
-    renderer.render(scene, camera);
-  });
-</script>
-```
-
-`OrbitControls` is the thing to add first. Drag until the composition
-looks right, then read `camera.position` out of the console and paste
-those numbers into the scene. Finding a camera angle by editing numbers
-and reloading is miserable; finding it by dragging takes seconds.
-
-When it looks right, move the scene body into a new function in `SCENES`
-in `dishScene.js`, returning `{ root, update(t) }`, and add its name to a
-step in `onboardingSteps.js`.
-
-### Tools worth knowing about
-
-**[three.js editor](https://threejs.org/editor/)** — official, free, in
-the browser. Build a scene by hand, then *File → Export Object* to get a
-`.json` or a `.glb`. Good for arranging and lighting, less good for
-modelling shapes.
-
-**[Spline](https://spline.design)** — the friendliest of these by a wide
-margin if you're coming from Figma. Drag-and-drop 3D with real materials
-and simple interactions, and it exports `.glb`. The free tier is enough
-to prototype. Its own runtime is heavy — export the model and render it
-with three.js rather than shipping Spline's player.
-
-**[Blender](https://blender.org)** — free, no limits, and what you'd use
-to actually sculpt a plate of food rather than approximate one. The
-learning curve is real. If you go here, the only thing you need to learn
-first is *File → Export → glTF 2.0 (.glb)*.
-
-**[Poly Haven](https://polyhaven.com)** and **[Sketchfab](https://sketchfab.com)**
-— existing models, much of it CC0. Faster than modelling, but check the
-licence and the polygon count before shipping one in a phone app.
-
-### Bringing in a sculpted model
-
-When a scene outgrows procedural geometry, a `.glb` drops in without
-disturbing anything above:
-
-```js
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import dishUrl from '../assets/scenes/dish.glb?url';
-
-const gltf = await new GLTFLoader().loadAsync(dishUrl);
-root.add(gltf.scene);
-```
-
-Four things to get right before shipping one:
-
-1. **Compress it.** Run it through
-   [gltf-transform](https://gltf-transform.dev) — `gltf-transform optimize
-   in.glb out.glb` typically takes a model to a fraction of its size.
-   An uncompressed export is routinely 10MB.
-2. **Bundle it, don't fetch it.** Import it so Vite fingerprints and
-   copies it, exactly as above. A URL pointing at someone else's CDN is
-   how the Rive illustration ended up broken offline.
-3. **Keep the theme working.** A baked texture won't follow light and
-   dark. Either replace the material after load
-   (`gltf.scene.traverse(...)`, setting colours from tokens as the
-   procedural scenes do) or accept that the model looks the same in both.
-4. **Check it on a phone.** A model that's fine on a laptop can drop a
-   phone to single-digit frame rates. `npm run preview:capture` records
-   the tour, so you can watch it back rather than guess.
+If a scene ever genuinely needs depth — parallax on a moving camera, an
+object rotating in three dimensions — that is the point at which WebGL
+earns its weight back, and the history above is worth reading first.
 
 ## Verifying a scene actually moves
 
@@ -241,10 +161,12 @@ previous Rive illustration shipped in exactly that state — the timelines
 existed, were named correctly, and contained no keyframes, so the cat
 never moved.
 
-Note that **reading pixels back off a WebGL canvas from JS does not
-work** for this. The drawing buffer is cleared after compositing unless
-`preserveDrawingBuffer: true`, so `drawImage(canvas)` outside the render
-loop returns a blank image and every scene looks broken whether or not it
-is. Take two screenshots through the browser's compositor instead and
-compare them — `tests/onboarding-scenes.spec.js` does this, and asserts
-both that the scenes move and that reduced motion holds them still.
+`tests/onboarding-scenes.spec.js` takes two screenshots a beat apart and
+compares them. It also asserts what the WebGL version got wrong: that no
+layer escapes its stage at any point in its animation, sampled repeatedly
+because the peak of a drop or a scale is transient and a single reading
+lands between them.
+
+One flake worth knowing about: the archive rewrites its slots' `src`
+several times a second, so an image is briefly not `complete` while the
+next one decodes. Poll that assertion rather than reading it once.
