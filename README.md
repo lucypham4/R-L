@@ -168,18 +168,18 @@ once per browser (or once per account, if signed in). Its four art slots
 each take an animated 3D scene, a static image, or neither, in which case
 they fall back to a labelled placeholder showing the size that slot wants.
 
-All four currently hold the chef's own dishes rebuilt as 3D objects.
-Each vessel is a lathe and the photograph is projected down onto it,
-which works because a circular plate shot from elevation lands in frame
-as an ellipse — measuring it recovers both the top-down view and the
-angle the camera was at.
+All four currently hold the chef's dishes rebuilt as 3D geometry — a
+quenelle is a tapered ellipsoid, a blackberry a cluster of drupelets, the
+scallion oil a tube swept along a spiral. Nothing is textured and the
+tour ships no images; the photographs are the reference for colour and
+proportion, sampled and measured at build time.
 
 Swapping art in is a one-entry change in
 `src/components/onboardingSteps.js`. See
 [`docs/design-system/illustration.md`](docs/design-system/illustration.md)
-for the details, including how a photograph is turned into a texture,
-the three different detectors the soup's garnishes needed, and how to
-prototype a new scene outside the app.
+for the details, including why two earlier passes using the photographs
+directly were abandoned, and how to prototype a new scene outside the
+app.
 
 ### Design system
 

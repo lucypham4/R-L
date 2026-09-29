@@ -24,34 +24,24 @@ for i, (piece, area, pos) in enumerate(cut('gallery.webp'), 1):
 Hysteresis, not a single threshold: the plates are dark ceramic on a dark
 backdrop, and any threshold that rejects the backdrop also eats the rims.
 
-## `soup.py` — one dish into stacked layers
+## `palettes.py` — a photograph into numbers
 
-```python
-from soup import build
-build('soup.webp', 'src/assets/dishes')
+```sh
+python3 scripts/dish-assets/palettes.py
 ```
 
-Writes `soup-base`, `-bread`, `-swirl`, `-chives`, `-almonds`, all cropped
-to the same box so they stack in register.
+Writes `src/assets/dishes/palettes.json`: per dish, how far its food
+spreads across the vessel, where it sits, and three representative
+colours by k-means. That is what the archive's nine slots are rebuilt
+from — fifteen dishes cannot each be modelled by hand, and at that size
+what identifies one is its palette and its spread, not the shape of any
+individual piece.
 
-Retuning it for a different photograph means the thresholds near the top
-of `build()`. The one that is not obvious is the swirl: it is found by
-local contrast, because a film of oil over orange soup is never green in
-absolute terms.
+## What is no longer here
 
-## `topdown.py` — a photograph into a texture for 3D
-
-```python
-from topdown import top_down, surface_ellipse
-fs, elevation = top_down('cutouts/dish-01.webp',
-                         '../../src/assets/dishes/top/dish-01.webp', size=384)
-```
-
-Stretches the dish's foreshortened ellipse back to a circle, so the
-photograph can be projected straight down onto lathe geometry. Returns
-the elevation it measured — consistently about 55 degrees across this
-set, which is where `dishScene.js` puts its camera.
-
-`ellipse=` overrides the measured one, for layers that have to share
-another layer's geometry: a scatter of chives has no silhouette worth
-fitting, but it has to land on the soup surface that does.
+`topdown.py` un-projected a dish's foreshortened ellipse into a top-down
+texture, back when the photographs were mapped onto the geometry. `soup.py`
+split the soup into layers so those could be revealed one at a time. Both
+are gone with the textures: the food is geometry now, so the photographs
+are a colour reference rather than a source. `git log` has them if the
+technique is ever wanted again.

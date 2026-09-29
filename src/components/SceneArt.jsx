@@ -3,28 +3,8 @@ import { mountDishScene } from '../lib/dishScene';
 import { prefersReducedMotion, onReducedMotionChange } from '../lib/motion';
 import './SceneArt.css';
 
-import dessert from '../assets/dishes/top/dessert.webp';
-import zucchini from '../assets/dishes/top/zucchini.webp';
-import soupSurface from '../assets/dishes/top/soup-surface.webp';
-import soupSwirl from '../assets/dishes/top/soup-swirl.webp';
-import soupChives from '../assets/dishes/top/soup-chives.webp';
-import soupAlmonds from '../assets/dishes/top/soup-almonds.webp';
-// The toast is the one element that isn't a surface of revolution, so it
-// stays the cut-out photograph rather than a top-down projection.
-import bread from '../assets/dishes/soup-bread.webp';
-
-// The archive's dishes, globbed so adding a photograph to the folder is
-// the whole change.
-const DISHES = Object.entries(
-  import.meta.glob('../assets/dishes/top/dish-*.webp', { eager: true, query: '?url', import: 'default' })
-)
-  .sort(([a], [b]) => a.localeCompare(b))
-  .map(([, url]) => url);
-
-const ASSETS = { dessert, zucchini, soupSurface, soupSwirl, soupChives, soupAlmonds, bread, dishes: DISHES };
-
 /**
- * A tour illustration: the chef's dishes as 3D geometry.
+ * A tour illustration: the chef's dishes, rebuilt as 3D geometry.
  *
  * Kept in its own module so OnboardingArt can React.lazy() it. Three.js
  * is around 130KB gzipped and the only thing using it is a tour each chef
@@ -47,7 +27,7 @@ export default function SceneArt({ art, ratio }) {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return undefined;
-    const handle = mountDishScene(canvas, art.scene, ASSETS, { reduced: prefersReducedMotion() });
+    const handle = mountDishScene(canvas, art.scene, { reduced: prefersReducedMotion() });
     sceneRef.current = handle;
     return () => {
       handle.dispose();
