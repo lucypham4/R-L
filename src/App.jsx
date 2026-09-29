@@ -17,6 +17,7 @@ import { fetchChefProfile, updateChefPageTheme } from './lib/chefsApi';
 import { getSession, onAuthChange, signOut } from './lib/auth';
 import { loadLocalMeals, saveLocalMeals, createLocalMeal } from './lib/localMeals';
 import { scrollToTop } from './lib/motion';
+import { leaveDish, pushDish, replaceDish } from './lib/dishHistory';
 import { loadTheme, saveTheme, nextTheme, applyTheme } from './lib/theme';
 import { importLocalMeals, countLocalMeals } from './lib/localImport';
 import './App.css';
@@ -172,11 +173,12 @@ function AdminApp() {
 
   const openIndex = sortedMeals.findIndex((m) => String(m.id) === String(openMealId));
   const openMeal = openIndex >= 0 ? sortedMeals[openIndex] : null;
+  // The dishes either side, in the modal's numbering: see handleStepMeal.
+  const prevMeal = openMeal ? sortedMeals[openIndex + 1] : undefined;
+  const nextMeal = openMeal ? sortedMeals[openIndex - 1] : undefined;
 
   function handleOpenMeal(meal) {
-    const url = new URL(window.location);
-    url.searchParams.set('meal', meal.id);
-    window.history.pushState({}, '', url);
+    pushDish(meal.id);
     setOpenMealId(meal.id);
   }
 
@@ -188,16 +190,12 @@ function AdminApp() {
   function handleStepMeal(delta) {
     const next = sortedMeals[openIndex - delta];
     if (!next) return;
-    const url = new URL(window.location);
-    url.searchParams.set('meal', next.id);
-    window.history.replaceState({}, '', url);
+    replaceDish(next.id);
     setOpenMealId(next.id);
   }
 
   function closeMeal() {
-    const url = new URL(window.location);
-    url.searchParams.delete('meal');
-    window.history.pushState({}, '', url);
+    leaveDish();
     setOpenMealId(null);
   }
 
@@ -356,6 +354,8 @@ function AdminApp() {
           total={sortedMeals.length}
           onClose={closeMeal}
           onStep={handleStepMeal}
+          prevMeal={prevMeal}
+          nextMeal={nextMeal}
         />
       )}
 

@@ -21,7 +21,9 @@ export default function Gallery({
   onAddMeal,
   onDeleteMeal,
   title = 'Staj',
-  tagline = 'Private chef · portfolio & archive',
+  // The chef's own gallery goes without one: the wordmark says enough. A
+  // public page passes its own, under the chef's name.
+  tagline,
 }) {
   const [search, setSearch] = useState('');
   const [selectedCuisines, setSelectedCuisines] = useState([]);
@@ -92,7 +94,7 @@ export default function Gallery({
       <header className="gallery-header">
         <div>
           <h1 className="gallery-title">{title}</h1>
-          <p className="gallery-tagline">{tagline}</p>
+          {tagline && <p className="gallery-tagline">{tagline}</p>}
         </div>
       </header>
 

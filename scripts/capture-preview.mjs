@@ -159,6 +159,34 @@ const run = async () => {
     await drag(page, -700, 0.12, 700); // all the way back down
     await page.waitForTimeout(900);
   };
+  // 6. Swiping between dishes: a short drag that settles back, then one
+  // past a third of the way that moves on, then the same back again.
+  const swipe = async (page, dx, ms = 350) => {
+    const cdp = await page.context().newCDPSession(page);
+    const box = await page.locator('.dish-photo').boundingBox();
+    const y = box.y + box.height / 2;
+    const x0 = box.x + box.width / 2;
+    const steps = Math.max(8, Math.round(ms / 16));
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x0, y, id: 1 }] });
+    for (let i = 1; i <= steps; i++) {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x0 + (dx * i) / steps, y, id: 1 }] });
+      await page.waitForTimeout(16);
+    }
+    await page.waitForTimeout(120);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  };
+  const swipeScene = async (page) => {
+    await page.locator('.meal-card').nth(1).click();
+    await page.waitForTimeout(1000);
+    await swipe(page, -80); // short: settles back
+    await page.waitForTimeout(900);
+    await swipe(page, -170); // past a third: the newer dish
+    await page.waitForTimeout(1300);
+    await swipe(page, 170); // and back
+    await page.waitForTimeout(1300);
+  };
+  await scene(browser, '6-swipe', MEALS, swipeScene, { hasTouch: true, isMobile: true });
+
   await scene(browser, '4-sheet', LONG, sheetScene, { hasTouch: true, isMobile: true });
   await scene(browser, '5-sheet-reduced', LONG, sheetScene, { hasTouch: true, isMobile: true, reducedMotion: 'reduce' });
 

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { toCanvas } from 'html-to-image';
 import { normaliseServes } from '../lib/meal';
-import { onReducedMotionChange, prefersReducedMotion, scrollElementTo, tokenMs } from '../lib/motion';
+import { onReducedMotionChange, prefersReducedMotion, scrollElementTo, token, tokenMs } from '../lib/motion';
 import { applyDishSheetFrame, dishSheetFrame, measureDishSheet } from '../lib/dishSheet';
+import { AXIS_BIAS, AXIS_SLOP, releaseVelocity, rubberBand, shouldCommit } from '../lib/dishSwipe';
 import './Bubbles.css';
 import './MealDetailModal.css';
 
@@ -42,7 +43,9 @@ function drawPhotoCover(canvas, img) {
   ctx.drawImage(img, sx, sy, sSize, sSize, 0, 0, size, size);
 }
 
-const SWIPE_THRESHOLD = 60;
+// The space between a photo leaving the side of the view and the next one
+// arriving, so the two never touch mid-slide.
+const SLIDE_GAP = 24;
 
 // The pieces that travel between the sheet's states. Under reduced motion
 // they jump instead, and these are the ones that fade in where they land.
@@ -98,17 +101,20 @@ function Chevron({ direction }) {
   );
 }
 
-export default function MealDetailModal({ meal, index, total, onClose, onStep }) {
+export default function MealDetailModal({ meal, index, total, onClose, onStep, prevMeal, nextMeal }) {
   const { els, bind } = useElements();
-  const closeRef = useRef(null);
   const shareCardRef = useRef(null);
   const [shareStatus, setShareStatus] = useState('idle'); // idle | working | done | error
   // The name of the dish being stepped away from, kept alive just long
   // enough to cross-dissolve with the one arriving.
   const [outgoingName, setOutgoingName] = useState(null);
   const shownNameRef = useRef(meal?.name);
-  const swipeStart = useRef(null);
   const swiped = useRef(false);
+  // The swipe in progress, and a step whose slide is still to be played
+  // once the next dish has rendered.
+  const drag = useRef(null);
+  const pendingSlide = useRef(null);
+  const stepRef = useRef(null);
 
   // The sheet. Geometry is re-measured on layout changes; everything else
   // is recomputed from scrollTop on every scroll event, outside React.
@@ -192,21 +198,70 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep })
     measure();
   }, [measure, meal?.id]);
 
+  // The second half of a step: the incoming photo slides in from where its
+  // neighbour's drag had it, as the outgoing one (now the ghost) leaves.
+  // Before paint, so the frame between the two halves is never seen.
+  useLayoutEffect(() => {
+    const slide = pendingSlide.current;
+    pendingSlide.current = null;
+    const { photo, ghost } = els;
+    if (!slide || !photo) {
+      if (!slide) hideGhost();
+      return;
+    }
+    const { delta, fromX, travel: T } = slide;
+    const duration = tokenMs('--dur-move');
+    const easing = token('--ease-out');
+    photo.getAnimations().forEach((a) => a.cancel());
+    photo.animate(
+      [
+        { translate: `${fromX + delta * T}px 0`, opacity: 0.65 },
+        { translate: '0px 0', opacity: 1 },
+      ],
+      { duration, easing }
+    );
+    if (ghost && !ghost.hidden) {
+      const away = ghost.animate(
+        [{ translate: `${fromX}px 0` }, { translate: `${-delta * T}px 0`, opacity: 0.65 }],
+        { duration, easing }
+      );
+      away.onfinish = hideGhost;
+    }
+  }, [meal?.id]);
+
+  // Focus moves into the dish once, when it opens, and onto the sheet's
+  // scroller rather than a button. It used to go to the close button,
+  // which drew the focus ring round it -- and because this ran again on
+  // every step, it pulled focus off the step arrow and re-drew the ring
+  // every time. The scroller is also what the keyboard should drive: Space
+  // and the arrow keys scroll the recipe straight away.
   useEffect(() => {
-    closeRef.current?.focus();
+    els.scroller?.focus({ preventScroll: true });
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [els]);
+
+  useEffect(() => {
     function onKeyDown(e) {
       if (e.key === 'Escape') onClose();
       if (!canStep) return;
-      if (e.key === 'ArrowLeft' && index > 1) onStep(-1);
-      if (e.key === 'ArrowRight' && index < total) onStep(1);
+      if (e.key === 'ArrowLeft' && index > 1) stepRef.current(-1);
+      if (e.key === 'ArrowRight' && index < total) stepRef.current(1);
     }
     document.addEventListener('keydown', onKeyDown);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('keydown', onKeyDown);
-      document.body.style.overflow = '';
-    };
-  }, [onClose, onStep, canStep, index, total]);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [onClose, canStep, index, total]);
+
+  // The neighbours' photos, fetched ahead so a step never waits on the
+  // network half-way through its slide.
+  useEffect(() => {
+    for (const neighbour of [prevMeal, nextMeal]) {
+      const src = neighbour?.photos?.[0];
+      if (src) new Image().src = src;
+    }
+  }, [prevMeal, nextMeal]);
 
   // Start a dissolve whenever the dish changes under us, and clear it
   // once the outgoing title has faded out.
@@ -237,26 +292,182 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep })
     if (g) scrollElementTo(els.scroller, open ? g.S : 0);
   }
 
-  function handleSwipeStart(e) {
-    swiped.current = false;
-    swipeStart.current = { x: e.clientX, y: e.clientY };
+  // ---- Swiping between dishes ------------------------------------------
+  //
+  // The dishes sit on a shelf. A horizontal drag slides the photo along it
+  // under the finger while the neighbour's photo comes in from the side
+  // you're heading, and the text below drops out of focus. Let go past a
+  // third of the way, or with a flick, and the move finishes; short of
+  // that, both photos settle back and the text comes back into focus. The
+  // step arrows and the arrow keys take the same slide, so there is one
+  // way dishes move, whichever way you asked. src/lib/dishSwipe.js has
+  // the thresholds.
+
+  const hasNeighbour = (delta) => (delta > 0 ? canStepForward : canStepBack);
+  const neighbourPhoto = (delta) => (delta > 0 ? nextMeal : prevMeal)?.photos?.[0] ?? null;
+  const photoMoves = () => Boolean(els.photo) && sheetState !== 'collapsed';
+
+  // Centre to fully off the side: half the view, half the photo, a gap.
+  function travel() {
+    const view = els.root.getBoundingClientRect().width;
+    const photo = els.photo ? els.photo.getBoundingClientRect().width : 0;
+    return view / 2 + photo / 2 + SLIDE_GAP;
   }
 
-  function handleSwipeEnd(e) {
-    const start = swipeStart.current;
-    swipeStart.current = null;
-    if (!start || !canStep) return;
-    const dx = e.clientX - start.x;
-    const dy = e.clientY - start.y;
-    if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dx) < Math.abs(dy)) return;
-    const delta = dx < 0 ? 1 : -1;
-    if (delta > 0 ? canStepForward : canStepBack) {
-      // A mouse drag ends in a click on whatever it was released over;
-      // don't let that click also open the sheet.
-      swiped.current = true;
-      onStep(delta);
+  // Focus is lost fast and regained slowly, as in the focus pull -- which
+  // takes over from here if the swipe goes through.
+  function setDefocused(on, { instant = false } = {}) {
+    for (const el of [els.peekFade, els.body, els.meta]) {
+      if (!el) continue;
+      el.style.transition = instant ? 'none' : `filter var(${on ? '--dur-defocus' : '--dur-refocus'}) var(--ease-focus)`;
+      el.style.filter = on ? 'blur(var(--blur-defocus))' : '';
     }
   }
+
+  // The ghost is a second photo that stands where the sheet has put the
+  // real one, at the same size, offset along the shelf by `x`. `translate`
+  // rather than `transform`, so the offset composes with the sheet's own
+  // transform instead of replacing it.
+  function showGhost(src, x) {
+    const { ghost, photo } = els;
+    if (!ghost) return;
+    ghost.getAnimations().forEach((a) => a.cancel());
+    if (!src || !photo) {
+      hideGhost();
+      return;
+    }
+    if (ghost.getAttribute('src') !== src) ghost.src = src;
+    ghost.style.transform = photo.style.transform;
+    ghost.style.setProperty('--dish-photo-scale', photo.style.getPropertyValue('--dish-photo-scale') || '1');
+    ghost.style.translate = `${x}px 0`;
+    ghost.hidden = false;
+  }
+
+  function hideGhost() {
+    const { ghost } = els;
+    if (!ghost) return;
+    ghost.hidden = true;
+    ghost.style.translate = '';
+    ghost.style.opacity = '';
+  }
+
+  function handlePointerDown(e) {
+    swiped.current = false;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    drag.current = { id: e.pointerId, x0: e.clientX, y0: e.clientY, mode: 'pending', x: 0, samples: [{ x: e.clientX, t: e.timeStamp }] };
+  }
+
+  function handlePointerMove(e) {
+    const d = drag.current;
+    if (!d || e.pointerId !== d.id) return;
+    const dx = e.clientX - d.x0;
+    const dy = e.clientY - d.y0;
+    if (d.mode === 'pending') {
+      if (Math.hypot(dx, dy) < AXIS_SLOP) return;
+      // Mostly vertical: that's the sheet's scroll, and it keeps it.
+      if (Math.abs(dx) < Math.abs(dy) * AXIS_BIAS) {
+        drag.current = null;
+        return;
+      }
+      d.mode = 'swipe';
+      d.travel = travel();
+      d.movesPhoto = photoMoves();
+      try {
+        els.root.setPointerCapture(e.pointerId);
+      } catch {
+        // The pointer is already gone; the move below still applies.
+      }
+      setDefocused(true);
+    }
+    d.samples.push({ x: e.clientX, t: e.timeStamp });
+    if (d.samples.length > 12) d.samples.shift();
+
+    const dir = dx < 0 ? 1 : -1; // +1: the next dish, arriving from the right
+    const has = hasNeighbour(dir);
+    d.x = has ? dx : rubberBand(dx, d.travel * 0.25);
+    if (!d.movesPhoto) return;
+    const q = Math.min(1, Math.abs(d.x) / d.travel);
+    els.photo.style.translate = `${d.x}px 0`;
+    els.photo.style.opacity = String(1 - 0.35 * q);
+    if (has) {
+      showGhost(neighbourPhoto(dir), d.x + dir * d.travel);
+      if (els.ghost) els.ghost.style.opacity = String(0.65 + 0.35 * q);
+    } else {
+      hideGhost();
+    }
+  }
+
+  function handlePointerUp(e) {
+    const d = drag.current;
+    drag.current = null;
+    if (!d || d.mode !== 'swipe' || e.pointerId !== d.id) return;
+    // A mouse drag ends in a click on whatever it was released over;
+    // don't let that click also open the sheet.
+    swiped.current = true;
+    const dir = d.x < 0 ? 1 : -1;
+    const commit = shouldCommit({
+      dx: d.x,
+      velocity: releaseVelocity(d.samples, e.timeStamp),
+      travel: d.travel,
+      hasNeighbour: hasNeighbour(dir),
+    });
+    if (commit) slideTo(dir, d.x);
+    else settleBack(d);
+  }
+
+  function handlePointerCancel() {
+    const d = drag.current;
+    drag.current = null;
+    if (d?.mode === 'swipe') settleBack(d);
+  }
+
+  function settleBack(d) {
+    const duration = tokenMs('--dur-move');
+    const { photo, ghost } = els;
+    if (photo && d.movesPhoto) {
+      photo.animate(
+        [
+          { translate: `${d.x}px 0`, opacity: photo.style.opacity || 1 },
+          { translate: '0px 0', opacity: 1 },
+        ],
+        { duration, easing: token('--ease-spring') }
+      );
+      photo.style.translate = '';
+      photo.style.opacity = '';
+    }
+    if (ghost && !ghost.hidden) {
+      const dir = d.x < 0 ? 1 : -1;
+      const away = ghost.animate([{ translate: ghost.style.translate }, { translate: `${dir * d.travel}px 0` }], {
+        duration,
+        easing: token('--ease'),
+      });
+      away.onfinish = hideGhost;
+    }
+    setDefocused(false);
+  }
+
+  // One step along the shelf, from wherever a drag left the photo (0 for
+  // an arrow). The outgoing photo is handed to the ghost, which carries it
+  // off the side; the photo element takes the incoming dish and slides in
+  // behind it once it has rendered (the layout effect below).
+  function slideTo(delta, fromX = 0) {
+    if (!hasNeighbour(delta)) return;
+    const { photo } = els;
+    if (photoMoves()) {
+      const outgoing = photo.tagName === 'IMG' ? photo.getAttribute('src') : null;
+      showGhost(outgoing, fromX);
+      if (els.ghost) els.ghost.style.opacity = photo.style.opacity || '1';
+      pendingSlide.current = { delta, fromX, travel: travel() };
+    }
+    if (photo) {
+      photo.style.translate = '';
+      photo.style.opacity = '';
+    }
+    // The incoming text brings its own focus pull.
+    setDefocused(false, { instant: true });
+    onStep(delta);
+  }
+  stepRef.current = slideTo;
 
   if (!meal) return null;
 
@@ -327,14 +538,15 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep })
         role="dialog"
         aria-modal="true"
         aria-label={meal.name}
-        onPointerDown={canStep ? handleSwipeStart : undefined}
-        onPointerUp={canStep ? handleSwipeEnd : undefined}
-        onPointerCancel={canStep ? () => (swipeStart.current = null) : undefined}
+        onPointerDown={canStep ? handlePointerDown : undefined}
+        onPointerMove={canStep ? handlePointerMove : undefined}
+        onPointerUp={canStep ? handlePointerUp : undefined}
+        onPointerCancel={canStep ? handlePointerCancel : undefined}
       >
         {/* What scrolls: the sheet, and the empty stretch above it that
             the resting sheet is pulled up through. Everything that
             travels between states lives in the stage on top instead. */}
-        <div ref={bind('scroller')} className="dish-scroller">
+        <div ref={bind('scroller')} className="dish-scroller" tabIndex={-1}>
           <div className="dish-spacer" />
           <div ref={bind('sheet')} className="dish-sheet">
             <div ref={bind('surface')} className="dish-surface" />
@@ -428,9 +640,9 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep })
           <div ref={bind('backdrop')} className="dish-backdrop" />
 
           <div className="dish-bar">
-            <button ref={closeRef} type="button" className="dish-close" onClick={onClose} aria-label="Close">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
-                <path d="M6 6l12 12M18 6L6 18" />
+            <button type="button" className="dish-back" onClick={onClose} aria-label="Back">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M19 12H5M11 5l-7 7 7 7" />
               </svg>
             </button>
             <span className="dish-index">
@@ -446,6 +658,10 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep })
               <DishName id={meal.id} name={meal.name} outgoing={outgoingName} />
             </h2>
             <div className="dish-plate">
+              {/* Stands in for a photo sliding along the shelf: the
+                  neighbour coming in during a drag, the outgoing dish
+                  leaving during a step. */}
+              <img ref={bind('ghost')} className="dish-ghost" alt="" aria-hidden="true" hidden />
               {heroPhotoUrl ? (
                 <img
                   ref={bind('photo')}
@@ -465,7 +681,7 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep })
                     ref={bind('prev')}
                     type="button"
                     className="dish-step dish-step-prev"
-                    onClick={() => onStep(-1)}
+                    onClick={() => slideTo(-1)}
                     disabled={!canStepBack}
                     aria-label="Previous dish"
                   >
@@ -475,7 +691,7 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep })
                     ref={bind('next')}
                     type="button"
                     className="dish-step dish-step-next"
-                    onClick={() => onStep(1)}
+                    onClick={() => slideTo(1)}
                     disabled={!canStepForward}
                     aria-label="Next dish"
                   >

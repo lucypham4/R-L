@@ -1,22 +1,29 @@
 import './BottomNav.css';
 
-// Every glyph's ink spans x 4.5 -> 19.5 inside the 24-unit viewBox.
+// The end glyphs are balanced by their clearance from the pill's rounded
+// ends, not by how far their ink reaches sideways.
 //
-// That matters because the first and last icons sit against the pill's
-// rounded ends: the tabs themselves are exactly equal, but the painted
-// glyphs were not. Home's ink ran 3 -> 21 while Profile's ran 4.5 ->
-// 19.5, so the leftmost glyph reached 1.5 units closer to its edge than
-// the rightmost did and the pill looked like it had more padding on the
-// right. Equal ink insets make the end gaps identical without touching
-// the layout, and incidentally stop Home reading as the chunkiest of the
-// three. Keep any new icon inside the same 4.5 -> 19.5 span.
+// An earlier pass gave every glyph the same ink span, x 4.5 -> 19.5, which
+// made the horizontal gaps at each end identical and still left the pill
+// looking tighter on the right. The ends are semicircles, so they curve in
+// above and below the middle, and what the eye reads as the gap is the
+// distance to that curve. The house is widest at its eaves, at mid-height,
+// where the end is furthest away. The person was widest at its shoulders,
+// at the very bottom of the glyph, right where the end curves in: 1.3px
+// closer to its end than the house was to its own.
+//
+// So the shoulders now finish higher and a little narrower, at x 5 -> 19,
+// y 19. That puts the person's bottom level with the house's (18.66), where
+// it had sat a unit and a third lower, and brings its clearance within a
+// fraction of a pixel of the house's. tests/bottom-nav.spec.js measures the
+// clearance from the rendered paths; check a new icon against it.
 const ICONS = {
   home: <path d="M4.5 11.17l7.5-5.83 7.5 5.83M6.17 10.33v8.33h4.17v-5h3.33v5h4.17V10.33" />,
   add: <path d="M12 4.5v15M4.5 12h15" />,
   profile: (
     <>
       <circle cx="12" cy="8" r="3.5" />
-      <path d="M4.5 20c1.5-4 5-6 7.5-6s6 2 7.5 6" />
+      <path d="M5 19c1.4-3.67 4.67-5.5 7-5.5s5.6 1.83 7 5.5" />
     </>
   ),
 };

@@ -163,7 +163,7 @@ test.describe('stepping between dishes', () => {
     const filter = await page.locator('.app-stage').evaluate((el) => getComputedStyle(el).filter);
     expect(isBlurred(filter)).toBe(true);
 
-    await page.getByRole('button', { name: 'Close' }).click();
+    await page.getByRole('button', { name: 'Back' }).click();
     await expect(page.locator('.app-stage')).not.toHaveClass(/app-stage-receded/);
   });
 });

@@ -22,6 +22,7 @@ Writes one `.webm` per scene to the output directory, plus stills:
 | `3-step-reduced` | The same step under `prefers-reduced-motion: reduce`. |
 | `4-sheet` | The sheet under a real touch drag: a short pull settling back, a longer one settling open, on into the recipe as the header collapses, then all the way back down. |
 | `5-sheet-reduced` | The same drags under reduced motion, where the travelling pieces swap between rests instead. |
+| `6-swipe` | Swiping between dishes: a short drag that settles back, one past a third of the way that moves on, and back again. |
 | `still-sheet-open.png`, `still-sheet-collapsed.png` | The sheet's other two rests. |
 | `still-mid-dissolve.png` | Frozen mid-transition, with both titles up at once. |
 
