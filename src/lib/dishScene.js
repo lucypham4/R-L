@@ -1,17 +1,26 @@
 import {
   AmbientLight,
   Color,
+  ConeGeometry,
+  CylinderGeometry,
   DirectionalLight,
+  DoubleSide,
+  Euler,
   Group,
+  InstancedMesh,
   LatheGeometry,
+  Matrix4,
   Mesh,
   MeshBasicMaterial,
   MeshStandardMaterial,
   PCFShadowMap,
   PerspectiveCamera,
   PlaneGeometry,
+  Quaternion,
   Scene,
+  SphereGeometry,
   Vector2,
+  Vector3,
   WebGPURenderer,
 } from 'three/webgpu';
 import {
@@ -31,6 +40,7 @@ import {
   spiral,
   toast,
 } from './dishFood';
+import { toy } from './dishMaterials';
 import PALETTES from '../assets/dishes/palettes.json';
 
 /**
@@ -209,8 +219,18 @@ const SCENES = {
   },
 
   /**
-   * The squash soup, assembled: the bowl on its plate, the toast set down
-   * beside it, then the scallion oil, the chives and the almonds.
+   * The squash soup, assembled the way it is in the kitchen, one
+   * component at a time and each piece on its own:
+   *
+   *   an empty bowl on its plate; soup ladled in until it fills; the
+   *   toast set down on the plate beside the bowl; the scallion oil
+   *   squeezed on from a bottle as a spiral, drawn from the centre out;
+   *   the chives sprinkled on piece by piece; then the almonds.
+   *
+   * Nothing arrives as a clump. Every chive and every almond flake falls
+   * on its own, at its own moment, from its own spot, tumbling as it
+   * goes -- they are one InstancedMesh each, but every instance has its
+   * own trajectory.
    */
   soup() {
     const rng = seeded(7);
@@ -219,87 +239,261 @@ const SCENES = {
     const plate = vessel(1.32, 0.06);
     root.add(plate);
 
-    const bowl = vessel(0.86, 0.52);
-    bowl.position.set(-0.26, 0.055, -0.06);
+    const BOWL_R = 0.86;
+    const BOWL_DEPTH = 0.52;
+    const bowl = vessel(BOWL_R, BOWL_DEPTH);
+    bowl.position.set(-0.3, 0.055, -0.2);
     root.add(bowl);
+    // The bowl's widest point, at its rim, plus clearance.
+    const BOWL_CLEAR = BOWL_R * 1.035 + 0.03;
 
+    // Everything poured, squeezed or sprinkled happens in the bowl's own
+    // space; SURFACE is where the soup finishes, in that space.
     const SURFACE = 0.3;
-    const soupTop = liquid(FOOD.soup, { radius: 0.685, dome: 0.014 });
-    soupTop.position.y = SURFACE;
+    // Inverts vessel()'s floor curve: how wide the soup is at a depth.
+    const widthAt = (y) => BOWL_R * Math.pow(Math.max(0, y) / BOWL_DEPTH, 1 / 2.1) * 0.99;
+
+    const soupTop = liquid(FOOD.soup, { radius: 1, dome: 0.014 });
     bowl.add(soupTop);
 
-    const oil = spiral(FOOD.oil, { innerRadius: 0.07, outerRadius: 0.55, turns: 2.4, thickness: 0.014 });
-    oil.position.y = SURFACE + 0.012;
-    bowl.add(oil);
+    // --- The ladle, and the stream from its lip. The ladle turns about
+    // its lip, so the stream always leaves from the same point.
+    const LIP = new Vector3(0.1, 0.74, 0.02);
+    const steel = toy('#b9bdc3', { top: '#e6e8eb', bottom: '#8d9298', fade: true });
+    steel.side = DoubleSide;
+    const ladle = new Group();
+    ladle.position.copy(LIP);
+    const cup = new Mesh(new SphereGeometry(0.15, 28, 12, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), steel);
+    cup.position.x = 0.15;
+    const handle = new Mesh(new CylinderGeometry(0.014, 0.014, 0.5, 8), steel);
+    handle.position.set(0.3 + Math.sin(0.75) * 0.25, Math.cos(0.75) * 0.25, 0);
+    handle.rotation.z = -0.75;
+    const ladleSoup = new Mesh(new CylinderGeometry(0.13, 0.13, 0.01, 28), toy(FOOD.soup, { fade: true }));
+    ladleSoup.position.set(0.15, -0.035, 0);
+    ladle.add(cup, handle, ladleSoup);
+    bowl.add(ladle);
 
-    const chives = new Group();
-    for (let i = 0; i < 54; i++) {
-      const a = rng() * Math.PI * 2;
-      const r = Math.sqrt(rng()) * 0.6;
-      const c = chive(FOOD.chive, { length: 0.034 + rng() * 0.022, radius: 0.009 + rng() * 0.004 });
-      c.position.set(Math.cos(a) * r, rng() * 0.006, Math.sin(a) * r);
-      // Lying down, not standing up -- they were scattered, not planted.
-      c.rotation.set(Math.PI / 2 + (rng() - 0.5) * 0.5, rng() * Math.PI, (rng() - 0.5) * 0.4);
-      chives.add(c);
-    }
-    bowl.add(bake(chives));
+    const pour = new Mesh(new CylinderGeometry(1, 0.72, 1, 14, 1, true), toy(FOOD.soup));
+    pour.geometry.translate(0, -0.5, 0);
+    bowl.add(pour);
 
-    const almonds = new Group();
-    for (let i = 0; i < 16; i++) {
-      const a = rng() * Math.PI * 2;
-      const r = Math.sqrt(rng()) * 0.17;
-      const f = flake(FOOD.almond, { length: 0.07 + rng() * 0.03, rng });
-      f.position.set(Math.cos(a) * r, rng() * 0.022, Math.sin(a) * r);
-      f.rotation.set((rng() - 0.5) * 0.9, rng() * Math.PI, (rng() - 0.5) * 0.9);
-      almonds.add(f);
-    }
-    bowl.add(bake(almonds));
-
-    // Measured off the photograph: the slice is 0.71 of the soup surface
-    // across. The surface here is 1.37 units wide, so the slice is about
-    // 0.97 long -- an earlier pass read that measurement against the
-    // radius instead of the diameter and produced a slab longer than the
-    // plate, hanging off the side of the frame.
-    const slice = toast(FOOD.crust, FOOD.crumb, { length: 0.98, width: 0.72, depth: 0.17 });
-    const sliceRest = [0.68, 0.12, 0.36];
-    slice.rotation.set(0.1, -0.5, 0.2);
+    // --- The toast. Set down clear of the bowl: its footprint is worked
+    // out from its actual vertices, so it rests against the bowl's wall
+    // at most, and a vertical drop onto that spot never passes through
+    // the bowl on the way down.
+    const slice = toast(FOOD.crust, FOOD.crumb, { length: 0.98, width: 0.72, depth: 0.17, fade: true });
+    const out = new Vector2(1, 0.62).normalize();
+    // Long side along the bowl, cut edge facing away from it.
+    slice.rotation.y = Math.atan2(out.x, out.y);
+    slice.updateMatrixWorld(true);
+    let toward = 0;
+    let floor = Infinity;
+    const v = new Vector3();
+    slice.traverse((o) => {
+      if (!o.isMesh) return;
+      const pos = o.geometry.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld);
+        toward = Math.max(toward, -(v.x * out.x + v.z * out.y));
+        floor = Math.min(floor, v.y);
+      }
+    });
+    const reach = BOWL_CLEAR + toward;
+    const rest = new Vector3(bowl.position.x + out.x * reach, 0, bowl.position.z + out.y * reach);
+    rest.y = plate.userData.floorAt(Math.hypot(rest.x, rest.z)) - floor + 0.004;
     root.add(slice);
 
-    const stages = [
-      { node: slice, from: 0.1, to: 0.24, rest: sliceRest, entry: [1.3, 0.56, 0.62] },
-      { node: oil, from: 0.3, to: 0.46, grow: true },
-      { node: chives, from: 0.5, to: 0.62, drop: 0.3 },
-      { node: almonds, from: 0.66, to: 0.78, drop: 0.36 },
-    ];
+    // --- The scallion oil, the bottle it is squeezed from, and the
+    // thread of oil between the two.
+    const OIL_Y = SURFACE + 0.012;
+    const oil = spiral(FOOD.oil, { innerRadius: 0.05, outerRadius: 0.55, turns: 2.4, thickness: 0.016 });
+    oil.position.y = OIL_Y;
+    bowl.add(oil);
 
-    const CYCLE = 11;
+    const bottleBody = toy('#cfdca6', { top: '#eef3d6', bottom: '#9fb06e', fade: true });
+    const bottleCap = toy('#f1ede4', { top: '#ffffff', bottom: '#c9c3b6', fade: true });
+    const bottle = new Group();
+    const tilt = new Group();
+    tilt.rotation.z = 0.32;
+    const nozzle = new Mesh(new ConeGeometry(0.02, 0.08, 12), bottleCap);
+    nozzle.rotation.z = Math.PI;
+    nozzle.position.y = 0.04;
+    const shoulder = new Mesh(new CylinderGeometry(0.03, 0.075, 0.06, 20), bottleCap);
+    shoulder.position.y = 0.11;
+    const body = new Mesh(new CylinderGeometry(0.075, 0.075, 0.26, 20), bottleBody);
+    body.position.y = 0.27;
+    tilt.add(nozzle, shoulder, body);
+    bottle.add(tilt);
+    bowl.add(bottle);
+    const NOZZLE_UP = 0.3;
+
+    const thread = new Mesh(new CylinderGeometry(1, 1, 1, 8, 1, true), toy(FOOD.oil));
+    thread.geometry.translate(0, -0.5, 0);
+    bowl.add(thread);
+
+    // --- Chives and almonds: one InstancedMesh each, every instance
+    // falling on its own.
+    function sprinkle(mesh, count, place, window, fall) {
+      const inst = new InstancedMesh(mesh.geometry, mesh.material, count);
+      inst.castShadow = true;
+      const pieces = [];
+      for (let i = 0; i < count; i++) {
+        const { position, rotation, scale } = place(i);
+        pieces.push({
+          land: position,
+          landQ: new Quaternion().setFromEuler(rotation),
+          fromQ: new Quaternion().setFromEuler(new Euler(rng() * 6, rng() * 6, rng() * 6)),
+          scale,
+          drift: new Vector3((rng() - 0.5) * 0.1, 0, (rng() - 0.5) * 0.1),
+          // Spread through the window in a shuffled order, so they land
+          // all over the bowl rather than sweeping across it.
+          at: window[0] + (window[1] - window[0] - fall) * ((i * 0.618034) % 1) + rng() * 0.06,
+        });
+      }
+      bowl.add(inst);
+      return { inst, pieces, fall };
+    }
+
+    const chives = sprinkle(
+      chive(FOOD.chive, { length: 0.05, radius: 0.012 }),
+      54,
+      () => {
+        const a = rng() * Math.PI * 2;
+        const r = Math.sqrt(rng()) * 0.58;
+        return {
+          position: new Vector3(Math.cos(a) * r, OIL_Y + 0.006 + rng() * 0.004, Math.sin(a) * r),
+          // Lying down, not standing up -- they were scattered, not planted.
+          rotation: new Euler(Math.PI / 2 + (rng() - 0.5) * 0.4, rng() * Math.PI, (rng() - 0.5) * 0.3),
+          scale: 0.75 + rng() * 0.5,
+        };
+      },
+      [9.2, 11.2],
+      0.5
+    );
+    const almonds = sprinkle(
+      flake(FOOD.almond, { length: 0.085, rng }),
+      16,
+      () => {
+        const a = rng() * Math.PI * 2;
+        const r = Math.sqrt(rng()) * 0.19;
+        return {
+          position: new Vector3(Math.cos(a) * r, OIL_Y + 0.012 + rng() * 0.02, Math.sin(a) * r),
+          rotation: new Euler((rng() - 0.5) * 0.7, rng() * Math.PI, (rng() - 0.5) * 0.7),
+          scale: 0.8 + rng() * 0.45,
+        };
+      },
+      [11.5, 12.9],
+      0.6
+    );
+
+    const m = new Matrix4();
+    const q = new Quaternion();
+    const pos = new Vector3();
+    const size = new Vector3();
+    const HIDDEN = new Matrix4().makeScale(0, 0, 0);
+    function settle({ inst, pieces, fall }, t) {
+      for (let i = 0; i < pieces.length; i++) {
+        const pc = pieces[i];
+        const u = (t - pc.at) / fall;
+        if (u < 0) {
+          inst.setMatrixAt(i, HIDDEN);
+          continue;
+        }
+        const k = Math.min(1, u);
+        // Falling under gravity: slow off the fingers, fastest at the end.
+        pos.copy(pc.land).addScaledVector(pc.drift, 1 - k);
+        pos.y += 0.46 * (1 - k * k);
+        q.slerpQuaternions(pc.fromQ, pc.landQ, 1 - (1 - k) * (1 - k));
+        size.setScalar(pc.scale);
+        inst.setMatrixAt(i, m.compose(pos, q, size));
+      }
+      inst.instanceMatrix.needsUpdate = true;
+    }
+
+    const T = {
+      ladleIn: [0.5, 0.95],
+      tipIn: [0.95, 1.35],
+      pour: [1.25, 3.4],
+      tail: 0.28,
+      tipOut: [3.5, 3.9],
+      ladleOut: [3.9, 4.35],
+      fill: [1.4, 3.6],
+      toast: [4.5, 5.5],
+      bottleIn: [5.7, 6.0],
+      squeeze: [6.05, 8.7],
+      bottleOut: [8.75, 9.1],
+    };
+    const CYCLE = 16;
+    const span = (t, [a, b]) => Math.min(1, Math.max(0, (t - a) / (b - a)));
+    const smooth = (x) => x * x * (3 - 2 * x);
+
     return {
       root,
-      update(t) {
-        const p = (t / CYCLE) % 1;
-        const ease = (x) => x * x * (3 - 2 * x);
+      update(time) {
+        const t = time % CYCLE;
 
-        const arrive = ease(Math.min(1, Math.max(0, (p - 0.02) / 0.08)));
-        bowl.position.y = 0.055 + (1 - arrive) * 0.4;
-        soupTop.scale.setScalar(0.6 + arrive * 0.4);
+        // Ladle: in, tip, hold while pouring, tip back, away.
+        const inAmt = smooth(span(t, T.ladleIn));
+        const outAmt = smooth(span(t, T.ladleOut));
+        steel.userData.opacity.value = inAmt * (1 - outAmt);
+        ladle.visible = inAmt > 0 && outAmt < 1;
+        ladle.position.set(LIP.x, LIP.y + (1 - inAmt) * 0.12 + outAmt * 0.12, LIP.z);
+        ladle.rotation.z = 1.05 * smooth(span(t, T.tipIn)) * (1 - smooth(span(t, T.tipOut)));
+        ladleSoup.material.userData.opacity.value = steel.userData.opacity.value;
+        ladleSoup.scale.setScalar(Math.max(0.001, 1 - span(t, T.pour)));
 
-        for (const st of stages) {
-          const e = ease(Math.min(1, Math.max(0, (p - st.from) / (st.to - st.from))));
-          st.node.visible = e > 0 && p < 0.95;
-          if (st.grow) st.node.scale.setScalar(Math.max(0.001, e));
-          if (st.drop) st.node.position.y = SURFACE + 0.014 + (1 - e) * st.drop;
-          if (st.entry) {
-            st.node.position.set(
-              st.rest[0] + (1 - e) * (st.entry[0] - st.rest[0]),
-              st.rest[1] + (1 - e) * (st.entry[1] - st.rest[1]),
-              st.rest[2] + (1 - e) * (st.entry[2] - st.rest[2])
-            );
-          }
-        }
+        // Soup rising in the bowl.
+        const fill = 1 - Math.pow(1 - span(t, T.fill), 2);
+        const level = 0.012 + (SURFACE - 0.012) * fill;
+        soupTop.visible = fill > 0;
+        soupTop.position.y = level;
+        const w = widthAt(level);
+        soupTop.scale.set(w, 1, w);
 
-        root.rotation.y = Math.sin(t * 0.18) * 0.1;
+        // The stream: its head falls from the lip to the soup, it runs
+        // while the ladle is tipped, and its tail follows it down.
+        const head = Math.max(level, LIP.y - Math.max(0, t - T.pour[0]) * 3.2);
+        const tail = t < T.pour[1] ? LIP.y : LIP.y - ((t - T.pour[1]) / T.tail) * (LIP.y - level);
+        const length = tail - head;
+        pour.visible = t > T.pour[0] && length > 0.005;
+        pour.position.set(LIP.x, tail, LIP.z);
+        pour.scale.set(0.03, Math.max(0.001, length), 0.03);
+
+        // Toast: down from above onto the plate, with a little settle.
+        const drop = span(t, T.toast);
+        slice.visible = drop > 0;
+        slice.children[0].material.userData.opacity.value = Math.min(1, drop / 0.25);
+        const fallK = Math.min(1, drop / 0.72);
+        const bounce = drop > 0.72 ? Math.sin(((drop - 0.72) / 0.28) * Math.PI) * 0.025 * (1 - drop) * 3 : 0;
+        slice.position.set(rest.x, rest.y + 0.6 * (1 - fallK * fallK) + bounce, rest.z);
+
+        // Oil, drawn out from the centre as the bottle travels over it.
+        const squeeze = span(t, T.squeeze);
+        oil.userData.drawTo(squeeze);
+        const bIn = smooth(span(t, T.bottleIn));
+        const bOut = smooth(span(t, T.bottleOut));
+        const bottleOpacity = bIn * (1 - bOut);
+        bottleBody.userData.opacity.value = bottleOpacity;
+        bottleCap.userData.opacity.value = bottleOpacity;
+        bottle.visible = bottleOpacity > 0;
+        const tip = oil.userData.curve.getPointAt(Math.max(0.001, squeeze));
+        bottle.position.set(tip.x, OIL_Y + tip.y + NOZZLE_UP + (1 - bIn) * 0.1 + bOut * 0.12, tip.z);
+        const flowing = t > T.squeeze[0] && t < T.squeeze[1];
+        thread.visible = flowing;
+        // The nozzle's tip is the bottle's origin (the tilt turns about
+        // it), so the thread runs straight down from there to the tip.
+        const nozzleY = bottle.position.y;
+        thread.position.set(tip.x, nozzleY, tip.z);
+        thread.scale.set(0.009, nozzleY - (OIL_Y + tip.y), 0.009);
+
+        settle(chives, t);
+        settle(almonds, t);
+
+        root.rotation.y = Math.sin(time * 0.18) * 0.1;
       },
       frame: 1.28,
+      // Reduced motion holds here: the dish assembled, before the cut.
+      still: 14.5,
     };
   },
 
@@ -496,7 +690,9 @@ export function mountDishScene(canvas, sceneName, { reduced = false } = {}) {
   // negotiating a GPU device -- and it cannot draw until that finishes.
   let ready = false;
   const start = performance.now();
-  const now = () => (paused ? 9.2 : (performance.now() - start) / 1000);
+  // Where a held (reduced-motion) frame sits in the scene's timeline.
+  const STILL = built.still ?? 9.2;
+  const now = () => (paused ? STILL : (performance.now() - start) / 1000);
 
   function fit() {
     const rect = canvas.getBoundingClientRect();
@@ -558,7 +754,7 @@ export function mountDishScene(canvas, sceneName, { reduced = false } = {}) {
     setPaused(next) {
       if (next === paused) return;
       paused = next;
-      if (paused) draw(9.2);
+      if (paused) draw(STILL);
     },
     dispose() {
       disposed = true;

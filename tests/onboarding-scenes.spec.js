@@ -26,10 +26,9 @@ const SCENES = ['dessert', 'soup', 'archive', 'zucchini'];
 test.describe.configure({ timeout: 120_000 });
 
 // Rendered at 1x. Headless runs have no GPU, so the scenes draw on
-// SwiftShader, where
-// the renderer's multisampled antialiasing costs per sample and a 2x frame
-// takes several seconds -- long enough that watching one eleven-second
-// cycle runs past the timeout. Nothing asserted here depends on
+// SwiftShader, where the renderer's multisampled antialiasing costs per
+// sample and a 2x frame takes several seconds -- long enough that
+// watching a sixteen-second cycle runs past the timeout. Nothing asserted here depends on
 // resolution: whether a dish is drawn, moves, reaches the frame's edge.
 // On a phone's GPU the same antialiasing is close to free, so the app
 // keeps it; only the test lowers the pixel count.
@@ -85,25 +84,35 @@ function edgeContact(buf) {
   return n;
 }
 
-/** The frame's mean colour, as a coarse fingerprint. Different dishes
- *  are different colours, so this changes as the archive cycles, where
- *  coverage does not -- the silhouettes are all the same size. */
-function meanColour(buf) {
+/** A fingerprint of the frame: the mean colour of each cell of a 4x4
+ *  grid laid over it. Different dishes are different colours, so this
+ *  changes as the archive cycles, where coverage does not -- the heaps
+ *  are all about the same size. Per cell rather than for the whole frame
+ *  because one heap swapping is a small patch of a large frame: across
+ *  the whole of it the mean moves by a fraction of a unit and rounds
+ *  away, so a grid that was riffling read as standing still. */
+function cellColours(buf, n = 4) {
   const p = pixels(buf);
-  let r = 0;
-  let g = 0;
-  let b = 0;
-  let n = 0;
-  for (let y = 0; y < p.height; y += 4) {
-    for (let x = 0; x < p.width; x += 4) {
-      const c = p.at(x, y);
-      r += c[0];
-      g += c[1];
-      b += c[2];
-      n++;
+  const cells = [];
+  for (let cy = 0; cy < n; cy++) {
+    for (let cx = 0; cx < n; cx++) {
+      let r = 0;
+      let g = 0;
+      let b = 0;
+      let k = 0;
+      for (let y = Math.floor((cy * p.height) / n); y < ((cy + 1) * p.height) / n; y += 2) {
+        for (let x = Math.floor((cx * p.width) / n); x < ((cx + 1) * p.width) / n; x += 2) {
+          const c = p.at(x, y);
+          r += c[0];
+          g += c[1];
+          b += c[2];
+          k++;
+        }
+      }
+      cells.push(`${Math.round(r / k)},${Math.round(g / k)},${Math.round(b / k)}`);
     }
   }
-  return `${Math.round(r / n)},${Math.round(g / n)},${Math.round(b / n)}`;
+  return cells.join(' ');
 }
 
 /** Green pixels, which on a bowl of squash soup means garnish. */
@@ -172,7 +181,7 @@ test.describe('onboarding dish scenes', () => {
     await page.getByRole('button', { name: /next/i }).click();
     await waitForDish(page);
 
-    // Across one 11s cycle the garnish has to both appear and be absent.
+    // Across the 16s cycle the garnish has to both appear and be absent.
     // Baked into one texture the green count would never change; sharing
     // one keyframe it would never be partial.
     const green = await sample(page, 26, 450, greenish);
@@ -187,9 +196,9 @@ test.describe('onboarding dish scenes', () => {
     for (let i = 0; i < 2; i++) await page.getByRole('button', { name: /next/i }).click();
     await waitForDish(page);
 
-    // Nine dishes swapping textures several times a second. Compared by
-    // coverage rather than by bytes, so one changed pixel is not a swap.
-    const seen = new Set(await sample(page, 12, 200, meanColour));
+    // Nine dishes swapping several times a second. Compared by per-cell
+    // colour rather than by bytes, so one changed pixel is not a swap.
+    const seen = new Set(await sample(page, 12, 200, cellColours));
     expect(seen.size, 'the grid keeps changing').toBeGreaterThan(3);
   });
 

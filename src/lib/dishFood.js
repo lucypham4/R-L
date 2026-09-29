@@ -9,13 +9,12 @@ import {
   IcosahedronGeometry,
   Matrix4,
   Mesh,
-  MeshStandardMaterial,
   Shape,
   SphereGeometry,
   TubeGeometry,
   Vector3,
 } from 'three/webgpu';
-import { iceCreamMaterial, soupMaterial, toastMaterial } from './dishMaterials';
+import { iceCreamMaterial, soupMaterial, toastMaterial, toy } from './dishMaterials';
 
 /**
  * Food, built rather than photographed.
@@ -24,15 +23,15 @@ import { iceCreamMaterial, soupMaterial, toastMaterial } from './dishMaterials';
  * triangle, a blackberry is a cluster of drupelets, the scallion oil is a
  * tube swept along an Archimedean spiral. That is the point -- a
  * photograph lying on a surface holds up only while the camera barely
- * moves, and the moment a dish turns far enough to matter, flatness shows. These pieces have
- * their own silhouettes, catch the key light on their own curves, and
- * throw shadows on the plate under them.
+ * moves, and the moment a dish turns far enough to matter, flatness
+ * shows. These pieces have their own silhouettes and throw shadows on
+ * the plate under them.
  *
- * The colours are sampled from the chef's photographs
- * (`scripts/dish-assets/palettes.py`), so a reconstruction of their
- * cooking is at least their cooking's colour. Surfaces that need more
- * than a colour -- toast, ice cream, soup -- get procedural materials
- * from dishMaterials.js.
+ * They are painted like toys (dishMaterials.js): unlit, each coloured by
+ * a soft gradient, after the low-poly "tiny treats" cake used as the
+ * reference. The colours themselves are sampled from the chef's
+ * photographs (`scripts/dish-assets/palettes.py`), so a reconstruction of
+ * their cooking is at least their cooking's colour.
  */
 
 // Deterministic, so a dish looks the same every time the tour is opened
@@ -56,9 +55,10 @@ export function seeded(seed) {
  * each other, so they can be baked: geometry transformed into the group's
  * space and concatenated, one mesh per distinct surface.
  *
- * Only plain MeshStandardMaterial pieces are baked. Anything with a node
- * material (the quenelle, the toast, the soup) patterns itself in its own
- * local space, which baking would move, so it is left as it is.
+ * Only pieces whose material carries a `bakeKey` are baked -- toy()
+ * materials that shade by normal alone. Anything patterned in its own
+ * local space (the quenelle, the toast, the soup) would have that pattern
+ * moved by baking, so it is left as it is.
  */
 export function bake(group) {
   group.updateMatrixWorld(true);
@@ -66,15 +66,12 @@ export function bake(group) {
   const buckets = new Map();
   const baked = [];
   group.traverse((o) => {
-    if (!o.isMesh || o.material.type !== 'MeshStandardMaterial') return;
-    const m = o.material;
-    const key = `${m.color.getHexString()}|${m.roughness}|${m.metalness}|${m.flatShading}`;
+    const key = o.isMesh && !o.isInstancedMesh ? o.material.userData?.bakeKey : null;
+    if (!key) return;
     let bucket = buckets.get(key);
     if (!bucket) {
-      bucket = { material: m, positions: [], normals: [], receive: false };
+      bucket = { material: o.material, positions: [], normals: [], receive: false };
       buckets.set(key, bucket);
-    } else if (bucket.material !== m) {
-      m.dispose();
     }
     const geo = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
     geo.applyMatrix4(new Matrix4().multiplyMatrices(toGroup, o.matrixWorld));
@@ -105,15 +102,6 @@ export function bake(group) {
     group.add(mesh);
   }
   return group;
-}
-
-function matte(colour, { roughness = 0.82, flat = false } = {}) {
-  return new MeshStandardMaterial({
-    color: new Color(colour),
-    roughness,
-    metalness: 0,
-    flatShading: flat,
-  });
 }
 
 /** Pushes a mesh's vertices around so no two pieces are identical. */
@@ -214,7 +202,7 @@ export function quenelle(colour, { length = 0.62, width = 0.42, height = 0.36, r
   geo.computeVertexNormals();
   if (rng) rough(geo, rng, 0.03);
 
-  const mesh = new Mesh(geo, iceCreamMaterial({ cream: colour }));
+  const mesh = new Mesh(geo, iceCreamMaterial({ cream: colour, height }));
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   mesh.userData.ridgeAt = (t) => {
@@ -229,7 +217,7 @@ export function quenelle(colour, { length = 0.62, width = 0.42, height = 0.36, r
 export function blackberry(colour, { radius = 0.075, rng } = {}) {
   const g = new Group();
   const r = rng ?? seeded(3);
-  const core = new Mesh(new SphereGeometry(radius * 0.72, 14, 12), matte(colour, { roughness: 0.42 }));
+  const core = new Mesh(new SphereGeometry(radius * 0.72, 14, 12), toy(colour, { top: '#5d3d4f', bottom: '#140e11' }));
   g.add(core);
   const drupelets = 16;
   for (let i = 0; i < drupelets; i++) {
@@ -239,7 +227,7 @@ export function blackberry(colour, { radius = 0.075, rng } = {}) {
     const theta = i * 2.399963;
     const d = new Mesh(
       new SphereGeometry(radius * (0.3 + r() * 0.08), 10, 8),
-      matte(colour, { roughness: 0.34 })
+      toy(colour, { top: '#6a4659', bottom: '#1a1216' })
     );
     d.position.set(
       Math.sin(phi) * Math.cos(theta) * radius * 0.78,
@@ -264,7 +252,7 @@ export function raspberry(colour, { radius = 0.07, rng } = {}) {
     const theta = i * 2.399963;
     const d = new Mesh(
       new SphereGeometry(radius * (0.26 + r() * 0.07), 10, 8),
-      matte(colour, { roughness: 0.38 })
+      toy(colour)
     );
     const rr = radius * 0.8;
     d.position.set(
@@ -284,7 +272,7 @@ export function raspberry(colour, { radius = 0.07, rng } = {}) {
 export function shard(colour, { length = 0.3, thickness = 0.011 } = {}) {
   const geo = new CylinderGeometry(thickness * 0.35, thickness, length, 7, 1);
   geo.translate(0, length / 2, 0);
-  const mesh = new Mesh(geo, matte(colour, { roughness: 0.34 }));
+  const mesh = new Mesh(geo, toy(colour));
   mesh.castShadow = true;
   return mesh;
 }
@@ -293,7 +281,7 @@ export function shard(colour, { length = 0.3, thickness = 0.011 } = {}) {
 export function crumb(colour, { size = 0.03, rng } = {}) {
   const r = rng ?? seeded(11);
   const geo = rough(new IcosahedronGeometry(size, 0), r, 0.5, 0.7);
-  const mesh = new Mesh(geo, matte(colour, { roughness: 0.9, flat: true }));
+  const mesh = new Mesh(geo, toy(colour));
   mesh.castShadow = true;
   return mesh;
 }
@@ -307,14 +295,14 @@ export function flake(colour, { length = 0.075, rng } = {}) {
   }
   geo.computeVertexNormals();
   if (rng) rough(geo, rng, 0.2);
-  const mesh = new Mesh(geo, matte(colour, { roughness: 0.74 }));
+  const mesh = new Mesh(geo, toy(colour));
   mesh.castShadow = true;
   return mesh;
 }
 
 /** A chopped chive: a short length of hollow green stem. */
 export function chive(colour, { length = 0.028, radius = 0.009 } = {}) {
-  const mesh = new Mesh(new CylinderGeometry(radius, radius, length, 8, 1), matte(colour, { roughness: 0.6 }));
+  const mesh = new Mesh(new CylinderGeometry(radius, radius, length, 8, 1), toy(colour));
   mesh.castShadow = true;
   return mesh;
 }
@@ -336,11 +324,21 @@ export function spiral(colour, { innerRadius = 0.1, outerRadius = 0.62, turns = 
     const r = innerRadius + (outerRadius - innerRadius) * t;
     points.push(new Vector3(Math.cos(angle) * r, Math.sin(t * 9) * 0.004, Math.sin(angle) * r));
   }
-  const mesh = new Mesh(
-    new TubeGeometry(new CatmullRomCurve3(points), 220, thickness, 8, false),
-    matte(colour, { roughness: 0.28 })
-  );
+  const curve = new CatmullRomCurve3(points);
+  const SEGMENTS = 220;
+  const RADIAL = 8;
+  const mesh = new Mesh(new TubeGeometry(curve, SEGMENTS, thickness, RADIAL, false), toy(colour));
   mesh.castShadow = true;
+  // So it can be drawn on a length at a time, the way it is squeezed out:
+  // TubeGeometry lays its indices down the path in order, RADIAL * 6 per
+  // segment, so a draw range over the first n segments is the first n
+  // pieces of the drizzle. The tip at fraction u is curve.getPointAt(u).
+  mesh.userData.curve = curve;
+  mesh.userData.drawTo = (u) => {
+    const n = Math.round(Math.min(1, Math.max(0, u)) * SEGMENTS);
+    mesh.geometry.setDrawRange(0, n * RADIAL * 6);
+    mesh.visible = n > 0;
+  };
   return mesh;
 }
 
@@ -366,7 +364,7 @@ export function ribbon(colour, { length = 0.5, width = 0.09, rng, seed = 1 } = {
   const pos = geo.attributes.position;
   for (let i = 0; i < pos.count; i++) pos.setY(i, pos.getY(i) * 0.22);
   geo.computeVertexNormals();
-  const mesh = new Mesh(geo, matte(colour, { roughness: 0.55 }));
+  const mesh = new Mesh(geo, toy(colour));
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   return mesh;
@@ -376,7 +374,7 @@ export function ribbon(colour, { length = 0.5, width = 0.09, rng, seed = 1 } = {
 export function curd(colour, { size = 0.055, rng } = {}) {
   const r = rng ?? seeded(17);
   const geo = rough(new IcosahedronGeometry(size, 1), r, 0.42, 0.78);
-  const mesh = new Mesh(geo, matte(colour, { roughness: 0.86 }));
+  const mesh = new Mesh(geo, toy(colour));
   mesh.castShadow = true;
   return mesh;
 }
@@ -394,7 +392,7 @@ export function curd(colour, { size = 0.055, rng } = {}) {
  * The toasting -- pitted crumb on the face, charred crust round the edge
  * -- is the material's job, in dishMaterials.js.
  */
-export function toast(crustColour, crumbColour, { length = 1.3, width = 0.95, depth = 0.17 } = {}) {
+export function toast(crustColour, crumbColour, { length = 1.3, width = 0.95, depth = 0.17, fade = false } = {}) {
   const g = new Group();
 
   const half = length / 2;
@@ -420,7 +418,7 @@ export function toast(crustColour, crumbColour, { length = 1.3, width = 0.95, de
 
   // One material for face and crust alike -- it tells them apart by which
   // way the surface faces (see toastMaterial), so there is no seam.
-  const slab = new Mesh(geo, toastMaterial({ crumb: crumbColour, crust: crustColour }));
+  const slab = new Mesh(geo, toastMaterial({ crumb: crumbColour, crust: crustColour, fade }));
   slab.castShadow = true;
   slab.receiveShadow = true;
   g.add(slab);

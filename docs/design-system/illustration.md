@@ -36,30 +36,30 @@ whole thing.
 Nothing is textured, and the tour ships **no images at all** — only
 `palettes.json`, a few hundred bytes.
 
-### Surfaces are procedural
+### Painted like toys
 
-Geometry gets a piece's silhouette right; what a flat colour cannot give
-it is the surface. `src/lib/dishMaterials.js` writes those in TSL (see
-the `webgpu-threejs-tsl` skill in `.claude/skills/`):
+The reference for the food is a low-poly cake slice from a "tiny treats"
+set: no lighting at all, every part coloured by a soft
+gradient — lighter where it faces up, deeper where it turns away — so
+form reads from colour alone. `src/lib/dishMaterials.js` does the same:
 
-- **Toast** — Worley noise at two scales for the air pockets in the
-  crumb, fractal noise for uneven browning, charred patches on the crust.
-  Face and crust are one material, told apart by which way the surface
-  faces, so there is no seam.
-- **Ice cream** — noise stretched along the quenelle's length for the
-  spoon's drag lines, fine Worley dimpling for ice crystals, and sheen for
-  the soft bloom cold cream has at a grazing angle.
-- **Soup** — faint swirl ridges spiralling out from the centre, kept
-  subtle so the oil stays the spiral the eye follows.
+- **`toy(colour)`** — an unlit material whose colour runs between a lifted
+  and a deepened version of the sampled colour, weighted by how much the
+  surface faces the key light. The ends are shifted in HSL, not lerped
+  toward white, which would wash every colour grey.
+- **Ice cream, toast, soup** — the same idea with a gradient of their own:
+  the quenelle warms from butter at the ridge to peach at the base; the
+  toast's face is paler at its middle inside a darker crust; the soup is
+  brightest at its centre.
 
-Every pattern is keyed to the piece's own space (`positionLocal`), so it
-turns with the food. Keyed to world space it would slide across the
-surface as the dish rotated.
+The food is unlit, but the ceramic is not, so the food still casts
+shadows onto it — which is what sits it in the bowl rather than on top
+of the picture. The shading direction matches the key light so the two
+agree.
 
-Relief comes from `proceduralBump()` rather than three's `bumpMap()`.
-`bumpMap()` finds a height's slope by re-sampling a *texture* at nudged
-UVs; a noise function ignores UVs, so the slope comes out zero and the
-bump silently disappears.
+An earlier pass went the other way — pitted crumb from Worley noise,
+spoon drag as bump — which was the wrong direction for this look, and
+also the expensive one.
 
 ### The renderer
 
@@ -118,6 +118,19 @@ mount.
 **Build variants once and hide them.** The archive riffles through fifteen
 heaps by flipping `visible`, not by rebuilding meshes five times a second.
 
+**Nothing moves in clumps.** The soup's timeline is the model: the
+empty bowl and plate first, then soup ladled in until it fills, the toast
+set down beside the bowl, the oil squeezed on from a bottle as a spiral
+drawn from the centre out, then the chives sprinkled on piece by piece,
+then the almonds. Every chive and flake is an instance of one
+`InstancedMesh` with its own start time, fall and tumble — they must not
+arrive as a group.
+
+**Keep things out of each other.** The toast's resting place is computed
+from its own vertices: pushed out from the bowl until its nearest point
+clears the bowl's rim, so it can drop straight down without passing
+through the bowl.
+
 **Bake what has settled.** Built food is hundreds of small meshes, and
 each is a draw call — twice, with shadows. Once a group's pieces are
 placed, `bake()` merges them into one mesh per surface. It leaves node
@@ -162,9 +175,10 @@ there is no DOM to measure inside a canvas:
 - **Assembling**: the count of green pixels over one soup cycle both
   rises and falls. Baked into one texture it would never change; sharing
   one keyframe it would never be partial.
-- **Cycling**: the archive's mean frame colour keeps changing. Coverage
-  does not work here — nine dishes swapping textures keep the same
-  silhouettes.
+- **Cycling**: the mean colour of each cell of a 4x4 grid over the frame
+  keeps changing. Coverage does not work here — the heaps keep the same
+  silhouettes — and neither does the whole frame's mean: one heap
+  swapping moves it by a fraction of a unit, which rounds away.
 
 The suite renders the scenes at 1x. Headless Chromium has no GPU, and on
 SwiftShader the renderer's multisampled antialiasing makes a 2x frame
