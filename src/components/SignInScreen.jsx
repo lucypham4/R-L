@@ -1,21 +1,64 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Button from './Button';
 import { Label, TextInput, ErrorText } from './TextField';
-import { signIn, signUp, resendConfirmation } from '../lib/auth';
+import { signIn, signUp, resendConfirmation, requestPasswordReset } from '../lib/auth';
 import './SignInScreen.css';
 
-export default function SignInScreen({ initialMode = 'signin', onGuest }) {
-  const [mode, setMode] = useState(initialMode); // signin | signup
+const COPY = {
+  signin: {
+    title: 'Sign in',
+    subtitle: 'For a public page and multi-device access.',
+    submit: 'Sign in',
+    working: 'Signing in…',
+  },
+  signup: {
+    title: 'Create your account',
+    subtitle: 'Optional. Get a public page and multi-device access.',
+    submit: 'Create account',
+    working: 'Creating account…',
+  },
+  forgot: {
+    title: 'Reset your password',
+    subtitle: "Enter your account's email and we'll send a link to choose a new password.",
+    submit: 'Send reset link',
+    working: 'Sending…',
+  },
+};
+
+export default function SignInScreen({ initialMode = 'signin', initialNotice = '', onGuest }) {
+  const [mode, setMode] = useState(initialMode); // signin | signup | forgot
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [status, setStatus] = useState('idle'); // idle | working | error
   const [error, setError] = useState('');
-  const [confirmNotice, setConfirmNotice] = useState('');
+  const [confirmNotice, setConfirmNotice] = useState(initialNotice);
   const [resendStatus, setResendStatus] = useState('idle'); // idle | sending | sent | error
   const [resendError, setResendError] = useState('');
+  const [resetSentTo, setResetSentTo] = useState('');
+  const emailRef = useRef(null);
+  const passwordRef = useRef(null);
 
   const isSignUp = mode === 'signup';
+  const isForgot = mode === 'forgot';
   const isWorking = status === 'working';
+  const copy = COPY[mode];
+
+  // The link that switched modes has gone, and focus with it. Put it where
+  // the next thing to type is: the email to reset, or, back on the sign-in
+  // form with the email already there, the password. Keyed on the mode
+  // alone, so typing never moves it.
+  useEffect(() => {
+    const target = mode === 'signin' && email ? passwordRef.current : emailRef.current;
+    target?.focus();
+  }, [mode]);
+
+  function switchMode(next) {
+    setMode(next);
+    setStatus('idle');
+    setError('');
+    setConfirmNotice('');
+    setResetSentTo('');
+  }
 
   async function handleResend() {
     if (!email.trim()) {
@@ -40,7 +83,10 @@ export default function SignInScreen({ initialMode = 'signin', onGuest }) {
     setConfirmNotice('');
     setStatus('working');
     try {
-      if (isSignUp) {
+      if (isForgot) {
+        await requestPasswordReset(email.trim());
+        setResetSentTo(email.trim());
+      } else if (isSignUp) {
         const session = await signUp(email.trim(), password);
         if (!session) {
           // Email confirmation is required, no session yet.
@@ -62,62 +108,80 @@ export default function SignInScreen({ initialMode = 'signin', onGuest }) {
     <div className="signin-screen">
       <div className="signin-card">
         <p className="signin-eyebrow">Staj</p>
-        <h1 className="signin-title">{isSignUp ? 'Create your account' : 'Sign in'}</h1>
-        <p className="signin-subtitle">
-          {isSignUp ? 'Optional. Get a public page and multi-device access.' : 'For a public page and multi-device access.'}
-        </p>
+        <h1 className="signin-title">{copy.title}</h1>
+        <p className="signin-subtitle">{copy.subtitle}</p>
 
         <form className="signin-form" onSubmit={handleSubmit}>
+          {/* First, so "below" means the whole form: the password to sign
+              in with, or the links that send a new email. */}
+          {confirmNotice && <p className="signin-notice">{confirmNotice}</p>}
           <div>
             <Label htmlFor="signin-email" required>
               Email
             </Label>
             <TextInput
+              ref={emailRef}
               id="signin-email"
               type="email"
               autoComplete="email"
               autoFocus
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setResetSentTo('');
+              }}
               required
             />
           </div>
-          <div>
-            <Label htmlFor="signin-password" required>
-              Password
-            </Label>
-            <TextInput
-              id="signin-password"
-              type="password"
-              autoComplete={isSignUp ? 'new-password' : 'current-password'}
-              minLength={6}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
+          {!isForgot && (
+            <div>
+              <Label htmlFor="signin-password" required>
+                Password
+              </Label>
+              <TextInput
+                ref={passwordRef}
+                id="signin-password"
+                type="password"
+                autoComplete={isSignUp ? 'new-password' : 'current-password'}
+                minLength={6}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              {!isSignUp && (
+                <button type="button" className="signin-forgot" onClick={() => switchMode('forgot')}>
+                  Forgot password?
+                </button>
+              )}
+            </div>
+          )}
 
-          {confirmNotice && <p className="signin-notice">{confirmNotice}</p>}
+          {resetSentTo && (
+            <p className="signin-notice" role="status">
+              If there&rsquo;s an account for {resetSentTo}, a reset link is on its way. It can take a minute, and
+              sometimes lands in spam.
+            </p>
+          )}
           {status === 'error' && <ErrorText>{error}</ErrorText>}
 
           <Button type="submit" variant="primary" disabled={isWorking}>
-            {isWorking ? (isSignUp ? 'Creating account…' : 'Signing in…') : isSignUp ? 'Create account' : 'Sign in'}
+            {isWorking ? copy.working : resetSentTo ? 'Send again' : copy.submit}
           </Button>
         </form>
 
         <button
           type="button"
           className="signin-switch"
-          onClick={() => {
-            setMode(isSignUp ? 'signin' : 'signup');
-            setError('');
-            setConfirmNotice('');
-          }}
+          onClick={() => switchMode(mode === 'signin' ? 'signup' : 'signin')}
         >
-          {isSignUp ? 'Already have an account? Sign in' : 'New chef? Create an account'}
+          {mode === 'signin'
+            ? 'New chef? Create an account'
+            : isForgot
+              ? 'Remembered it? Back to sign in'
+              : 'Already have an account? Sign in'}
         </button>
 
-        {!isSignUp && (
+        {mode === 'signin' && (
           <div className="signin-resend">
             {resendStatus === 'sent' ? (
               <p className="signin-notice">Confirmation email resent. Check your inbox.</p>

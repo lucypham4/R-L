@@ -161,6 +161,21 @@ sign-ups won't get a session until they click the link in their inbox.
 The sign-in screen tells them to check their email and switches back to
 the sign-in form.
 
+**Forgot password?** under the password field emails a reset link
+(Supabase's own "Reset Password" email). The link signs the chef in and
+lands on a screen to choose a new password before anything else. For the
+link to come back to the right place, the address it's requested from
+has to be allowed in Supabase → Authentication → URL Configuration:
+- **Site URL**: the deployed app. Links requested from the iOS app, and
+  from any address not in the list below, come back here.
+- **Redirect URLs**: add any other address chefs reset from, e.g.
+  `http://localhost:5173/**` for local work, or the Vercel preview
+  domain with a `**` wildcard.
+
+A link that has expired (after an hour) or was already used, sometimes by
+a mail scanner opening it first, lands on the sign-in screen saying so,
+with both ways to ask for another email right below.
+
 ### Onboarding
 
 A short, skippable welcome tour (`src/components/OnboardingTour.jsx`) runs
