@@ -4,12 +4,59 @@ A meal-logging app for any chef, a React + Vite app implementing the Staj
 design system, backed by Supabase (data + auth) and Cloudinary
 (photos).
 
+Staj is for any chef, in any kitchen. Moving into private chef work is one
+use case, not the audience. Nothing in the app assumes it, and a chef
+doesn't have to say what they're using it for.
+
 **An account is entirely optional.** Open the app and you're straight into
 your own diary, meals persist to that browser via `localStorage`, no
 sign-up required. Creating an account is an opt-in upgrade for two things:
 a live, public, read-only page at `/<your-page-name>` you can hand to
-clients, and access to your diary from more than one device (local-only
-data stays on that one browser).
+clients, and access to your diary from more than one device. Meals logged
+before you sign up can be copied into the new account (see
+[Local Import](#signing-in-optional)).
+
+## What's in the app
+
+The app has two tabs, **Home** and **Add**. Everything else opens from
+those, or from the round profile picture at the top right of Home, which
+goes to Settings.
+
+- **Home**: your dishes as a grid of cards, each with a photo, a name and
+  a one-line summary. Search covers names, cuisine, category, summary,
+  description and ingredients. Filters cover cuisine, category and year.
+  Edit mode puts a × on each card to delete that dish.
+- **A dish**: tapping a card opens it as a pull-up sheet that rests in
+  three positions (peek, open, collapsed). Swipe, use the arrows or use
+  the arrow keys to step to the next dish; the shelf loops, so the oldest
+  is one step from the newest. The dish has up to 6 photos, the recipe
+  (ingredients, method, note), how many it serves, and a **Share** button
+  that makes an image of the dish to send or save.
+- **Add**: a three-step wizard. Step 1 takes photos (up to 6, each
+  cropped to square or 4:5) or a sketch drawn in the app. Step 2 takes
+  spoken or typed notes, which AI can tidy and use to fill in the rest
+  (see [Photo → speak → AI fill](#photo--speak--ai-fill)). Step 3 is where
+  a chef checks and edits everything: name, date, serves, description,
+  summary, category, cuisine, ingredients, method and note.
+- **Settings**: profile picture, Appearance (System, Light or Dark),
+  Public page theme, account (sign in or out, change password, link to
+  your public page) and, once there is an account, a retry for any local
+  meals that didn't import.
+- **Public page** at `/<your-page-name>`: a read-only version of Home for
+  clients, with the same dish sheet and the same swiping, in the light or
+  dark theme the chef picked. A link like `/<your-page-name>?meal=<id>`
+  opens one dish.
+
+There is no router library. `/` is the private app, a single path segment
+is a chef's public page, and `?meal=<id>` opens one dish.
+
+**No export.** The app used to download a copy of the diary as an HTML
+file. That was removed in favour of the public page and Local Import; see
+[ADR 0003](docs/adr/0003-no-static-export.md).
+
+For what the words Chef, Local meal and Local Import mean here, see
+[`CONTEXT.md`](CONTEXT.md). Decisions that shaped the app are in
+[`docs/adr/`](docs/adr/).
 
 ## Local development
 
@@ -31,9 +78,19 @@ Supabase request. No test reaches a real project.
 The browser is expected to be already installed. If Playwright reports a
 missing browser, run `npx playwright install chromium` once.
 
-The suite currently pins the add-meal wizard's AI-fill failure paths: a
-failing Edge Function must never cost a chef their notes or their way
-forward. See `tests/add-meal-ai-failure.spec.js`.
+The suite has a spec per area that is easy to break without noticing:
+
+- the add-meal wizard's AI-fill failure paths (a failing Edge Function
+  must never cost a chef their notes or their way forward), serves, and
+  the dish summary: `add-meal-ai-failure`, `serves`, `dish-summary`
+- the dish sheet and stepping between dishes: `dish-sheet-motion`,
+  `dish-step-motion`, `dish-swipe`
+- deleting a meal, password reset, and the Settings profile picture:
+  `meal-delete`, `password-reset`, `settings-profile`
+- the two-tab nav's balance, and the no-straight-corners rule on every
+  screen: `bottom-nav`, `corners`
+
+They live in `tests/`.
 
 Works immediately with no environment variables, meals persist to that
 browser's `localStorage` and photos fall back to local blob URLs (see
@@ -64,7 +121,8 @@ page and cross-device access possible on top of that.
    API secret; restrict it to image formats and a folder from the same
    dashboard if you want.
 4. Restart `npm run dev`, the notice banner disappears once both are
-   configured, and "+ Add meal" persists real rows with real photo URLs.
+   configured, and the **Add** tab persists real rows with real photo
+   URLs.
 
 ### Environment variables
 
@@ -153,9 +211,9 @@ own message, which is the one worth reading:
 
 ### Signing in (optional)
 
-A "Sign in for multi-device access" link sits in the top bar whenever
-Supabase is configured, nothing forces you through it. Sign-up is open
-from there ("New chef? Create an account"), no admin approval step.
+Settings → Account has a **Sign in** button whenever Supabase is
+configured, nothing forces you through it. Sign-up is open from there
+("New chef? Create an account"), no admin approval step.
 
 1. First sign-in (or right after signing up, if your Supabase project
    doesn't require email confirmation) prompts for a name and a page name.
@@ -163,8 +221,8 @@ from there ("New chef? Create an account"), no admin approval step.
    changed later, so choose deliberately.
 2. From then on, signing in goes straight to your own cloud-backed
    gallery, separate from whatever's in that browser's local storage.
-   "View public page ↗" in the top bar opens your `/<slug>` page, that's
-   the link to actually share.
+   "View public page ↗" in Settings → Account opens your `/<slug>` page,
+   that's the link to actually share.
 3. Settings → Theme → **Public page** sets whether that page renders light
    or dark for everyone you send it to. It's stored on your profile, not
    in the visitor's browser, so the page looks the same to every client,
@@ -172,12 +230,20 @@ from there ("New chef? Create an account"), no admin approval step.
    from **Appearance** directly above it, which is your own per-device
    preference for the private app and follows your OS by default.
 
-There's currently no way to import your local-only meals into an account
-you create afterward, they're two separate stores. If your Supabase
-project has "Confirm email" turned on (Authentication → Settings), new
-sign-ups won't get a session until they click the link in their inbox.
-The sign-in screen tells them to check their email and switches back to
-the sign-in form.
+**Local Import.** Right after a new account is created, if that browser
+has meals in local storage, the app offers to copy them into the account.
+It asks first, runs once, and clears each meal from local storage only
+after it has been copied; any that fail stay where they are, and
+Settings → This device offers a retry. It never merges into an account
+that already has meals, so a second browser's local meals aren't pulled
+in. The reasoning is in
+[ADR 0001](docs/adr/0001-local-import-never-merges.md) and the code in
+`src/lib/localImport.js`.
+
+If your Supabase project has "Confirm email" turned on (Authentication →
+Settings), new sign-ups won't get a session until they click the link in
+their inbox. The sign-in screen tells them to check their email and
+switches back to the sign-in form.
 
 **Forgot password?** under the password field emails a reset link
 (Supabase's own "Reset Password" email). The link signs the chef in and
@@ -197,11 +263,16 @@ with both ways to ask for another email right below.
 ### Onboarding
 
 A short, skippable welcome tour (`src/components/OnboardingTour.jsx`) runs
-once per browser (or once per account, if signed in). Its four art slots
-each take an animated Rive artboard, a static image, or neither, in which
-case they fall back to a labelled placeholder showing the size that slot
-wants. The cover slot currently holds an animated Rive illustration; the
-other three are still placeholders.
+once per browser (or once per account, if signed in). Each of its four
+steps has an art slot that takes an animated Rive artboard, a static
+image, or neither, in which case it falls back to a labelled placeholder
+showing the size that slot wants. The cover slot currently holds an
+animated Rive illustration; the other three are still placeholders.
+
+**Direction: photography, not illustration.** The remaining illustrations
+are on hold. The tour's art will be clean photographs of food instead,
+which is what the app is about, so the three placeholders will take static
+images rather than Rive art. The Rive support stays in for now.
 
 Swapping art in is a one-entry change in
 `src/components/onboardingSteps.js`. See
@@ -209,6 +280,11 @@ Swapping art in is a one-entry change in
 for the details, including how to read artboard and state-machine names
 out of a `.riv` file and why the Rive WebAssembly is self-hosted rather
 than pulled from a CDN.
+
+The tour doesn't ask what a chef plans to use Staj for. A later version
+could ask once (for plating inspiration from other dishes, to see other
+restaurants' plating, or to show off dishes they've made) and shape the
+first screens around the answer. That is an idea, not built.
 
 ### Design system
 
@@ -254,8 +330,8 @@ doesn't have:
   secret or a Supabase service-role key in this app.
 - `GEMINI_API_KEY` is a Supabase Edge Function secret, not a
   `VITE_`-prefixed client variable, it must never end up in the browser
-  bundle. The `ai-fill` and `clean-description` functions are the only
-  things that read it.
+  bundle. The `ai-fill`, `clean-description` and `summarize-dish`
+  functions are the only things that read it.
 - Run `supabase/multi-chef-migration.sql`, not `phase2-auth-policies.sql`
   (superseded, kept only for history). The migration makes meal reads
   public again (needed for public chef pages) and scopes every write to
