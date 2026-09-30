@@ -79,6 +79,12 @@ export async function updateMealSummary(id, summary) {
 }
 
 export async function deleteMeal(id) {
-  const { error } = await supabase.from('meals').delete().eq('id', id);
+  // Asks for the deleted row back, because under row-level security a
+  // delete that no policy allows isn't an error: it matches nothing and
+  // reports success. That's how a signed-in chef's deletes once looked as
+  // if they'd worked while changing nothing, and the dish came back on
+  // the next reload (meal-delete-migration.sql). No row back, nothing went.
+  const { data, error } = await supabase.from('meals').delete().eq('id', id).select('id');
   if (error) throw error;
+  if (!data?.length) throw new Error("Couldn't delete this dish from your account. It's still there.");
 }

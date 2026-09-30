@@ -206,6 +206,10 @@
   color: var(--color-muted);
 }
 
+.gallery-edit-error {
+  color: var(--color-danger);
+}
+
 .gallery-edit-done {
   padding: 6px 16px;
   border: 1px solid var(--color-ink);

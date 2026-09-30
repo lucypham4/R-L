@@ -55,7 +55,9 @@ page and cross-device access possible on top of that.
    `avatar_url` column for the profile picture set in Settings), then
    `supabase/summary-migration.sql` once (adds each meal's one-sentence
    `summary`, and the policy that lets a chef update their own meals so an
-   older meal's summary can be saved; see below).
+   older meal's summary can be saved; see below), then
+   `supabase/meal-delete-migration.sql` once (lets a chef delete their own
+   meals; without it a delete looks as if it worked and changes nothing).
 3. In Cloudinary, create an **unsigned** upload preset (Settings → Upload →
    Upload presets → Add upload preset, signing mode "Unsigned"). Unsigned
    presets are what let the browser upload directly without exposing your
