@@ -37,3 +37,14 @@ split the soup into layers so those could be revealed one at a time. Both
 are gone with the textures: the food is geometry now, so the photographs
 are a colour reference rather than a source. `git log` has them if the
 technique is ever wanted again.
+
+## Saving the dishes as 3D files
+
+    node scripts/dish-assets/export-glb.mjs <folder>
+
+Writes each scene, and each of the archive's nine dishes, as a `.glb` at
+its finished moment. The shader painting is baked into vertex colours on
+an unlit material (`paintAt` in `src/lib/dishMaterials.js` is the CPU
+copy of it — change one, change the other), and the toon outline is
+saved as geometry in its own `outlines` group. The camera-following shine
+balls on round food are not saved.

@@ -76,7 +76,7 @@ const FOOD = {
   ricotta: '#efe6d4',
 };
 
-const SCENES = {
+export const SCENES = {
   /**
    * The dessert: a quenelle of ice cream with chopped nuts on its ridge,
    * berries round it, and two starbursts of piped chocolate.

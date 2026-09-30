@@ -1,4 +1,4 @@
-import { BackSide, Color, MeshBasicNodeMaterial, SRGBColorSpace } from 'three/webgpu';
+import { BackSide, Color, MeshBasicNodeMaterial, SRGBColorSpace, Vector3 } from 'three/webgpu';
 import {
   atan,
   cameraViewMatrix,
@@ -99,8 +99,10 @@ export function toy(colour, { top, bottom, range = null, fade = false, shine: sh
   const key = [colour, top, bottom, range?.join(','), fade, shiny, outline, outlineWidth].join('|');
   if (!fade && cache.has(key)) return cache.get(key);
 
-  const hi = color(top ? new Color(top) : lighter(colour, 0.16));
-  const lo = color(bottom ? new Color(bottom) : deeper(colour, 0.3));
+  const hiColour = top ? new Color(top) : lighter(colour, 0.16);
+  const loColour = bottom ? new Color(bottom) : deeper(colour, 0.3);
+  const hi = color(hiColour);
+  const lo = color(loColour);
   const t = range
     ? smoothstep(range[0], range[1], positionLocal.y).mul(0.6).add(wrap().mul(0.4))
     : wrap();
@@ -110,6 +112,7 @@ export function toy(colour, { top, bottom, range = null, fade = false, shine: sh
   material.colorNode = shiny ? mix(base, color('#ffffff'), shine()) : base;
   material.userData.outline = outline === false ? null : new Color(outline ?? inked(colour));
   material.userData.outlineWidth = outlineWidth ?? null;
+  material.userData.paint = { kind: 'toy', hi: hiColour, lo: loColour, range };
   if (fade) {
     withFade(material);
   } else {
@@ -129,10 +132,13 @@ export function toy(colour, { top, bottom, range = null, fade = false, shine: sh
 export function iceCreamMaterial({ cream, height }) {
   const material = new MeshBasicNodeMaterial();
   const up = smoothstep(0, height, positionLocal.y);
-  const base = mix(color(deeper(lighter(cream, 0.1), 0.12).lerp(new Color('#f3c9a2'), 0.35)), color(lighter(cream, 0.4)), up);
+  const low = deeper(lighter(cream, 0.1), 0.12).lerp(new Color('#f3c9a2'), 0.35);
+  const high = lighter(cream, 0.4);
+  const base = mix(color(low), color(high), up);
   const drag = positionLocal.z.mul(90).sin().mul(0.025).add(1);
   material.colorNode = mix(base.mul(float(0.84).add(wrap().mul(0.2))).mul(drag), color('#ffffff'), shine());
   material.userData.outline = new Color('#d9a45a');
+  material.userData.paint = { kind: 'iceCream', low, high, height };
   return material;
 }
 
@@ -158,6 +164,12 @@ export function ribbonMaterial({ flesh, skin, edges = 1 }) {
   material.colorNode = mix(fleshColour, skinColour, stripe);
   material.userData.outline = inked(skin);
   material.userData.outlineWidth = 0.0035;
+  material.userData.paint = {
+    kind: 'ribbon',
+    edges,
+    flesh: [deeper(flesh, 0.22), lighter(flesh, 0.22)],
+    skin: [deeper(skin, 0.25), lighter(skin, 0.12)],
+  };
   cache.set(key, material);
   return material;
 }
@@ -169,14 +181,17 @@ export function ribbonMaterial({ flesh, skin, edges = 1 }) {
  */
 export function toastMaterial({ crumb, crust, fade = false }) {
   const material = new MeshBasicNodeMaterial();
-  const face = smoothstep(0.55, 0.9, normalLocal.y);
+  const facing = smoothstep(0.55, 0.9, normalLocal.y);
   const centre = smoothstep(0.55, 0.05, positionLocal.xz.length());
-  const faceColour = mix(color(new Color(crumb).lerp(new Color(crust), 0.62)), color(new Color(crumb).lerp(new Color(crust), 0.25)), centre);
-  const crustColour = mix(color(deeper(crust, 0.35)), color(crust), wrap());
+  const face = [new Color(crumb).lerp(new Color(crust), 0.62), new Color(crumb).lerp(new Color(crust), 0.25)];
+  const edge = [deeper(crust, 0.35), new Color(crust)];
+  const faceColour = mix(color(face[0]), color(face[1]), centre);
+  const crustColour = mix(color(edge[0]), color(edge[1]), wrap());
   // Matte: bread does not shine, and a highlight on the crust's bevel
   // read as a glazed plastic edge.
-  material.colorNode = mix(crustColour, faceColour, face).mul(float(0.84).add(wrap().mul(0.2)));
+  material.colorNode = mix(crustColour, faceColour, facing).mul(float(0.84).add(wrap().mul(0.2)));
   material.userData.outline = inked(crust);
+  material.userData.paint = { kind: 'toast', face, edge };
   if (fade) withFade(material);
   return material;
 }
@@ -194,11 +209,14 @@ export function soupMaterial({ soup }) {
   const r = positionLocal.xz.length();
   const angle = atan(positionLocal.z, positionLocal.x);
   const bands = r.mul(22).sub(angle).sin().mul(0.5).add(0.5).mul(smoothstep(0.05, 0.25, r));
-  const radial = mix(color(lighter(soup, 0.22)), color(deeper(soup, 0.12)), smoothstep(0.1, 1, r));
+  const centre = lighter(soup, 0.22);
+  const rim = deeper(soup, 0.12);
+  const radial = mix(color(centre), color(rim), smoothstep(0.1, 1, r));
   material.colorNode = radial.mul(bands.mul(0.05).add(0.97));
   // Outlined by a ring at its edge rather than a hull -- see addOutlines.
   material.userData.outline = null;
   material.userData.ring = inked(soup);
+  material.userData.paint = { kind: 'soup', centre, rim };
   return material;
 }
 
@@ -214,6 +232,7 @@ export function streamMaterial(colour) {
   material.transparent = true;
   material.opacityNode = smoothstep(0, -0.3, positionLocal.y);
   material.depthWrite = false;
+  material.userData.paint = { kind: 'stream' };
   return material;
 }
 
@@ -222,8 +241,12 @@ export function whiteMaterial() {
   const material = new MeshBasicNodeMaterial();
   material.colorNode = color('#ffffff');
   material.userData.outline = null;
+  material.userData.paint = { kind: 'white' };
   return material;
 }
+
+/** An outline's two ends: deeper round the far side, lighter facing the light. */
+const inkEnds = (ink) => [shift(ink, -0.08, 0.06), shift(ink, 0.2, -0.04)];
 
 const hulls = new Map();
 const smoothed = new WeakMap();
@@ -276,8 +299,10 @@ function hullMaterial(ink, width, opacity) {
   // only, and the view-facing normal nodes flip for those.
   const outward = modelWorldMatrix.mul(vec4(normalLocal, 0)).xyz.normalize();
   const lit = outward.dot(LIGHT).mul(0.5).add(0.5);
-  material.colorNode = mix(color(shift(ink, -0.08, 0.06)), color(shift(ink, 0.2, -0.04)), smoothstep(0.25, 0.85, lit));
+  const ends = inkEnds(ink);
+  material.colorNode = mix(color(ends[0]), color(ends[1]), smoothstep(0.25, 0.85, lit));
   material.positionNode = positionLocal.add(normalLocal.mul(width));
+  material.userData.paint = { kind: 'hull', ends, width };
   if (opacity) {
     material.transparent = true;
     material.opacityNode = opacity;
@@ -331,8 +356,65 @@ function ringFor(mesh, ink) {
   // geometry): the line where the soup meets the bowl. As the disc's
   // child it scales with it as the soup rises.
   const material = new MeshBasicNodeMaterial();
-  material.colorNode = mix(color(shift(ink, -0.08, 0.06)), color(shift(ink, 0.2, -0.04)), smoothstep(0.25, 0.85, wrap()));
+  const ends = inkEnds(ink);
+  material.colorNode = mix(color(ends[0]), color(ends[1]), smoothstep(0.25, 0.85, wrap()));
+  material.userData.paint = { kind: 'ring', ends };
   const ring = new mesh.constructor(mesh.geometry.userData.ringGeometry, material);
   ring.userData.isHull = true;
   return ring;
+}
+
+// The same painting, worked out on the CPU for one vertex -- for
+// scripts/dish-assets/export-glb.mjs, which saves the dishes as .glb files
+// with these colours baked in, since a 3D file cannot carry a shader.
+// Without the shine balls: they depend on where the camera stands.
+const LIGHT_CPU = new Vector3(-0.46, 0.74, 0.5).normalize();
+const step = (a, b, x) => {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
+const between = (out, a, b, t) => out.copy(a).lerp(b, t);
+
+/**
+ * A vertex's colour, in linear space, under the material whose
+ * `userData.paint` is given. `normalWorld` and `normalLocal` are unit
+ * vectors; `uv` may be null. Returns null for a stream, which is only
+ * ever seen mid-pour.
+ */
+export function paintAt(paint, { normalWorld, normalLocal, positionLocal, uv }, out = new Color()) {
+  const wrapped = normalWorld.dot(LIGHT_CPU) * 0.5 + 0.5;
+  switch (paint.kind) {
+    case 'toy': {
+      const { range } = paint;
+      const t = range ? step(range[0], range[1], positionLocal.y) * 0.6 + wrapped * 0.4 : wrapped;
+      return between(out, paint.lo, paint.hi, t).multiplyScalar(range ? 1 : 0.9 + wrapped * 0.14);
+    }
+    case 'iceCream': {
+      between(out, paint.low, paint.high, step(0, paint.height, positionLocal.y));
+      return out.multiplyScalar((0.84 + wrapped * 0.2) * (Math.sin(positionLocal.z * 90) * 0.025 + 1));
+    }
+    case 'ribbon': {
+      const v = uv ? uv.y : 0.5;
+      const far = step(0.84, 0.9, v);
+      const near = paint.edges > 1 ? step(0.16, 0.1, v) : 0;
+      const stripe = paint.edges > 0 ? Math.max(far, near) : 0;
+      const skin = between(new Color(), paint.skin[0], paint.skin[1], wrapped);
+      return between(out, paint.flesh[0], paint.flesh[1], wrapped).lerp(skin, stripe);
+    }
+    case 'toast': {
+      const facing = step(0.55, 0.9, normalLocal.y);
+      const centre = step(0.55, 0.05, Math.hypot(positionLocal.x, positionLocal.z));
+      const face = between(new Color(), paint.face[0], paint.face[1], centre);
+      return between(out, paint.edge[0], paint.edge[1], wrapped).lerp(face, facing).multiplyScalar(0.84 + wrapped * 0.2);
+    }
+    case 'soup':
+      return between(out, paint.centre, paint.rim, step(0.1, 1, Math.hypot(positionLocal.x, positionLocal.z)));
+    case 'hull':
+    case 'ring':
+      return between(out, paint.ends[0], paint.ends[1], step(0.25, 0.85, wrapped));
+    case 'white':
+      return out.setRGB(1, 1, 1);
+    default:
+      return null;
+  }
 }
