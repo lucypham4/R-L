@@ -4,9 +4,21 @@ The onboarding tour has four art slots. Each takes an animated dish
 scene, a static image, or neither — in which case it renders a labelled
 placeholder, so an unfinished slot looks intentional rather than broken.
 
-All four currently hold the chef's dishes, rebuilt as 3D geometry: a
-dessert, a squash soup assembling itself a component at a time, the
-archive filling up, and a zucchini dish lifting.
+**All four are placeholders for now.** They held the chef's dishes,
+rebuilt as 3D geometry — a dessert, a squash soup assembling itself a
+component at a time, the archive filling up, and a zucchini dish lifting —
+until those were shelved. The code is all still here (`src/lib/dish*.js`,
+`SceneArt.jsx`) and nothing loads it while no step uses a scene. To bring
+them back, restore the four `art` entries in `onboardingSteps.js` and
+`tests/onboarding-scenes.spec.js` from git history:
+
+    git log -S "kind: 'scene'" -- src/components/onboardingSteps.js
+    git log --diff-filter=D -- tests/onboarding-scenes.spec.js
+
+The dishes are also kept as `.glb` files: `node
+scripts/dish-assets/export-glb.mjs <folder>` writes them out.
+
+The rest of this page describes the scenes as they were built.
 
 ## Swapping art in
 
@@ -183,8 +195,9 @@ previous Rive illustration shipped in exactly that state — the timelines
 existed, were named correctly, and contained no keyframes, so the cat
 never moved.
 
-`tests/onboarding-scenes.spec.js` does all of it in pixels, because
-there is no DOM to measure inside a canvas:
+`tests/onboarding-scenes.spec.js` (removed while the scenes are shelved;
+see above) did all of it in pixels, because there is no DOM to measure
+inside a canvas:
 
 - **Moving**: two screenshots a beat apart differ.
 - **Not cropped**: no non-background pixel touches the border of the art
