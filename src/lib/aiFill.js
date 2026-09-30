@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from './supabase';
+import { SUMMARY_MAX } from './meal';
 
 // Both features below need a server-side secret (the Gemini API key), so
 // they ride on the same Supabase project as auth/data via Edge Functions
@@ -72,12 +73,42 @@ export async function generateMealDetails({ notes, photoBlob, photoMediaType }) 
     name: typeof data.name === 'string' ? data.name : '',
     date: typeof data.date === 'string' ? data.date : '',
     description: typeof data.description === 'string' ? data.description : '',
+    summary: cleanSummary(data.summary),
     cuisine: typeof data.cuisine === 'string' ? data.cuisine : '',
     category: typeof data.category === 'string' ? data.category : '',
     ingredients: Array.isArray(data.ingredients) ? data.ingredients.filter((s) => typeof s === 'string' && s.trim()) : [],
     method: Array.isArray(data.method) ? data.method.filter((s) => typeof s === 'string' && s.trim()) : [],
     note: typeof data.note === 'string' ? data.note : '',
   };
+}
+
+// A summary is only any use whole. One that's missing or too long for the
+// card comes back empty, and the card falls back (summaryOf) rather than
+// being handed something it would have to cut.
+function cleanSummary(value) {
+  if (typeof value !== 'string') return '';
+  const s = value.trim();
+  return s && s.length <= SUMMARY_MAX ? s : '';
+}
+
+/**
+ * Asks the summarize-dish Edge Function to write the one-sentence summary
+ * for a meal logged before the AI fill wrote one. Resolves to '' when it
+ * couldn't, so a caller can try again another time.
+ */
+export async function summarizeDish(meal) {
+  if (!isAiConfigured) return '';
+  const { data, error } = await supabase.functions.invoke('summarize-dish', {
+    body: {
+      name: meal.name,
+      description: meal.description,
+      cuisine: meal.cuisine,
+      category: meal.category,
+      ingredients: meal.ingredients,
+    },
+  });
+  if (error || !data) return '';
+  return cleanSummary(data.summary);
 }
 
 /**

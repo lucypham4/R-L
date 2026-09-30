@@ -6,7 +6,7 @@
   height: var(--control-height);
   padding: 0 23px;
   border: 1px solid transparent;
-  border-radius: var(--radius);
+  border-radius: var(--radius-pill);
   font: 500 0.75rem/1 var(--font-mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;

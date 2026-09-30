@@ -2,7 +2,10 @@
   position: relative;
 }
 
+/* A button, but shaped as the photo it leads with rather than as a pill:
+   this is what its focus ring follows. */
 .meal-card {
+  border-radius: var(--radius-media);
   display: flex;
   flex-direction: column;
   align-items: stretch;

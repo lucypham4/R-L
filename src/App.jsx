@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import Gallery from './components/Gallery';
 import MealDetailModal from './components/MealDetailModal';
@@ -13,12 +13,15 @@ import BottomNav from './components/BottomNav';
 import SettingsPage from './components/SettingsPage';
 import { isSupabaseConfigured } from './lib/supabase';
 import { isCloudinaryConfigured } from './lib/cloudinary';
-import { fetchMeals, insertMeal, deleteMeal } from './lib/mealsApi';
+import { fetchMeals, insertMeal, deleteMeal, updateMealSummary } from './lib/mealsApi';
 import { fetchChefProfile, updateChefPageTheme, updateChefAvatar } from './lib/chefsApi';
 import { getSession, onAuthChange, signOut, isRecoveringPassword, takeEmailLinkError } from './lib/auth';
 import { loadLocalMeals, saveLocalMeals, createLocalMeal } from './lib/localMeals';
 import { scrollToTop } from './lib/motion';
 import { leaveDish, pushDish, replaceDish } from './lib/dishHistory';
+import { stepOnShelf } from './lib/shelf';
+import { needsSummary } from './lib/meal';
+import { summarizeDish, isAiConfigured } from './lib/aiFill';
 import { loadTheme, saveTheme, nextTheme, applyTheme } from './lib/theme';
 import { importLocalMeals, countLocalMeals } from './lib/localImport';
 import { loadLocalAvatar, saveLocalAvatar, storeAvatar } from './lib/avatar';
@@ -198,8 +201,8 @@ function AdminApp() {
   const openIndex = sortedMeals.findIndex((m) => String(m.id) === String(openMealId));
   const openMeal = openIndex >= 0 ? sortedMeals[openIndex] : null;
   // The dishes either side, in the modal's numbering: see handleStepMeal.
-  const prevMeal = openMeal ? sortedMeals[openIndex + 1] : undefined;
-  const nextMeal = openMeal ? sortedMeals[openIndex - 1] : undefined;
+  const prevMeal = stepOnShelf(sortedMeals, openIndex, -1);
+  const nextMeal = stepOnShelf(sortedMeals, openIndex, 1);
 
   function handleOpenMeal(meal) {
     pushDish(meal.id);
@@ -208,15 +211,40 @@ function AdminApp() {
 
   // Step through the archive from inside the open dish. `delta` is in the
   // numbering the modal shows ("No. 12 of 47"), which runs opposite to
-  // sortedMeals -- that's newest-first, so the highest number is index 0.
-  // Stepping replaces the history entry rather than pushing one, so Back
+  // sortedMeals -- that's newest-first, so the highest number is index 0 --
+  // and wraps round at both ends (lib/shelf.js). Stepping replaces the
+  // history entry rather than pushing one, so Back
   // still leaves the modal instead of walking every dish you passed.
   function handleStepMeal(delta) {
-    const next = sortedMeals[openIndex - delta];
+    const next = stepOnShelf(sortedMeals, openIndex, delta);
     if (!next) return;
     replaceDish(next.id);
     setOpenMealId(next.id);
   }
+
+  // A meal logged before summaries existed, whose card has had to make do
+  // with its ingredients, gets one written the first time its chef opens
+  // it, and saved: once per meal per visit, and never on a public page,
+  // whose readers can't write to it. Any failure just leaves the card as
+  // it was, to try again next time.
+  const summarising = useRef(new Set());
+  useEffect(() => {
+    if (!openMeal || !isAiConfigured || !needsSummary(openMeal)) return;
+    if (summarising.current.has(openMeal.id)) return;
+    summarising.current.add(openMeal.id);
+    const id = openMeal.id;
+    summarizeDish(openMeal)
+      .then((summary) => {
+        if (!summary) return;
+        setMeals((prev) => {
+          const next = prev.map((m) => (m.id === id ? { ...m, summary } : m));
+          if (!userId) saveLocalMeals(next);
+          return next;
+        });
+        if (userId) return updateMealSummary(id, summary);
+      })
+      .catch(() => {});
+  }, [openMeal, userId]);
 
   function closeMeal() {
     leaveDish();

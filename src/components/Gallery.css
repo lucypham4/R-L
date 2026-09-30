@@ -116,7 +116,7 @@
 }
 
 /* Inset inside the field rather than divided off by a rule, so its fill
-   has corners of its own: the field's radius less the inset. */
+   has an edge of its own, and a circle, as every button is a pill. */
 .gallery-filter-btn {
   position: relative;
   flex-shrink: 0;
@@ -126,7 +126,7 @@
   width: 36px;
   height: 36px;
   margin-right: 3px;
-  border-radius: calc(var(--radius) - 4px);
+  border-radius: var(--radius-pill);
   color: var(--color-muted);
 }
 

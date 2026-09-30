@@ -18,19 +18,37 @@ can show and measures each visible box for a square corner.
 
 | Token | Value | Use |
 | --- | --- | --- |
-| `--radius` | `12px` | The default. Buttons, fields, the search bar, the dropzone, anything in the page. |
-| `--radius-media` | `12px` | Photographs and illustrations, and the frames that stand in for them (the crop viewport, the sketch canvas). |
+| `--radius` | `12px` | Fields — text inputs, the search bar, the filter select — the dropzone, and anything else in the page that isn't a button. |
+| `--radius-media` | `12px` | Photographs and illustrations, and the frames that stand in for them (the crop viewport, the sketch canvas, a meal card). |
 | `--radius-surface` | `18px` | Surfaces that float above the page: modals, cards, sheets, the empty gallery's card. |
-| `--radius-pill` | `999px` | Fully-rounded controls: bubble pickers, the segmented toggles, the floating nav pill. |
+| `--radius-pill` | `999px` | Every button, the ingredient bubbles, the segmented toggles, the floating nav pill. |
 
 `--radius` and `--radius-media` share a value but not a meaning: one is
 the interface's corner, the other the photo's. Keep them as two tokens so
 either can move without dragging the other along.
 
-A button's radius comes from the global `button` rule, so a small one
-(the edit bar's Done, the share button) reaches a pill once it's
-shorter than 24px: the corner simply can't be larger than half the side.
-That's intended.
+## Buttons are pills
+
+Every button is fully rounded, the same shape as the ingredient bubbles:
+Save and Cancel, the action sheet's rows, the filter sheet's close, a
+button as small as Done or Share. Fields keep `--radius`, and the
+difference is deliberate — a pill says "press me", a rounded rectangle
+says "type here" — so the two read apart at a glance on a form that has
+both.
+
+The pill is set on the global `button` rule, not per class, so a button
+with no box of its own (an icon, a text link) still gets a round focus
+ring, and a new one is a pill before anyone has styled it. The two kinds
+of button that aren't pills are shaped as what they show, and say so
+where they're styled: a meal card, and a photo thumbnail in the add-meal
+carousel, both take `--radius-media`.
+
+A button that wants a rule beside it draws the rule as a separate line
+(`.signin-switch::before`), never as a one-sided border: on a pill, a
+lone `border-top` curls down at both ends.
+
+`tests/corners.spec.js` checks this too: on every screen, each button
+that draws a box has corners of at least half its height.
 
 ## Which corners count
 
@@ -55,8 +73,9 @@ that differs from what's behind it, a border, a shadow, or an image.
 ## Nested corners
 
 Something inset inside a rounded box takes the box's radius minus the
-inset, so the two curves run parallel: the filter button sits 4px inside
-the search field at `calc(var(--radius) - 4px)`.
+inset, so the two curves run parallel — unless it's a button, which is a
+pill wherever it sits: the filter button is a circle inside the search
+field.
 
 Where a fill would meet a divider, there's no divider. The segmented
 toggles (photo or sketch, 1:1 or 4:5) used to be boxes split by rules,

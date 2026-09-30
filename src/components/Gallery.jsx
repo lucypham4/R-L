@@ -64,7 +64,7 @@ export default function Gallery({
     if (selectedCategories.length && !selectedCategories.includes(m.category)) return false;
     if (year && String(new Date(m.date).getFullYear()) !== year) return false;
     if (query) {
-      const haystack = [m.name, m.cuisine, m.category, m.description, ...(m.ingredients || [])]
+      const haystack = [m.name, m.cuisine, m.category, m.summary, m.description, ...(m.ingredients || [])]
         .filter(Boolean)
         .join(' ')
         .toLowerCase();

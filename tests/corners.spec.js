@@ -1,10 +1,11 @@
 import { test, expect } from './support/network';
 import { fileURLToPath } from 'node:url';
-import { findSquareCorners } from './support/corners';
+import { findSquareCorners, findSquareButtons } from './support/corners';
 
 // No straight corners, anywhere. Every screen the app can show is visited
 // here and measured for a visible box with a square corner: a fill, a
-// border, a shadow or a photo. See docs/design-system/shape.md.
+// border, a shadow or a photo. And every button on it is a pill. See
+// docs/design-system/shape.md.
 
 const DISH_PHOTO = fileURLToPath(new URL('./fixtures/dish.png', import.meta.url));
 
@@ -105,6 +106,10 @@ async function expectRounded(page, screen) {
   // are that image's edges.
   const corners = await findSquareCorners(page, { frames: ['.share-card'] });
   expect(corners, `square corners on ${screen}`).toEqual([]);
+  // And every button is a pill. A photo thumbnail is a photo first, and
+  // rounds like one.
+  const buttons = await findSquareButtons(page, { except: ['.photo-carousel-thumb'] });
+  expect(buttons, `buttons that aren't pills on ${screen}`).toEqual([]);
 }
 
 test.describe('no square corners', () => {

@@ -165,3 +165,59 @@ export function findSquareCorners(page, { frames = [] } = {}) {
     return [...new Set(out)];
   }, frames);
 }
+
+/**
+ * Finds buttons that aren't pills.
+ *
+ * Buttons in Staj are pills, like the ingredient bubbles: every corner a
+ * full half of the button's height (--radius-pill). This reports each
+ * visible <button> that draws a box of its own and isn't, as
+ * "label height radius". `except` lists selectors for the few that are
+ * shaped by what they sit in rather than as buttons (shape.md).
+ */
+export function findSquareButtons(page, { except = [] } = {}) {
+  return page.evaluate((exceptSelectors) => {
+    const alpha = (color) => {
+      const m = color.match(/rgba?\(([^)]+)\)/);
+      if (!m) return color === 'transparent' ? 0 : 1;
+      const parts = m[1].split(/[\s,/]+/).filter(Boolean);
+      return parts.length > 3 ? parseFloat(parts[3]) : 1;
+    };
+    const behind = (el) => {
+      for (let p = el.parentElement; p; p = p.parentElement) {
+        const bg = getComputedStyle(p).backgroundColor;
+        if (alpha(bg) > 0) return bg;
+      }
+      return getComputedStyle(document.body).backgroundColor;
+    };
+    const hidden = (el) => {
+      for (let p = el; p; p = p.parentElement) {
+        const cs = getComputedStyle(p);
+        if (cs.display === 'none' || cs.visibility === 'hidden' || parseFloat(cs.opacity) === 0) return true;
+      }
+      return false;
+    };
+    const out = [];
+    for (const el of document.querySelectorAll('button')) {
+      if (exceptSelectors.some((sel) => el.matches(sel))) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width < 4 || r.height < 4 || hidden(el)) continue;
+      const cs = getComputedStyle(el);
+      // Two sides or more make a box; one on its own is a rule.
+      const border =
+        ['Top', 'Right', 'Bottom', 'Left'].filter(
+          (s) => parseFloat(cs[`border${s}Width`]) > 0 && cs[`border${s}Style`] !== 'none' && alpha(cs[`border${s}Color`]) > 0
+        ).length >= 2;
+      const fill = alpha(cs.backgroundColor) > 0 && cs.backgroundColor !== behind(el);
+      if (!border && !fill && cs.boxShadow === 'none') continue;
+      const radius = Math.min(
+        ...['top-left', 'top-right', 'bottom-right', 'bottom-left'].map((c) => parseFloat(cs.getPropertyValue(`border-${c}-radius`)) || 0)
+      );
+      if (radius < Math.min(r.width, r.height) / 2 - 0.5) {
+        const cls = typeof el.className === 'string' && el.className.trim() ? '.' + el.className.trim().split(/\s+/).join('.') : '';
+        out.push(`button${cls} ${Math.round(r.height)}px tall, radius ${radius}px`);
+      }
+    }
+    return [...new Set(out)];
+  }, except);
+}

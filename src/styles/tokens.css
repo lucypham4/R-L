@@ -21,14 +21,14 @@
      the only four, so every corner is one of them rather than a magic
      number reinvented in each component:
 
-       --radius          the default: buttons, fields, anything that sits
-                         in the page. Something inset inside one of these
+       --radius          fields, and anything else that sits in the page
+                         and isn't a button. Something inset inside one
                          takes the radius minus the inset, so the two
                          curves stay parallel
        --radius-media    photographs and illustrations
        --radius-surface  surfaces that float above the page: modals,
                          sheets, cards
-       --radius-pill     fully-rounded controls: the bubble pickers, the
+       --radius-pill     every button, the ingredient bubbles, the
                          segmented toggles and the floating nav pill */
   --radius: 12px;
   --radius-media: 12px;
@@ -142,8 +142,9 @@
      to come back.
 
      --blur-defocus is a filter radius, so it is expensive to animate on
-     a large subtree. Apply it to a text block, never to the photo or to
-     a scrolling container. */
+     a large subtree. Apply it to a text block or a single photo, never to
+     a scrolling container: one image under a blur is one layer for the
+     GPU to soften, a scroller is everything in it, every frame. */
   --dur-defocus: 70ms;
   --dur-refocus: 350ms;
   --blur-defocus: 4px;
