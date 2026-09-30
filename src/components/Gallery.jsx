@@ -37,6 +37,9 @@ export default function Gallery({
   const [showFilters, setShowFilters] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [actionSheetMeal, setActionSheetMeal] = useState(null);
+  // Why the last × in edit mode didn't delete its dish, shown in the edit
+  // bar where the chef is looking. The dish stays in the grid.
+  const [editError, setEditError] = useState('');
   // The staggered entrance is a first-impression flourish, not a
   // permanent property of the grid. Once the intro window closes the
   // class comes off, so re-filtering never replays it.
@@ -87,6 +90,15 @@ export default function Gallery({
     setSelectedCuisines([]);
     setSelectedCategories([]);
     setYear('');
+  }
+
+  async function handleDeleteFromBadge(id) {
+    setEditError('');
+    try {
+      await onDeleteMeal(id);
+    } catch (err) {
+      setEditError(err.message || "Couldn't delete this dish.");
+    }
   }
 
   async function handleDeleteFromSheet(id) {
@@ -153,8 +165,21 @@ export default function Gallery({
 
       {editMode && (
         <div className="gallery-edit-bar">
-          <span>Tap × to delete a dish</span>
-          <button type="button" className="gallery-edit-done" onClick={() => setEditMode(false)}>
+          {editError ? (
+            <span className="gallery-edit-error" role="alert">
+              {editError}
+            </span>
+          ) : (
+            <span>Tap × to delete a dish</span>
+          )}
+          <button
+            type="button"
+            className="gallery-edit-done"
+            onClick={() => {
+              setEditMode(false);
+              setEditError('');
+            }}
+          >
             Done
           </button>
         </div>
@@ -184,7 +209,7 @@ export default function Gallery({
               onOpen={onOpenMeal}
               onLongPress={onDeleteMeal ? setActionSheetMeal : undefined}
               editMode={editMode}
-              onDelete={onDeleteMeal}
+              onDelete={handleDeleteFromBadge}
             />
           ))}
         </div>
