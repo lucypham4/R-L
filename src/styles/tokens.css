@@ -13,22 +13,24 @@
   --color-danger: #a3392b;
   --color-note-ink: #4a5a6a;
   --color-card: #faf9f6;
+  /* The default profile picture: a figure on a grey disc. */
+  --color-avatar: #d3cdc2;
+  --color-avatar-figure: #f4f1ea;
 
-  /* Radius. The system is deliberately square-cornered -- --radius: 0 is
-     the default for buttons, fields, cards and sheets, and that stays.
-     The two exceptions below are named so they're used consistently
-     instead of being re-invented as magic numbers in each component:
+  /* Radius. Nothing in Staj has a straight corner (shape.md). These are
+     the only four, so every corner is one of them rather than a magic
+     number reinvented in each component:
 
-       --radius-media    photographs and illustrations, which read as
-                         objects sitting on the page rather than as chrome
-       --radius-surface  surfaces that float above the page rather than
-                         sitting in it -- the dish modal. A square corner
-                         reads as a panel welded to the viewport; a
-                         rounded one reads as a card resting on top of it,
-                         which is what a modal actually is
-       --radius-pill     fully-rounded controls: the bubble pickers and
-                         the floating nav pill */
-  --radius: 0;
+       --radius          fields, and anything else that sits in the page
+                         and isn't a button. Something inset inside one
+                         takes the radius minus the inset, so the two
+                         curves stay parallel
+       --radius-media    photographs and illustrations
+       --radius-surface  surfaces that float above the page: modals,
+                         sheets, cards
+       --radius-pill     every button, the ingredient bubbles, the
+                         segmented toggles and the floating nav pill */
+  --radius: 12px;
   --radius-media: 12px;
   --radius-surface: 18px;
   --radius-pill: 999px;
@@ -140,8 +142,9 @@
      to come back.
 
      --blur-defocus is a filter radius, so it is expensive to animate on
-     a large subtree. Apply it to a text block, never to the photo or to
-     a scrolling container. */
+     a large subtree. Apply it to a text block or a single photo, never to
+     a scrolling container: one image under a blur is one layer for the
+     GPU to soften, a scroller is everything in it, every frame. */
   --dur-defocus: 70ms;
   --dur-refocus: 350ms;
   --blur-defocus: 4px;
@@ -182,6 +185,8 @@
     --color-danger: #f08072;
     --color-note-ink: #8fa6bc;
     --color-card: #211f1c;
+    --color-avatar: #3b3833;
+    --color-avatar-figure: #68635a;
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
     --shadow-md: 0 10px 24px rgba(0, 0, 0, 0.5);
     --shadow-lg: 0 28px 70px rgba(0, 0, 0, 0.65);
@@ -204,6 +209,8 @@
   --color-danger: #f08072;
   --color-note-ink: #8fa6bc;
   --color-card: #211f1c;
+  --color-avatar: #3b3833;
+  --color-avatar-figure: #68635a;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 10px 24px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 28px 70px rgba(0, 0, 0, 0.65);

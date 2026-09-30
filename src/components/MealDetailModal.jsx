@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { toCanvas } from 'html-to-image';
-import { normaliseServes } from '../lib/meal';
+import { normaliseServes, summaryOf } from '../lib/meal';
 import { onReducedMotionChange, prefersReducedMotion, scrollElementTo, token, tokenMs } from '../lib/motion';
 import { applyDishSheetFrame, dishSheetFrame, measureDishSheet } from '../lib/dishSheet';
 import { AXIS_BIAS, AXIS_SLOP, releaseVelocity, rubberBand, shouldCommit } from '../lib/dishSwipe';
@@ -33,14 +33,29 @@ function loadImage(src) {
 // resources), so the photo is drawn onto the finished canvas by hand
 // instead of relying on the library for it. The photo box is always a
 // full-width square at the very top of the card, so no need to measure it.
-function drawPhotoCover(canvas, img) {
+/**
+ * Draws the photo into `box` ({ x, y, size, radius }, in canvas pixels),
+ * cropped square and clipped to its rounded corners. The path is drawn
+ * with arcTo because CanvasRenderingContext2D.roundRect is newer than the
+ * iOS 15 the app still supports.
+ */
+function drawPhotoCover(canvas, img, { x, y, size, radius }) {
   const ctx = canvas.getContext('2d');
-  const size = canvas.width;
   const imgRatio = img.naturalWidth / img.naturalHeight;
   const sSize = imgRatio > 1 ? img.naturalHeight : img.naturalWidth;
   const sx = imgRatio > 1 ? (img.naturalWidth - sSize) / 2 : 0;
   const sy = imgRatio > 1 ? 0 : (img.naturalHeight - sSize) / 2;
-  ctx.drawImage(img, sx, sy, sSize, sSize, 0, 0, size, size);
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.arcTo(x + size, y, x + size, y + size, radius);
+  ctx.arcTo(x + size, y + size, x, y + size, radius);
+  ctx.arcTo(x, y + size, x, y, radius);
+  ctx.arcTo(x, y, x + size, y, radius);
+  ctx.closePath();
+  ctx.clip();
+  ctx.drawImage(img, sx, sy, sSize, sSize, x, y, size, size);
+  ctx.restore();
 }
 
 // The space between a photo leaving the side of the view and the next one
@@ -124,15 +139,15 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep, p
   const reduced = useRef(prefersReducedMotion());
   const lastFrame = useRef(null);
   const [sheetState, setSheetState] = useState('peek');
-  const [ledeClamped, setLedeClamped] = useState(false);
 
   const hasPhoto = (meal?.photos?.length ?? 0) > 0;
+  // The archive loops (lib/shelf.js): past No. {total} comes No. 1, and
+  // before No. 1, No. {total}. So with two or more dishes there's always
+  // one either side, and with one there's none.
   const canStep = typeof onStep === 'function' && total > 1;
-  // `index` is 1-based in the archive's numbering and the step arrows move
-  // it, so it doubles as the bounds check: No. 1 has nothing behind it and
-  // No. {total} nothing ahead.
-  const canStepBack = canStep && index > 1;
-  const canStepForward = canStep && index < total;
+  // A dish on its own still answers a swipe, by resisting it, so the
+  // gesture reads as "that's all" rather than as the app not listening.
+  const swipes = typeof onStep === 'function';
 
   const render = useCallback(() => {
     const g = geometry.current;
@@ -161,10 +176,6 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep, p
     const g = measureDishSheet(els);
     geometry.current = g;
     els.body.style.paddingTop = `${g.bodyTop}px`;
-    // The summary on the resting card is clamped to two lines. When a
-    // description runs longer, the recipe repeats it in full, so nothing
-    // the chef wrote is only reachable by a screen reader.
-    if (els.lede) setLedeClamped(els.lede.scrollHeight > els.lede.clientHeight + 1);
     render();
   }, [els, render]);
 
@@ -201,29 +212,46 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep, p
   // The second half of a step: the incoming photo slides in from where its
   // neighbour's drag had it, as the outgoing one (now the ghost) leaves.
   // Before paint, so the frame between the two halves is never seen.
+  //
+  // The photos take a focus pull too: the outgoing one goes soft as it
+  // leaves, and the incoming one arrives soft, holds while it travels, and
+  // sharpens once it has landed -- a beat ahead of the text, which holds
+  // on through the name's dissolve, so focus racks from the plate to the
+  // words. That runs even where the photo doesn't slide (a thumbnail, or
+  // reduced motion, where the slide takes no time), since losing focus
+  // isn't movement.
+  const shownDish = useRef(meal?.id);
   useLayoutEffect(() => {
     const slide = pendingSlide.current;
     pendingSlide.current = null;
     const { photo, ghost } = els;
-    if (!slide || !photo) {
-      if (!slide) hideGhost();
-      return;
-    }
-    const { delta, fromX, travel: T } = slide;
+    const changed = shownDish.current !== meal?.id;
+    shownDish.current = meal?.id;
+    if (!slide) hideGhost();
+    if (!photo || !changed) return;
+    photo.getAnimations().forEach((a) => a.cancel());
+    const blur = `blur(${token('--blur-defocus')})`;
     const duration = tokenMs('--dur-move');
     const easing = token('--ease-out');
-    photo.getAnimations().forEach((a) => a.cancel());
+    const total = duration + tokenMs('--dur-refocus');
     photo.animate(
       [
-        { translate: `${fromX + delta * T}px 0`, opacity: 0.65 },
-        { translate: '0px 0', opacity: 1 },
+        { filter: blur, opacity: 0.65 },
+        { filter: blur, opacity: 1, offset: total ? duration / total : 0 },
+        { filter: 'blur(0px)', opacity: 1 },
       ],
-      { duration, easing }
+      { duration: total, easing: token('--ease-focus') }
     );
+    if (!slide) return;
+    const { delta, fromX, travel: T, soft } = slide;
+    photo.animate([{ translate: `${fromX + delta * T}px 0` }, { translate: '0px 0' }], { duration, easing });
     if (ghost && !ghost.hidden) {
       const away = ghost.animate(
-        [{ translate: `${fromX}px 0` }, { translate: `${-delta * T}px 0`, opacity: 0.65 }],
-        { duration, easing }
+        [
+          { translate: `${fromX}px 0`, filter: soft ? blur : 'blur(0px)' },
+          { translate: `${-delta * T}px 0`, opacity: 0.65, filter: blur },
+        ],
+        { duration: Math.max(duration, tokenMs('--dur-defocus')), easing }
       );
       away.onfinish = hideGhost;
     }
@@ -247,12 +275,12 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep, p
     function onKeyDown(e) {
       if (e.key === 'Escape') onClose();
       if (!canStep) return;
-      if (e.key === 'ArrowLeft' && index > 1) stepRef.current(-1);
-      if (e.key === 'ArrowRight' && index < total) stepRef.current(1);
+      if (e.key === 'ArrowLeft') stepRef.current(-1);
+      if (e.key === 'ArrowRight') stepRef.current(1);
     }
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [onClose, canStep, index, total]);
+  }, [onClose, canStep]);
 
   // The neighbours' photos, fetched ahead so a step never waits on the
   // network half-way through its slide.
@@ -303,7 +331,9 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep, p
   // way dishes move, whichever way you asked. src/lib/dishSwipe.js has
   // the thresholds.
 
-  const hasNeighbour = (delta) => (delta > 0 ? canStepForward : canStepBack);
+  // Whichever way: the shelf loops, so the only dish without neighbours
+  // is one on its own, and that's where the drag rubber-bands.
+  const hasNeighbour = () => canStep;
   const neighbourPhoto = (delta) => (delta > 0 ? nextMeal : prevMeal)?.photos?.[0] ?? null;
   const photoMoves = () => Boolean(els.photo) && sheetState !== 'collapsed';
 
@@ -315,9 +345,10 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep, p
   }
 
   // Focus is lost fast and regained slowly, as in the focus pull -- which
-  // takes over from here if the swipe goes through.
+  // takes over from here if the swipe goes through. The photos go with the
+  // text: the one under the finger and the neighbour coming in beside it.
   function setDefocused(on, { instant = false } = {}) {
-    for (const el of [els.peekFade, els.body, els.meta]) {
+    for (const el of [els.peekFade, els.body, els.meta, els.photo, els.ghost]) {
       if (!el) continue;
       el.style.transition = instant ? 'none' : `filter var(${on ? '--dur-defocus' : '--dur-refocus'}) var(--ease-focus)`;
       el.style.filter = on ? 'blur(var(--blur-defocus))' : '';
@@ -349,6 +380,8 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep, p
     ghost.hidden = true;
     ghost.style.translate = '';
     ghost.style.opacity = '';
+    ghost.style.filter = '';
+    ghost.style.transition = '';
   }
 
   function handlePointerDown(e) {
@@ -457,7 +490,9 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep, p
       const outgoing = photo.tagName === 'IMG' ? photo.getAttribute('src') : null;
       showGhost(outgoing, fromX);
       if (els.ghost) els.ghost.style.opacity = photo.style.opacity || '1';
-      pendingSlide.current = { delta, fromX, travel: travel() };
+      // Whether a drag had already taken the photo out of focus: the ghost
+      // leaves from there rather than snapping sharp first.
+      pendingSlide.current = { delta, fromX, travel: travel(), soft: Boolean(photo.style.filter) };
     }
     if (photo) {
       photo.style.translate = '';
@@ -481,21 +516,37 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep, p
     .filter(Boolean)
     .join(' · ');
   const metaLine = [meal.cuisine, meal.category].filter(Boolean).join(' · ');
+  // The resting card's line is a whole sentence written to fit it, not the
+  // description cut off (summaryOf). The recipe then carries the
+  // description in full, unless the card has already said all of it.
+  const summary = summaryOf(meal);
+  const description = meal.description?.trim() ?? '';
+  const showDescription = Boolean(description) && description !== summary;
   const heroPhotoUrl = photos[0] ?? null;
   const expanded = sheetState !== 'peek';
 
   async function handleShare() {
     setShareStatus('working');
     try {
+      const PIXEL_RATIO = 2;
       const canvas = await toCanvas(shareCardRef.current, {
-        pixelRatio: 2,
+        pixelRatio: PIXEL_RATIO,
         skipFonts: true,
         backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim() || '#faf9f6',
       });
 
       if (heroPhotoUrl) {
         const img = await loadImage(heroPhotoUrl);
-        drawPhotoCover(canvas, img);
+        // Where the card laid out the photo's slot, scaled to the canvas.
+        const slot = shareCardRef.current.querySelector('.share-card-image');
+        const card = shareCardRef.current.getBoundingClientRect();
+        const rect = slot.getBoundingClientRect();
+        drawPhotoCover(canvas, img, {
+          x: (rect.left - card.left) * PIXEL_RATIO,
+          y: (rect.top - card.top) * PIXEL_RATIO,
+          size: rect.width * PIXEL_RATIO,
+          radius: parseFloat(getComputedStyle(slot).borderTopLeftRadius) * PIXEL_RATIO,
+        });
       }
 
       const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
@@ -538,10 +589,10 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep, p
         role="dialog"
         aria-modal="true"
         aria-label={meal.name}
-        onPointerDown={canStep ? handlePointerDown : undefined}
-        onPointerMove={canStep ? handlePointerMove : undefined}
-        onPointerUp={canStep ? handlePointerUp : undefined}
-        onPointerCancel={canStep ? handlePointerCancel : undefined}
+        onPointerDown={swipes ? handlePointerDown : undefined}
+        onPointerMove={swipes ? handlePointerMove : undefined}
+        onPointerUp={swipes ? handlePointerUp : undefined}
+        onPointerCancel={swipes ? handlePointerCancel : undefined}
       >
         {/* What scrolls: the sheet, and the empty stretch above it that
             the resting sheet is pulled up through. Everything that
@@ -573,10 +624,10 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep, p
                 <span className="meta dish-peek-meta dish-focus" key={`meta-${meal.id}`}>
                   {metaLine}
                 </span>
-                <div className="dish-peek-summary dish-focus" key={meal.id}>
-                  {meal.description && (
-                    <p ref={bind('lede')} className="dish-lede">
-                      {meal.description}
+                <div className="dish-peek-summary dish-focus" key={`${meal.id}-${summary}`}>
+                  {summary && (
+                    <p className="dish-lede">
+                      {summary}
                     </p>
                   )}
                 </div>
@@ -592,11 +643,7 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep, p
                   dish changes. Remounting on the dish id is what replays
                   the animation. */}
               <div className="dish-body-inner dish-focus" key={meal.id}>
-                {ledeClamped && (
-                  <p className="dish-description" aria-hidden="true">
-                    {meal.description}
-                  </p>
-                )}
+                {showDescription && <p className="dish-description">{description}</p>}
 
                 {meal.ingredients.length > 0 && (
                   <div className="bubble-row dish-ingredients">
@@ -682,7 +729,6 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep, p
                     type="button"
                     className="dish-step dish-step-prev"
                     onClick={() => slideTo(-1)}
-                    disabled={!canStepBack}
                     aria-label="Previous dish"
                   >
                     <Chevron direction="prev" />
@@ -692,7 +738,6 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep, p
                     type="button"
                     className="dish-step dish-step-next"
                     onClick={() => slideTo(1)}
-                    disabled={!canStepForward}
                     aria-label="Next dish"
                   >
                     <Chevron direction="next" />

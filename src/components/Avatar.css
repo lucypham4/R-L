@@ -1,0 +1,25 @@
+.avatar {
+  display: inline-block;
+  flex-shrink: 0;
+  width: var(--avatar-size);
+  height: var(--avatar-size);
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--color-avatar);
+}
+
+.avatar-image,
+.avatar-default {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+.avatar-image {
+  object-fit: cover;
+}
+
+.avatar-default {
+  fill: var(--color-avatar-figure);
+}

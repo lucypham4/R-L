@@ -8,6 +8,8 @@
 // Configure: supabase secrets set GEMINI_API_KEY=... (free key from
 // https://aistudio.google.com/apikey)
 
+import { SUMMARY_GUIDANCE, cleanSummary } from '../_shared/summary.ts';
+
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 const GEMINI_MODEL = Deno.env.get('GEMINI_MODEL') || 'gemini-3.6-flash';
 
@@ -32,6 +34,7 @@ const RESPONSE_SCHEMA = {
       description:
         `A vivid, third-person description of the dish for a recipe card (e.g. "A pan-seared salmon fillet finished with a bright lemon butter sauce..."). Never first person ("I made..."). Under ${DESCRIPTION_MAX} characters.`,
     },
+    summary: { type: 'STRING', description: SUMMARY_GUIDANCE },
     cuisine: {
       type: 'STRING',
       description: "The dish's cuisine, e.g. Italian, Japanese, Mexican. Empty string if unclear.",
@@ -56,7 +59,7 @@ const RESPONSE_SCHEMA = {
         "One short, optional aside a chef might leave for future reference, under 90 characters. Empty string if there's nothing worth saying.",
     },
   },
-  required: ['name', 'date', 'description', 'cuisine', 'category', 'ingredients', 'method', 'note'],
+  required: ['name', 'date', 'description', 'summary', 'cuisine', 'category', 'ingredients', 'method', 'note'],
 };
 
 function jsonResponse(body, status = 200) {
@@ -121,8 +124,9 @@ Deno.serve(async (req) => {
                     `"${notes.trim()}"`,
                     '',
                     'Fill in your best-guess structured details for this dish, including a',
-                    `third-person description under ${DESCRIPTION_MAX} characters, and the date it was`,
-                    "cooked if the notes mention or imply one (relative to today's date above).",
+                    `third-person description under ${DESCRIPTION_MAX} characters, a one-sentence summary`,
+                    "for the top of its card, and the date it was cooked if the notes mention or imply",
+                    "one (relative to today's date above).",
                   ].join('\n'),
                 },
               ],
@@ -157,6 +161,8 @@ Deno.serve(async (req) => {
     if (typeof details.description === 'string' && details.description.length > DESCRIPTION_MAX) {
       details.description = details.description.slice(0, DESCRIPTION_MAX);
     }
+
+    details.summary = cleanSummary(details.summary);
 
     if (typeof details.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(details.date) || details.date > today) {
       details.date = '';

@@ -10,7 +10,7 @@ import { uploadImage, isCloudinaryConfigured } from '../lib/cloudinary';
 import { createSpeechRecognizer, isSpeechRecognitionSupported } from '../lib/speechToText';
 import { generateMealDetails, cleanDescription, isAiConfigured } from '../lib/aiFill';
 import { loadBubbleList, saveBubbleList } from '../lib/bubbleLists';
-import { DEFAULT_SERVES } from '../lib/meal';
+import { DEFAULT_SERVES, SUMMARY_MAX } from '../lib/meal';
 import './AddMealForm.css';
 
 const DESCRIPTION_MAX = 400;
@@ -77,6 +77,9 @@ export default function AddMealForm({ onSave, onCancel }) {
   const [cuisine, setCuisine] = useState('');
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
+  // The line on the dish's resting card. Written by the AI fill when it
+  // runs; left blank, the card makes one from the description (summaryOf).
+  const [summary, setSummary] = useState('');
   const [ingredients, setIngredients] = useState([]);
   const [methodText, setMethodText] = useState('');
   const [note, setNote] = useState('');
@@ -288,6 +291,7 @@ export default function AddMealForm({ onSave, onCancel }) {
       if (details.name) setName(details.name);
       if (details.date) setDate(details.date);
       setDescription((details.description || notes.trim()).slice(0, DESCRIPTION_MAX));
+      if (details.summary) setSummary(details.summary);
       if (details.category) applyBubbleValue('category', details.category, setCategory);
       if (details.cuisine) applyBubbleValue('cuisine', details.cuisine, setCuisine);
       if (details.ingredients.length) setIngredients(details.ingredients);
@@ -371,6 +375,7 @@ export default function AddMealForm({ onSave, onCancel }) {
         cuisine: cuisine.trim(),
         category: category.trim(),
         description: description.trim(),
+        summary: summary.trim(),
         ingredients,
         method: methodText.split('\n').map((s) => s.trim()).filter(Boolean),
         note: note.trim(),
@@ -624,6 +629,26 @@ export default function AddMealForm({ onSave, onCancel }) {
               </div>
               {cleanupStatus === 'error' && <ErrorText>{cleanupError}</ErrorText>}
               {touched.description && <ErrorText>{errors.description}</ErrorText>}
+            </div>
+
+            <div>
+              <Label htmlFor="meal-summary" optional>
+                Summary
+              </Label>
+              <TextInput
+                id="meal-summary"
+                maxLength={SUMMARY_MAX}
+                placeholder="One sentence for the dish's card"
+                value={summary}
+                onChange={(e) => setSummary(e.target.value)}
+                aria-describedby="meal-summary-help"
+              />
+              <div className="add-meal-counter">
+                {summary.length} / {SUMMARY_MAX}
+              </div>
+              <p id="meal-summary-help" className="field-help">
+                The line on the dish&rsquo;s card. Left blank, the card makes one from the description.
+              </p>
             </div>
 
             <div>

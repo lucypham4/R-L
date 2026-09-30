@@ -9,6 +9,7 @@
   max-height: 260px;
   background: #faf9f6;
   border: 1px dashed var(--color-line-strong);
+  border-radius: var(--radius-media);
   touch-action: none;
   cursor: crosshair;
 }

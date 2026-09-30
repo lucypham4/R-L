@@ -51,7 +51,11 @@ page and cross-device access possible on top of that.
    once (adds the `photos` column meals now use for up to 6 photos each),
    then `supabase/page-theme-migration.sql` once (adds the `page_theme`
    column that stores each chef's light/dark choice for their public
-   page).
+   page), then `supabase/avatar-migration.sql` once (adds the
+   `avatar_url` column for the profile picture set in Settings), then
+   `supabase/summary-migration.sql` once (adds each meal's one-sentence
+   `summary`, and the policy that lets a chef update their own meals so an
+   older meal's summary can be saved; see below).
 3. In Cloudinary, create an **unsigned** upload preset (Settings → Upload →
    Upload presets → Add upload preset, signing mode "Unsigned"). Unsigned
    presets are what let the browser upload directly without exposing your
@@ -101,15 +105,27 @@ client. They call Google's Gemini API rather than a paid provider so they
 run on the free tier of [Google AI Studio](https://aistudio.google.com/apikey)
 with no billing required:
 
-1. `supabase functions deploy ai-fill` and
-   `supabase functions deploy clean-description` (from
-   `supabase/functions/`).
+1. `supabase functions deploy ai-fill`,
+   `supabase functions deploy clean-description` and
+   `supabase functions deploy summarize-dish` (from
+   `supabase/functions/`; the first and last share
+   `supabase/functions/_shared/summary.ts`, which the CLI bundles in).
 2. `supabase secrets set GEMINI_API_KEY=...` on the same project (a free
    key from [Google AI Studio](https://aistudio.google.com/apikey), shared
    by both functions; an optional `GEMINI_MODEL` secret overrides the
    default model, currently `gemini-3.6-flash`).
 3. Reload the app, **Clean up** and **Fill in details** show up under
    Description once there's a photo and a description to work from.
+
+**The line on a dish's card** is a one-sentence summary written to fit
+two lines, never the description cut off. The AI fill writes one for each
+new meal, shown in step 3 as **Summary** for the chef to change or clear.
+A meal logged before that gets one from `summarize-dish` the first time
+its chef opens it, saved once. Until then — or without the function, the
+migration, or AI at all — the card uses the description's first sentence
+if that fits, or a line made from the ingredients ("Leek with brown
+butter and hazelnut."). Public pages never ask for one: their readers
+can't save it.
 
 The free tier has per-minute/per-day rate limits, comfortably enough for
 one app's personal use, but worth knowing about if it starts erroring
@@ -204,9 +220,9 @@ worth reading before adding UI:
   query.
 - [`docs/design-system/illustration.md`](docs/design-system/illustration.md)
   — the art slots and the Rive setup.
-- [`docs/design-system/shape.md`](docs/design-system/shape.md) — why the
-  app is square-cornered, the two radius tokens that are exceptions, and
-  why photos get a hairline outline rather than a shadow.
+- [`docs/design-system/shape.md`](docs/design-system/shape.md) — the
+  no-straight-corners rule, the four radius tokens that carry it, and why
+  photos get a hairline outline rather than a shadow.
 
 Theme follows the operating system by default. The Appearance control in
 Settings cycles System → Light → Dark and remembers the choice.

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import Gallery from './components/Gallery';
 import MealDetailModal from './components/MealDetailModal';
@@ -13,14 +13,18 @@ import BottomNav from './components/BottomNav';
 import SettingsPage from './components/SettingsPage';
 import { isSupabaseConfigured } from './lib/supabase';
 import { isCloudinaryConfigured } from './lib/cloudinary';
-import { fetchMeals, insertMeal, deleteMeal } from './lib/mealsApi';
-import { fetchChefProfile, updateChefPageTheme } from './lib/chefsApi';
+import { fetchMeals, insertMeal, deleteMeal, updateMealSummary } from './lib/mealsApi';
+import { fetchChefProfile, updateChefPageTheme, updateChefAvatar } from './lib/chefsApi';
 import { getSession, onAuthChange, signOut, isRecoveringPassword, takeEmailLinkError } from './lib/auth';
 import { loadLocalMeals, saveLocalMeals, createLocalMeal } from './lib/localMeals';
 import { scrollToTop } from './lib/motion';
 import { leaveDish, pushDish, replaceDish } from './lib/dishHistory';
+import { stepOnShelf } from './lib/shelf';
+import { needsSummary } from './lib/meal';
+import { summarizeDish, isAiConfigured } from './lib/aiFill';
 import { loadTheme, saveTheme, nextTheme, applyTheme } from './lib/theme';
 import { importLocalMeals, countLocalMeals } from './lib/localImport';
+import { loadLocalAvatar, saveLocalAvatar, storeAvatar } from './lib/avatar';
 import './App.css';
 
 function hasSeenOnboarding(key) {
@@ -85,6 +89,8 @@ function AdminApp() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [theme, setTheme] = useState(loadTheme);
+  // A guest's profile picture. A chef's is on chefProfile instead.
+  const [localAvatar, setLocalAvatar] = useState(loadLocalAvatar);
   // Local Import (see CONTEXT.md / ADR 0001): offered once, right after a
   // fresh sign-up, while the new account is guaranteed empty. Anything
   // declined or left behind by a partial failure stays in local storage,
@@ -133,18 +139,24 @@ function AdminApp() {
     });
   }, []);
 
+  // The effects below follow who is signed in, not the session object,
+  // which is replaced every time the token refreshes (hourly) or the chef
+  // re-enters their password in Settings. Keyed on the session, each of
+  // those refetched the profile and blanked the app while it did.
+  const userId = session?.user?.id ?? null;
+
   // A signed-in account needs a chef profile (display name + page slug)
   // before it can use the app, new sign-ups get sent through
   // ChooseUsername. Nothing here runs for the (default) no-account case.
   useEffect(() => {
-    if (!session) {
+    if (!userId) {
       setChefProfile(null);
       setChefProfileChecked(true);
       return;
     }
     let cancelled = false;
     setChefProfileChecked(false);
-    fetchChefProfile(session.user.id)
+    fetchChefProfile(userId)
       .then((profile) => {
         if (!cancelled) setChefProfile(profile);
       })
@@ -155,21 +167,20 @@ function AdminApp() {
     return () => {
       cancelled = true;
     };
-  }, [session]);
+  }, [userId]);
 
   // First-time welcome tour, once per account if signed in, otherwise
   // once per device/browser. Runs either way; no account required.
   useEffect(() => {
-    if (session && !chefProfile) return; // still setting up the account
-    const key = session ? session.user.id : 'local';
-    if (!hasSeenOnboarding(key)) setShowOnboarding(true);
-  }, [session, chefProfile]);
+    if (userId && !chefProfile) return; // still setting up the account
+    if (!hasSeenOnboarding(userId ?? 'local')) setShowOnboarding(true);
+  }, [userId, chefProfile]);
 
   useEffect(() => {
-    if (!isSupabaseConfigured || !session) return;
+    if (!isSupabaseConfigured || !userId) return;
     let cancelled = false;
 
-    fetchMeals(session.user.id)
+    fetchMeals(userId)
       .then((rows) => {
         if (!cancelled) setMeals(rows);
       })
@@ -180,7 +191,7 @@ function AdminApp() {
     return () => {
       cancelled = true;
     };
-  }, [session]);
+  }, [userId]);
 
   const sortedMeals = useMemo(
     () => [...meals].sort((a, b) => new Date(b.date) - new Date(a.date)),
@@ -190,8 +201,8 @@ function AdminApp() {
   const openIndex = sortedMeals.findIndex((m) => String(m.id) === String(openMealId));
   const openMeal = openIndex >= 0 ? sortedMeals[openIndex] : null;
   // The dishes either side, in the modal's numbering: see handleStepMeal.
-  const prevMeal = openMeal ? sortedMeals[openIndex + 1] : undefined;
-  const nextMeal = openMeal ? sortedMeals[openIndex - 1] : undefined;
+  const prevMeal = stepOnShelf(sortedMeals, openIndex, -1);
+  const nextMeal = stepOnShelf(sortedMeals, openIndex, 1);
 
   function handleOpenMeal(meal) {
     pushDish(meal.id);
@@ -200,15 +211,40 @@ function AdminApp() {
 
   // Step through the archive from inside the open dish. `delta` is in the
   // numbering the modal shows ("No. 12 of 47"), which runs opposite to
-  // sortedMeals -- that's newest-first, so the highest number is index 0.
-  // Stepping replaces the history entry rather than pushing one, so Back
+  // sortedMeals -- that's newest-first, so the highest number is index 0 --
+  // and wraps round at both ends (lib/shelf.js). Stepping replaces the
+  // history entry rather than pushing one, so Back
   // still leaves the modal instead of walking every dish you passed.
   function handleStepMeal(delta) {
-    const next = sortedMeals[openIndex - delta];
+    const next = stepOnShelf(sortedMeals, openIndex, delta);
     if (!next) return;
     replaceDish(next.id);
     setOpenMealId(next.id);
   }
+
+  // A meal logged before summaries existed, whose card has had to make do
+  // with its ingredients, gets one written the first time its chef opens
+  // it, and saved: once per meal per visit, and never on a public page,
+  // whose readers can't write to it. Any failure just leaves the card as
+  // it was, to try again next time.
+  const summarising = useRef(new Set());
+  useEffect(() => {
+    if (!openMeal || !isAiConfigured || !needsSummary(openMeal)) return;
+    if (summarising.current.has(openMeal.id)) return;
+    summarising.current.add(openMeal.id);
+    const id = openMeal.id;
+    summarizeDish(openMeal)
+      .then((summary) => {
+        if (!summary) return;
+        setMeals((prev) => {
+          const next = prev.map((m) => (m.id === id ? { ...m, summary } : m));
+          if (!userId) saveLocalMeals(next);
+          return next;
+        });
+        if (userId) return updateMealSummary(id, summary);
+      })
+      .catch(() => {});
+  }, [openMeal, userId]);
 
   function closeMeal() {
     leaveDish();
@@ -233,6 +269,22 @@ function AdminApp() {
     const updated = await updateChefPageTheme(session.user.id, pageTheme);
     setChefProfile(updated);
   }
+
+  // A new profile picture, or null to go back to the default. Signed in,
+  // it's saved to the chef's profile; otherwise to this device. Errors
+  // propagate, for Settings to show.
+  async function handleChangeAvatar(blob) {
+    if (chefProfile) {
+      const url = blob ? await storeAvatar(blob) : null;
+      setChefProfile(await updateChefAvatar(userId, url));
+      return;
+    }
+    const url = blob ? await storeAvatar(blob, { upload: false }) : null;
+    saveLocalAvatar(url);
+    setLocalAvatar(url);
+  }
+
+  const avatarUrl = chefProfile ? chefProfile.avatarUrl : localAvatar;
 
   function handleRequestSignIn() {
     setSignInMode('signin');
@@ -349,6 +401,8 @@ function AdminApp() {
         onChangePageTheme={chefProfile ? handleChangePageTheme : undefined}
         localMealCount={localMealCount}
         onImportLocalMeals={handleImportLocalMeals}
+        avatarUrl={avatarUrl}
+        onChangeAvatar={handleChangeAvatar}
       />
     );
   }
@@ -367,7 +421,14 @@ function AdminApp() {
           under a scrim: the depth of field is what makes the dish read as
           the thing in focus. */}
       <div className={`app-stage ${openMeal ? 'app-stage-receded' : ''}`}>
-        <Gallery meals={sortedMeals} onOpenMeal={handleOpenMeal} onAddMeal={() => setShowAddForm(true)} onDeleteMeal={handleDeleteMeal} />
+        <Gallery
+          meals={sortedMeals}
+          onOpenMeal={handleOpenMeal}
+          onAddMeal={() => setShowAddForm(true)}
+          onDeleteMeal={handleDeleteMeal}
+          avatarUrl={avatarUrl}
+          onOpenSettings={() => setShowSettings(true)}
+        />
       </div>
 
       {openMeal && (
@@ -390,7 +451,6 @@ function AdminApp() {
         active={showAddForm ? 'add' : 'home'}
         onHome={handleNavHome}
         onAdd={() => setShowAddForm(true)}
-        onProfile={() => setShowSettings(true)}
       />
     </div>
   );

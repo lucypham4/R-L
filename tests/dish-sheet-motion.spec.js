@@ -108,6 +108,7 @@ async function sampleAt(page, t) {
       peek: opacity('.dish-peek-fade'),
       body: opacity('.dish-body'),
       clip: document.querySelector('.dish-surface').style.clipPath,
+      frameRadius: document.querySelector('.dish-frame').style.borderRadius,
       sheet: document.querySelector('.dish').dataset.sheet,
     };
   }, t);
@@ -165,10 +166,11 @@ test.describe('the dish sheet', () => {
     expect(summaryGone).toBeGreaterThan(0);
     expect(recipeArrives).toBeGreaterThan(summaryGone);
 
-    // The card's corners flatten across the drag, not at the end.
+    // The card's lower corners flatten into the screen's across the drag,
+    // not at the end. Its top corners never do: see the next test.
     const radii = samples
       .filter((s) => s.t < open)
-      .map((s) => Number(/round ([\d.]+)px/.exec(s.clip)?.[1]));
+      .map((s) => Number(/([\d.]+)px$/.exec(s.frameRadius)?.[1]));
     expect(new Set(radii.map((r) => r.toFixed(1))).size).toBeGreaterThan(10);
   });
 
@@ -180,8 +182,9 @@ test.describe('the dish sheet', () => {
     expect(s.hero).toBe(0);
     expect(s.bar).toBe(1);
     expect(s.body).toBe(1);
-    // Flush and square: no clip left on the surface.
-    expect(s.clip).toBe('none');
+    // Flush with the sides, and like any bottom sheet, rounded at the top:
+    // nothing in the app has a square corner.
+    expect(s.clip).toBe('inset(0px round 18px 18px 0px 0px)');
     // The photo, smaller and centred.
     expect(s.scale).toBeLessThan(1);
     const width = await page.locator('.dish').evaluate((el) => el.clientWidth);

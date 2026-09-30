@@ -11,7 +11,12 @@ const ASPECTS = {
   portrait: { w: 4, h: 5, label: '4:5' },
 };
 
-export default function PhotoCropModal({ file, onCancel, onCrop }) {
+/**
+ * `round` crops a profile picture: square, framed as the circle it will be
+ * shown in, with no aspect choice, and exported at `outputSize` rather than
+ * at photo size.
+ */
+export default function PhotoCropModal({ file, onCancel, onCrop, round = false, outputSize = OUTPUT_LONG_EDGE }) {
   const [img, setImg] = useState(null);
   const [aspect, setAspect] = useState('square');
   const [zoom, setZoom] = useState(1);
@@ -94,8 +99,8 @@ export default function PhotoCropModal({ file, onCancel, onCrop }) {
 
   function handleConfirm() {
     if (!img) return;
-    const outputHeight = OUTPUT_LONG_EDGE;
-    const outputWidth = Math.round(OUTPUT_LONG_EDGE * (aspectW / aspectH));
+    const outputHeight = outputSize;
+    const outputWidth = Math.round(outputSize * (aspectW / aspectH));
     const canvas = document.createElement('canvas');
     canvas.width = outputWidth;
     canvas.height = outputHeight;
@@ -113,7 +118,7 @@ export default function PhotoCropModal({ file, onCancel, onCrop }) {
 
         <div
           ref={viewportRef}
-          className="photo-crop-viewport"
+          className={`photo-crop-viewport ${round ? 'photo-crop-viewport-round' : ''}`}
           style={{ aspectRatio: `${aspectW} / ${aspectH}` }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
@@ -142,20 +147,22 @@ export default function PhotoCropModal({ file, onCancel, onCrop }) {
           aria-label="Zoom"
         />
 
-        <div className="photo-crop-aspect-toggle" role="tablist" aria-label="Crop aspect ratio">
-          {Object.entries(ASPECTS).map(([key, a]) => (
-            <button
-              key={key}
-              type="button"
-              role="tab"
-              aria-selected={aspect === key}
-              className={`add-meal-mode-btn ${aspect === key ? 'add-meal-mode-btn-active' : ''}`}
-              onClick={() => selectAspect(key)}
-            >
-              {a.label}
-            </button>
-          ))}
-        </div>
+        {!round && (
+          <div className="photo-crop-aspect-toggle" role="tablist" aria-label="Crop aspect ratio">
+            {Object.entries(ASPECTS).map(([key, a]) => (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={aspect === key}
+                className={`add-meal-mode-btn ${aspect === key ? 'add-meal-mode-btn-active' : ''}`}
+                onClick={() => selectAspect(key)}
+              >
+                {a.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="add-meal-footer">
           <Button type="button" variant="primary" onClick={handleConfirm} disabled={!img}>

@@ -39,14 +39,14 @@ const MEALS = [
 
 const NAME = '.dish-hero-title .dish-name-in';
 
-async function boot(page) {
+async function boot(page, meals = MEALS) {
   await page.route('**stub.supabase.co/**', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
   );
   await page.addInitScript((meals) => {
     localStorage.setItem('onboarding-seen-local', '1');
     localStorage.setItem('meal-diary-local-meals', JSON.stringify(meals));
-  }, MEALS);
+  }, meals);
   await page.goto('/');
 }
 
@@ -60,18 +60,26 @@ async function openDish(page, nth) {
 /**
  * A finger on the photo. `press` and `moveBy` leave it down, so the middle
  * of a gesture can be inspected; `lift` lets go. `stepMs` sets the speed.
+ *
+ * Each touch carries its own timestamp, from a clock the finger keeps.
+ * Without one, the page times a touch by when the DevTools protocol got it
+ * there, which is later whenever the page is busy rendering -- a flick in
+ * this test once measured half as fast as it was, and missed. On a phone,
+ * a touch is timed by the hardware, as it is here.
  */
 async function finger(page) {
   const cdp = await page.context().newCDPSession(page);
   const box = await page.locator('.dish-photo').boundingBox();
   const at = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
-  const send = (type, points) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: points });
+  let clock = Date.now() / 1000;
+  const send = (type, points) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: points, timestamp: clock });
   return {
     press: () => send('touchStart', [{ ...at, id: 1 }]),
     async moveBy(dx, { steps = 12, stepMs = 16 } = {}) {
       const x0 = at.x;
       for (let i = 1; i <= steps; i++) {
         at.x = x0 + (dx * i) / steps;
+        clock += stepMs / 1000;
         await send('touchMove', [{ ...at, id: 1 }]);
         await page.waitForTimeout(stepMs);
       }
@@ -79,6 +87,7 @@ async function finger(page) {
     async lift({ holdMs = 150 } = {}) {
       // Held still first unless asked otherwise, so the release carries
       // no fling.
+      clock += holdMs / 1000;
       await page.waitForTimeout(holdMs);
       await send('touchEnd', []);
     },
@@ -102,6 +111,10 @@ const readSwipe = (page) =>
       ghostSrc: ghost.getAttribute('src'),
       ghostX: parseFloat(getComputedStyle(ghost).translate) || 0,
       bodyFilter: document.querySelector('.dish-body').style.filter,
+      // Computed, so a running focus-pull animation counts as well as the
+      // inline blur a drag sets.
+      photoFilter: getComputedStyle(photoEl).filter,
+      ghostFilter: getComputedStyle(ghost).filter,
     };
   });
 
@@ -127,8 +140,10 @@ test.describe('swiping between dishes', () => {
     expect(mid.ghostShown).toBe(true);
     expect(mid.ghostSrc).toBe(MEALS[0].photos[0]);
     expect(mid.ghostX).toBeGreaterThan(100);
-    // ...and the text has dropped out of focus.
+    // ...and the text has dropped out of focus, and the photos with it.
     expect(mid.bodyFilter).toContain('blur');
+    expect(mid.photoFilter).toContain('blur');
+    expect(mid.ghostFilter).toContain('blur');
 
     // Short of a third of the way, held still: it settles back.
     await f.lift();
@@ -138,6 +153,7 @@ test.describe('swiping between dishes', () => {
     expect(after.photoX).toBe(0);
     expect(after.ghostShown).toBe(false);
     expect(after.bodyFilter).toBe('');
+    expect(after.photoFilter).toBe('none');
   });
 
   test('let go past a third of the way and it moves to that dish', async ({ page }) => {
@@ -146,30 +162,63 @@ test.describe('swiping between dishes', () => {
     await drag(page, -160);
     await expect(page.locator(NAME)).toHaveText('Newest dish');
     expect(new URL(page.url()).searchParams.get('meal')).toBe('m3');
+    // The incoming photo lands soft and comes into focus.
+    expect((await readSwipe(page)).photoFilter).toContain('blur');
     await settle(page);
     const after = await readSwipe(page);
     expect(after.photoX).toBe(0);
     expect(after.ghostShown).toBe(false);
+    expect(after.photoFilter).toBe('none');
   });
 
   test('a flick moves on however short it was', async ({ page }) => {
     await boot(page);
     await openDish(page, 1);
-    // Well short of a third of the way, but fast and lifted mid-motion.
-    await drag(page, 80, { steps: 3, stepMs: 0, holdMs: 0 });
+    // Well short of a third of the way, but fast and lifted mid-motion:
+    // 80px in 48ms.
+    await drag(page, 80, { steps: 3, stepMs: 16, holdMs: 0 });
     await expect(page.locator(NAME)).toHaveText('Oldest dish');
   });
 
   test('a drag that stops before it lifts is not a flick', async ({ page }) => {
     await boot(page);
     await openDish(page, 1);
-    await drag(page, 80, { steps: 3, stepMs: 0, holdMs: 250 });
+    await drag(page, 80, { steps: 3, stepMs: 16, holdMs: 250 });
     await settle(page);
     await expect(page.locator(NAME)).toHaveText('Middle dish');
   });
 
-  test('at the end of the shelf the drag resists and settles back', async ({ page }) => {
+  test('past the newest dish the shelf comes round to the oldest', async ({ page }) => {
     await boot(page);
+    await openDish(page, 0);
+    await expect(page.locator('.dish-index')).toHaveText('No. 3 of 3');
+    const f = await finger(page);
+    await f.press();
+    await f.moveBy(-70);
+    // The oldest is already coming in from the right, where the next
+    // number up would be.
+    const mid = await readSwipe(page);
+    expect(mid.photoX).toBeCloseTo(-70, 0);
+    expect(mid.ghostShown).toBe(true);
+    expect(mid.ghostSrc).toBe(MEALS[2].photos[0]);
+    await f.moveBy(-90);
+    await f.lift();
+    await expect(page.locator(NAME)).toHaveText('Oldest dish');
+    await expect(page.locator('.dish-index')).toHaveText('No. 1 of 3');
+    expect(new URL(page.url()).searchParams.get('meal')).toBe('m1');
+  });
+
+  test('and back from the oldest, round to the newest', async ({ page }) => {
+    await boot(page);
+    await openDish(page, 2);
+    await expect(page.locator('.dish-index')).toHaveText('No. 1 of 3');
+    await drag(page, 160);
+    await expect(page.locator(NAME)).toHaveText('Newest dish');
+    await expect(page.locator('.dish-index')).toHaveText('No. 3 of 3');
+  });
+
+  test('a dish on its own has nowhere to go: the drag resists and settles back', async ({ page }) => {
+    await boot(page, [MEALS[0]]);
     await openDish(page, 0);
     const f = await finger(page);
     await f.press();
@@ -192,11 +241,19 @@ test.describe('swiping between dishes', () => {
     // Mid-slide: the outgoing photo is on the ghost, leaving.
     const mid = await page.evaluate(() => {
       const ghost = document.querySelector('.dish-ghost');
-      return { shown: !ghost.hidden, src: ghost.getAttribute('src'), moving: document.querySelector('.dish-photo').getAnimations().length > 0 };
+      const photo = document.querySelector('.dish-photo');
+      return {
+        shown: !ghost.hidden,
+        src: ghost.getAttribute('src'),
+        moving: photo.getAnimations().length > 0,
+        photoFilter: getComputedStyle(photo).filter,
+      };
     });
     expect(mid.shown).toBe(true);
     expect(mid.src).toBe(MEALS[1].photos[0]);
     expect(mid.moving).toBe(true);
+    // Arrows get the same focus pull as a swipe, photo included.
+    expect(mid.photoFilter).toContain('blur');
     await expect(page.locator(NAME)).toHaveText('Oldest dish');
     await settle(page);
     expect((await readSwipe(page)).ghostShown).toBe(false);

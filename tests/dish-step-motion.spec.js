@@ -108,16 +108,21 @@ test.describe('stepping between dishes', () => {
     await expect(page.locator(NAME_OUT)).toHaveCount(0);
   });
 
-  test('arrows stop at the ends of the archive', async ({ page }) => {
+  test('arrows loop round at the ends of the archive', async ({ page }) => {
     await openNewestDish(page);
     // Opened on the newest dish, which is the archive's highest number.
-    await expect(page.getByRole('button', { name: 'Next dish' })).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Previous dish' })).toBeEnabled();
-
-    await page.getByRole('button', { name: 'Previous dish' }).click();
-    await expect(page.locator(NAME_IN)).toHaveText('Cacio e pepe');
-    await expect(page.getByRole('button', { name: 'Previous dish' })).toBeDisabled();
+    // There is no end to stop at: Next comes round to No. 1.
+    await expect(page.locator('.dish-index')).toHaveText('No. 2 of 2');
     await expect(page.getByRole('button', { name: 'Next dish' })).toBeEnabled();
+    await page.getByRole('button', { name: 'Next dish' }).click();
+    await expect(page.locator(NAME_IN)).toHaveText('Cacio e pepe');
+    await expect(page.locator('.dish-index')).toHaveText('No. 1 of 2');
+
+    // And back from No. 1, the same way round.
+    await expect(page.getByRole('button', { name: 'Previous dish' })).toBeEnabled();
+    await page.getByRole('button', { name: 'Previous dish' }).click();
+    await expect(page.locator(NAME_IN)).toHaveText('Charred leek, hazelnut');
+    await expect(page.locator('.dish-index')).toHaveText('No. 2 of 2');
   });
 
   // Note: page.emulateMedia, not test.use({ reducedMotion }). The latter

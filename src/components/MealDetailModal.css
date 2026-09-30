@@ -214,15 +214,14 @@
   justify-content: center;
 }
 
+/* Never clamped: it's a sentence written to fit two lines (summaryOf,
+   SUMMARY_MAX), and a narrow phone that wraps it to a third shows the
+   third rather than cutting it off. */
 .dish-lede {
   font: 400 1.5rem/1.3 var(--font-serif);
   letter-spacing: -0.005em;
   text-align: center;
   text-wrap: balance;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
 }
 
 .dish-peek-facts {
@@ -674,8 +673,11 @@
   color: var(--color-ink);
 }
 
+/* Inset by the body's own padding and rounded, like a photo anywhere
+   else in the app. The share button draws the photo into this box. */
 .share-card-image {
-  width: 100%;
+  margin: 32px 32px 0;
+  border-radius: var(--radius-media);
   aspect-ratio: 1 / 1;
   display: flex;
   align-items: center;

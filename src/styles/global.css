@@ -34,11 +34,16 @@ select {
   color: inherit;
 }
 
+/* Every button is a pill, like the ingredient bubbles (shape.md). Set
+   here so one without a box of its own -- an icon, a text link -- still
+   gets a round focus ring, and a new one is a pill before anyone styles
+   it. The few buttons shaped as something else (a meal card, a photo
+   thumbnail) say so where they're styled. */
 button {
   cursor: pointer;
   background: none;
   border: none;
-  border-radius: var(--radius);
+  border-radius: var(--radius-pill);
 }
 
 img {

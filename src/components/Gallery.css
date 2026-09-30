@@ -35,6 +35,24 @@
   border-bottom: var(--divider);
 }
 
+/* Level with the wordmark: centred on its line, which puts it within a
+   pixel of the middle of the capitals, rather than sitting on the
+   baseline. Padded out to a 44px target around the 36px picture, and a
+   flex box so no line-box strut makes it taller than that. */
+.gallery-avatar {
+  display: flex;
+  align-self: center;
+  margin: -4px -4px -4px auto;
+  padding: 4px;
+  border-radius: 50%;
+  transition: transform var(--dur-move) var(--ease-spring);
+}
+
+.gallery-avatar:active {
+  transform: scale(var(--press-scale));
+  transition-duration: var(--dur-press);
+}
+
 .gallery-title {
   font: 400 2.125rem/1.1 var(--font-serif);
   letter-spacing: -0.02em;
@@ -46,14 +64,15 @@
   color: var(--color-muted);
 }
 
+/* No rule under this one. The count reads as the grid's label, and a
+   line between them would cut it off from what it counts; the one under
+   the title is all the page needs. */
 .gallery-search-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-md);
-  padding-bottom: var(--space-xl);
   margin-bottom: var(--space-xl);
-  border-bottom: var(--divider);
 }
 
 .gallery-search-field {
@@ -64,6 +83,7 @@
   max-width: 420px;
   height: 44px;
   border: 1px solid var(--color-line);
+  border-radius: var(--radius);
   background: var(--color-bg);
   transition: border-color var(--dur-color) var(--ease);
 }
@@ -95,15 +115,18 @@
   -webkit-appearance: none;
 }
 
+/* Inset inside the field rather than divided off by a rule, so its fill
+   has an edge of its own, and a circle, as every button is a pill. */
 .gallery-filter-btn {
   position: relative;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-left: 1px solid var(--color-line);
+  width: 36px;
+  height: 36px;
+  margin-right: 3px;
+  border-radius: var(--radius-pill);
   color: var(--color-muted);
 }
 
@@ -124,8 +147,8 @@
 
 .gallery-filter-dot {
   position: absolute;
-  top: 9px;
-  right: 9px;
+  top: 6px;
+  right: 6px;
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -155,6 +178,7 @@
   padding: var(--space-2xl) var(--space-xl);
   text-align: center;
   border: 1px dashed var(--color-line-strong);
+  border-radius: var(--radius-surface);
 }
 
 .gallery-empty-title {

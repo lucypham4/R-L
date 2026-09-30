@@ -4,6 +4,7 @@ import MealDetailModal from './MealDetailModal';
 import { fetchChefBySlug, DEFAULT_PAGE_THEME } from '../lib/chefsApi';
 import { fetchMeals } from '../lib/mealsApi';
 import { leaveDish, pushDish, replaceDish } from '../lib/dishHistory';
+import { stepOnShelf } from '../lib/shelf';
 import './PublicChefPage.css';
 
 export default function PublicChefPage({ slug }) {
@@ -68,8 +69,8 @@ export default function PublicChefPage({ slug }) {
   );
   const openIndex = sortedMeals.findIndex((m) => String(m.id) === String(openMealId));
   const openMeal = openIndex >= 0 ? sortedMeals[openIndex] : null;
-  const prevMeal = openMeal ? sortedMeals[openIndex + 1] : undefined;
-  const nextMeal = openMeal ? sortedMeals[openIndex - 1] : undefined;
+  const prevMeal = stepOnShelf(sortedMeals, openIndex, -1);
+  const nextMeal = stepOnShelf(sortedMeals, openIndex, 1);
 
   function handleOpenMeal(meal) {
     pushDish(meal.id);
@@ -78,9 +79,10 @@ export default function PublicChefPage({ slug }) {
 
   // A client reading a chef's page steps between dishes the same way the
   // chef does: by swipe, arrow or arrow key. `delta` is in the modal's
-  // numbering, which runs opposite to newest-first sortedMeals.
+  // numbering, which runs opposite to newest-first sortedMeals, and wraps
+  // round at both ends (lib/shelf.js).
   function handleStepMeal(delta) {
-    const next = sortedMeals[openIndex - delta];
+    const next = stepOnShelf(sortedMeals, openIndex, delta);
     if (!next) return;
     replaceDish(next.id);
     setOpenMealId(next.id);

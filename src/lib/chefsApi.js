@@ -11,6 +11,8 @@ function fromRow(row) {
     slug: row.slug,
     displayName: row.display_name,
     pageTheme: row.page_theme === 'dark' ? 'dark' : DEFAULT_PAGE_THEME,
+    // Missing entirely until avatar-migration.sql has run.
+    avatarUrl: row.avatar_url ?? null,
   };
 }
 
@@ -52,6 +54,22 @@ export async function updateChefPageTheme(userId, pageTheme) {
   const { data, error } = await supabase
     .from('chefs')
     .update({ page_theme: pageTheme })
+    .eq('id', userId)
+    .select()
+    .single();
+  if (error) throw error;
+  return fromRow(data);
+}
+
+/**
+ * Sets the chef's profile picture, or clears it back to the default with
+ * null. Needs avatar-migration.sql; until that has run, Supabase refuses
+ * the column and the error says so.
+ */
+export async function updateChefAvatar(userId, avatarUrl) {
+  const { data, error } = await supabase
+    .from('chefs')
+    .update({ avatar_url: avatarUrl })
     .eq('id', userId)
     .select()
     .single();
