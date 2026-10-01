@@ -1,0 +1,190 @@
+.profile-page {
+  min-height: 100vh;
+  background: var(--color-bg);
+  padding: var(--space-xl) var(--page-margin-sm) var(--space-4xl);
+  animation: profile-enter var(--dur-move) var(--ease);
+}
+
+@keyframes profile-enter {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-page {
+    animation: none;
+  }
+}
+
+@media (min-width: 768px) {
+  .profile-page {
+    padding-left: var(--page-margin-md);
+    padding-right: var(--page-margin-md);
+  }
+}
+
+/* "< My profile": the back chevron and the title read as one line, as
+   in the sketch. The chevron is padded out to a 44px target and pulled
+   back by the padding so its glyph sits on the page margin. */
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-2xl);
+}
+
+.profile-back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-height);
+  height: var(--control-height);
+  margin-left: -11px;
+  color: var(--color-ink);
+}
+
+@media (hover: hover) {
+  .profile-back:hover {
+    background: var(--color-surface);
+  }
+}
+
+.profile-title {
+  font: 400 1.5rem/1.2 var(--font-serif);
+  letter-spacing: -0.01em;
+}
+
+/* Everything below the header shares one centred column, the width of a
+   phone even on a wide screen: it's a card about one person, not a page
+   to fill. */
+.profile-hero,
+.profile-bio,
+.profile-form {
+  max-width: 420px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.profile-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.profile-name {
+  margin-top: var(--space-lg);
+  font: var(--text-h2);
+  letter-spacing: var(--text-h2-ls);
+  overflow-wrap: anywhere;
+}
+
+.profile-address {
+  margin-top: var(--space-xs);
+  font: var(--text-meta);
+  letter-spacing: 0.04em;
+  color: var(--color-muted);
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  .profile-address:hover {
+    color: var(--color-accent);
+  }
+}
+
+.profile-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-lg);
+}
+
+.profile-edit {
+  min-width: 96px;
+}
+
+.profile-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-height);
+  height: var(--control-height);
+  color: var(--color-ink);
+  transition: background var(--dur-color) var(--ease), transform var(--dur-move) var(--ease-spring);
+}
+
+@media (hover: hover) {
+  .profile-icon-btn:hover {
+    background: var(--color-surface);
+  }
+}
+
+.profile-icon-btn:active {
+  transform: scale(var(--press-scale));
+  transition-duration: var(--dur-press);
+}
+
+/* Always in the page, so a screen reader hears "Link copied" when it
+   changes; empty, it takes no room. */
+.profile-share-status {
+  margin-top: var(--space-sm);
+  font: var(--text-caption);
+  color: var(--color-muted);
+}
+
+.profile-share-status:empty {
+  margin-top: 0;
+}
+
+/* The bio is what people see, so it sits in a card of its own: the
+   rounded box in the sketch. */
+.profile-bio {
+  margin-top: var(--space-xl);
+  padding: var(--space-lg) var(--space-xl);
+  background: var(--color-surface);
+  border-radius: var(--radius-surface);
+}
+
+.profile-bio-text {
+  font: var(--text-body);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.profile-bio-empty {
+  font: var(--text-caption);
+  color: var(--color-muted);
+}
+
+.profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+}
+
+.profile-photo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.profile-photo-actions,
+.profile-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.profile-photo-actions {
+  justify-content: center;
+}
+
+.profile-note {
+  font: var(--text-caption);
+  color: var(--color-muted);
+  text-align: center;
+}

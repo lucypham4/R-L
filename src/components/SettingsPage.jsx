@@ -1,77 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import Avatar from './Avatar';
 import Button from './Button';
-import PhotoCropModal from './PhotoCropModal';
 import { Label, TextInput, ErrorText } from './TextField';
 import { THEME_LABELS } from '../lib/theme';
-import { AVATAR_SIZE } from '../lib/avatar';
 import { changePassword, requestPasswordReset } from '../lib/auth';
 import './SettingsPage.css';
 
 function plural(n, word) {
   return `${n} ${word}${n === 1 ? '' : 's'}`;
-}
-
-// The picture in the top right of the gallery. Choosing one goes through
-// the crop modal, framed as the circle it will be shown in.
-function ProfileRow({ avatarUrl, name, onChangeAvatar }) {
-  const inputRef = useRef(null);
-  const [file, setFile] = useState(null);
-  const [status, setStatus] = useState('idle'); // idle | saving | error
-  const [error, setError] = useState('');
-  const saving = status === 'saving';
-
-  async function save(blob) {
-    setFile(null);
-    setStatus('saving');
-    setError('');
-    try {
-      await onChangeAvatar(blob);
-      setStatus('idle');
-    } catch (err) {
-      setStatus('error');
-      setError(err.message || '');
-    }
-  }
-
-  return (
-    <>
-      <div className="settings-profile">
-        <Avatar src={avatarUrl} size={72} />
-        <div className="settings-profile-body">
-          {name && <p className="settings-profile-name">{name}</p>}
-          <div className="settings-actions">
-            <Button variant="secondary" onClick={() => inputRef.current?.click()} disabled={saving}>
-              {saving ? 'Saving…' : avatarUrl ? 'Change photo' : 'Add photo'}
-            </Button>
-            {avatarUrl && (
-              <Button variant="ghost" onClick={() => save(null)} disabled={saving}>
-                Remove
-              </Button>
-            )}
-          </div>
-        </div>
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          hidden
-          onChange={(e) => {
-            const chosen = e.target.files?.[0];
-            // Cleared so choosing the same file again still fires.
-            e.target.value = '';
-            if (chosen) setFile(chosen);
-          }}
-        />
-      </div>
-      {status === 'error' && (
-        <p className="settings-row-body settings-row-error">Could not save that photo. {error}</p>
-      )}
-      {file && (
-        <PhotoCropModal file={file} round outputSize={AVATAR_SIZE} onCancel={() => setFile(null)} onCrop={save} />
-      )}
-    </>
-  );
 }
 
 // Asks for the current password as well as the new one: see changePassword.
@@ -297,8 +232,6 @@ export default function SettingsPage({
   onChangePageTheme,
   localMealCount,
   onImportLocalMeals,
-  avatarUrl,
-  onChangeAvatar,
 }) {
   return (
     <div className="settings-page">
@@ -308,11 +241,6 @@ export default function SettingsPage({
         </button>
         <h1 className="settings-title">Settings</h1>
       </header>
-
-      <section className="settings-section">
-        <h2 className="settings-section-title">Profile</h2>
-        <ProfileRow avatarUrl={avatarUrl} name={chefProfile?.displayName} onChangeAvatar={onChangeAvatar} />
-      </section>
 
       <section className="settings-section">
         <h2 className="settings-section-title">Theme</h2>

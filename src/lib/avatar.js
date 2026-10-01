@@ -2,7 +2,7 @@ import { uploadImage, isCloudinaryConfigured } from './cloudinary';
 
 // A profile picture only ever shows as a small circle, so it's stored
 // small: the crop comes out at this size, which covers the largest place
-// it appears (Settings) at 3x.
+// it appears (the profile page, at 112px) at about 3x.
 export const AVATAR_SIZE = 320;
 
 // A guest's picture lives on this device, alongside their Local meals.

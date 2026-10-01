@@ -42,6 +42,7 @@ async function stub(page, auth = () => undefined) {
 
 async function openSignIn(page) {
   await page.goto('/');
+  await page.getByRole('button', { name: 'My profile' }).click();
   await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();

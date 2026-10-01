@@ -5,6 +5,9 @@ import { supabase } from './supabase';
 // page with an undefined theme.
 export const DEFAULT_PAGE_THEME = 'light';
 
+// A bio is a line or two, not a CV. bio-migration.sql holds the same limit.
+export const BIO_MAX_LENGTH = 280;
+
 function fromRow(row) {
   return {
     id: row.id,
@@ -13,6 +16,8 @@ function fromRow(row) {
     pageTheme: row.page_theme === 'dark' ? 'dark' : DEFAULT_PAGE_THEME,
     // Missing entirely until avatar-migration.sql has run.
     avatarUrl: row.avatar_url ?? null,
+    // Missing entirely until bio-migration.sql has run.
+    bio: row.bio ?? '',
   };
 }
 
@@ -70,6 +75,24 @@ export async function updateChefAvatar(userId, avatarUrl) {
   const { data, error } = await supabase
     .from('chefs')
     .update({ avatar_url: avatarUrl })
+    .eq('id', userId)
+    .select()
+    .single();
+  if (error) throw error;
+  return fromRow(data);
+}
+
+/**
+ * Changes what the chef's profile says about them: the name their public
+ * page is titled with, and the short bio under it. The page name (slug)
+ * isn't here: it's in every link they've already handed out. The bio
+ * needs bio-migration.sql; until that has run, Supabase refuses the
+ * column and the error says so.
+ */
+export async function updateChefProfile(userId, { displayName, bio }) {
+  const { data, error } = await supabase
+    .from('chefs')
+    .update({ display_name: displayName, bio })
     .eq('id', userId)
     .select()
     .single();

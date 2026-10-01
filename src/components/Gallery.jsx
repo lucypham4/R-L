@@ -25,10 +25,12 @@ export default function Gallery({
   // The chef's own gallery goes without one: the wordmark says enough. A
   // public page passes its own, under the chef's name.
   tagline,
-  // The chef's picture, top right, which opens Settings. A public page
-  // leaves it out: its visitors have no settings to open.
+  // A public page's short bio from its chef, under the tagline.
+  bio,
+  // The chef's picture, top right, which opens their profile. A public
+  // page leaves it out: its visitors have no profile of their own here.
   avatarUrl,
-  onOpenSettings,
+  onOpenProfile,
 }) {
   const [search, setSearch] = useState('');
   const [selectedCuisines, setSelectedCuisines] = useState([]);
@@ -112,9 +114,10 @@ export default function Gallery({
         <div>
           <h1 className="gallery-title">{title}</h1>
           {tagline && <p className="gallery-tagline">{tagline}</p>}
+          {bio && <p className="gallery-bio">{bio}</p>}
         </div>
-        {onOpenSettings && (
-          <button type="button" className="gallery-avatar" onClick={onOpenSettings} aria-label="Settings">
+        {onOpenProfile && (
+          <button type="button" className="gallery-avatar" onClick={onOpenProfile} aria-label="My profile">
             <Avatar src={avatarUrl} size={36} />
           </button>
         )}
