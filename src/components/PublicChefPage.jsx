@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Gallery from './Gallery';
 import MealDetailModal from './MealDetailModal';
+import { SpecialtyTags, SocialLinks } from './ChefDetails';
 import { fetchChefBySlug, DEFAULT_PAGE_THEME } from '../lib/chefsApi';
 import { fetchMeals } from '../lib/mealsApi';
 import { leaveDish, pushDish, replaceDish } from '../lib/dishHistory';
@@ -120,7 +121,13 @@ export default function PublicChefPage({ slug }) {
         onOpenMeal={handleOpenMeal}
         title={chef.displayName}
         tagline="Portfolio & archive"
-        bio={chef.bio}
+        about={
+          <div className="public-chef-about">
+            {chef.bio && <p className="public-chef-bio">{chef.bio}</p>}
+            <SpecialtyTags specialties={chef.specialties} />
+            <SocialLinks links={chef.links} />
+          </div>
+        }
       />
 
       {openMeal && (

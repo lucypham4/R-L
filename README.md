@@ -38,9 +38,10 @@ goes to your profile.
   (see [Photo → speak → AI fill](#photo--speak--ai-fill)). Step 3 is where
   a chef checks and edits everything: name, date, serves, description,
   summary, category, cuisine, ingredients, method and note.
-- **Profile**: your picture, your name (as "Chef <name>") and a short bio,
-  the way clients see them. **Edit** changes all three; nothing is saved
-  until Save. The share button hands your public page's link to the
+- **Profile**: your picture, your name (as "Chef <name>"), your
+  specialties as tags, a short bio, and links to your Instagram, TikTok,
+  YouTube and website, the way clients see them. **Edit** changes all of
+  it; nothing is saved until Save. The share button hands your public page's link to the
   phone's share sheet, or copies it. The gear opens Settings. A guest has
   a picture but no name or bio until they sign in.
 - **Settings**: Appearance (System, Light or Dark),
@@ -48,7 +49,7 @@ goes to your profile.
   your public page) and, once there is an account, a retry for any local
   meals that didn't import.
 - **Public page** at `/<your-page-name>`: a read-only version of Home for
-  clients, with your bio under your name, with the same dish sheet and the same swiping, in the light or
+  clients, with your bio, specialties and links under your name, with the same dish sheet and the same swiping, in the light or
   dark theme the chef picked. A link like `/<your-page-name>?meal=<id>`
   opens one dish.
 
@@ -122,7 +123,8 @@ page and cross-device access possible on top of that.
    meals; without it a delete looks as if it worked and changes nothing),
    then `supabase/bio-migration.sql` once (adds the `bio` column for the
    short bio a chef writes on their profile; until it has run, saving a
-   bio fails and says so).
+   bio fails and says so), then `supabase/profile-details-migration.sql`
+   once (adds the `specialties` and `links` columns, likewise).
 3. In Cloudinary, create an **unsigned** upload preset (Settings → Upload →
    Upload presets → Add upload preset, signing mode "Unsigned"). Unsigned
    presets are what let the browser upload directly without exposing your

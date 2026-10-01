@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import Avatar from './Avatar';
 import Button from './Button';
 import PhotoCropModal from './PhotoCropModal';
+import { SpecialtyTags, SocialLinks, SpecialtyPicker } from './ChefDetails';
 import { Label, TextInput, TextArea, ErrorText, HelpText } from './TextField';
 import { AVATAR_SIZE } from '../lib/avatar';
 import { BIO_MAX_LENGTH } from '../lib/chefsApi';
+import { PLATFORMS, parseLink } from '../lib/socialLinks';
 import './ProfilePage.css';
 
 // "Chef Ana", as the sketch has it, without making "Chef Ana" into
@@ -74,6 +76,12 @@ function ProfileForm({ chefProfile, avatarUrl, onChangeAvatar, onSaveProfile, on
   const inputRef = useRef(null);
   const [name, setName] = useState(chefProfile?.displayName ?? '');
   const [bio, setBio] = useState(chefProfile?.bio ?? '');
+  const [specialties, setSpecialties] = useState(chefProfile?.specialties ?? []);
+  // As typed: "@ana", a pasted profile link, an address. Parsed on Save.
+  const [linkDrafts, setLinkDrafts] = useState(() =>
+    Object.fromEntries(PLATFORMS.map((p) => [p.key, chefProfile?.links?.[p.key] ?? '']))
+  );
+  const [linkErrors, setLinkErrors] = useState({});
   // undefined: the picture is untouched. null: removed. Otherwise the
   // newly cropped one, with a URL to preview it by.
   const [photo, setPhoto] = useState(undefined);
@@ -94,6 +102,20 @@ function ProfileForm({ chefProfile, avatarUrl, onChangeAvatar, onSaveProfile, on
       setError('Your page needs a name.');
       return;
     }
+    const links = {};
+    const badLinks = {};
+    for (const platform of PLATFORMS) {
+      const parsed = parseLink(platform.key, linkDrafts[platform.key]);
+      if (parsed === null) badLinks[platform.key] = true;
+      else if (parsed) links[platform.key] = parsed;
+    }
+    setLinkErrors(badLinks);
+    const bad = PLATFORMS.filter((p) => badLinks[p.key]).map((p) => p.label);
+    if (bad.length) {
+      setStatus('error');
+      setError(`That doesn't look like a ${bad.join(' or ')} link. Try @yourname, or paste the address.`);
+      return;
+    }
     setStatus('saving');
     setError('');
     try {
@@ -103,9 +125,13 @@ function ProfileForm({ chefProfile, avatarUrl, onChangeAvatar, onSaveProfile, on
         // it again.
         setPhoto(undefined);
       }
-      const nextBio = bio.trim();
-      if (chefProfile && (displayName !== chefProfile.displayName || nextBio !== chefProfile.bio)) {
-        await onSaveProfile({ displayName, bio: nextBio });
+      if (chefProfile) {
+        // Only what changed: see updateChefProfile.
+        const next = { displayName, bio: bio.trim(), specialties, links };
+        const changes = Object.fromEntries(
+          Object.entries(next).filter(([field, value]) => JSON.stringify(value) !== JSON.stringify(chefProfile[field]))
+        );
+        if (Object.keys(changes).length) await onSaveProfile(changes);
       }
       onDone();
     } catch (err) {
@@ -181,6 +207,36 @@ function ProfileForm({ chefProfile, avatarUrl, onChangeAvatar, onSaveProfile, on
                 Shown under your name on your public page. {bio.length}/{BIO_MAX_LENGTH}
               </HelpText>
             </div>
+            <fieldset className="profile-fieldset">
+              <legend className="field-label">
+                Specialties <span className="field-optional">optional</span>
+              </legend>
+              <SpecialtyPicker value={specialties} onChange={setSpecialties} disabled={saving} />
+            </fieldset>
+            <fieldset className="profile-fieldset profile-links-fields">
+              <legend className="field-label">
+                Links <span className="field-optional">optional</span>
+              </legend>
+              {PLATFORMS.map((platform) => (
+                <div key={platform.key} className="profile-link-field">
+                  <label htmlFor={`profile-link-${platform.key}`} className="profile-link-label">
+                    {platform.label}
+                  </label>
+                  <TextInput
+                    id={`profile-link-${platform.key}`}
+                    value={linkDrafts[platform.key]}
+                    onChange={(e) => setLinkDrafts((prev) => ({ ...prev, [platform.key]: e.target.value }))}
+                    placeholder={platform.placeholder}
+                    error={linkErrors[platform.key]}
+                    aria-invalid={linkErrors[platform.key] || undefined}
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    inputMode="url"
+                  />
+                </div>
+              ))}
+            </fieldset>
           </>
         ) : (
           <p className="profile-note">Your picture stays on this device. Sign in from Settings to add a name and a bio.</p>
@@ -216,8 +272,9 @@ function ProfileForm({ chefProfile, avatarUrl, onChangeAvatar, onSaveProfile, on
 
 /**
  * The chef's own profile, where the picture in the top right of Home
- * goes: their picture, name and short bio as clients see them, with Edit,
- * Share (the public page's link) and Settings beside the name.
+ * goes: their picture, name, specialties, short bio and links as clients
+ * see them, with Edit, Share (the public page's link) and Settings beside
+ * the name.
  */
 export default function ProfilePage({
   onBack,
@@ -291,6 +348,7 @@ export default function ProfilePage({
               {shareStatus === 'copied' && 'Link copied.'}
               {shareStatus === 'failed' && `Couldn't copy it. Your page is at ${pageAddress}.`}
             </p>
+            <SpecialtyTags specialties={chefProfile?.specialties} className="profile-tags" />
           </div>
 
           <section className="profile-bio" aria-label="Bio">
@@ -306,6 +364,8 @@ export default function ProfilePage({
               </p>
             )}
           </section>
+
+          <SocialLinks links={chefProfile?.links} className="profile-links" />
         </>
       )}
     </div>

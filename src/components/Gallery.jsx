@@ -25,8 +25,9 @@ export default function Gallery({
   // The chef's own gallery goes without one: the wordmark says enough. A
   // public page passes its own, under the chef's name.
   tagline,
-  // A public page's short bio from its chef, under the tagline.
-  bio,
+  // A public page's word from its chef (bio, specialties, links), under
+  // the tagline.
+  about,
   // The chef's picture, top right, which opens their profile. A public
   // page leaves it out: its visitors have no profile of their own here.
   avatarUrl,
@@ -114,7 +115,7 @@ export default function Gallery({
         <div>
           <h1 className="gallery-title">{title}</h1>
           {tagline && <p className="gallery-tagline">{tagline}</p>}
-          {bio && <p className="gallery-bio">{bio}</p>}
+          {about}
         </div>
         {onOpenProfile && (
           <button type="button" className="gallery-avatar" onClick={onOpenProfile} aria-label="My profile">

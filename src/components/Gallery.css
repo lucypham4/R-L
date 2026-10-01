@@ -64,14 +64,6 @@
   color: var(--color-muted);
 }
 
-.gallery-bio {
-  max-width: 560px;
-  margin-top: var(--space-md);
-  font: var(--text-body);
-  white-space: pre-line;
-  overflow-wrap: anywhere;
-}
-
 /* No rule under this one. The count reads as the grid's label, and a
    line between them would cut it off from what it counts; the one under
    the title is all the page needs. */

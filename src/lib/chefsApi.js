@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { cleanLinks } from './socialLinks';
 
 // Chefs created before page-theme-migration.sql ran won't have the
 // column at all, so fall back to 'light' rather than rendering a public
@@ -7,6 +8,12 @@ export const DEFAULT_PAGE_THEME = 'light';
 
 // A bio is a line or two, not a CV. bio-migration.sql holds the same limit.
 export const BIO_MAX_LENGTH = 280;
+
+// Tags under the chef's name. A handful says what they're known for; a
+// long list says nothing. profile-details-migration.sql holds the same
+// limit.
+export const SPECIALTIES_MAX = 8;
+export const SPECIALTY_MAX_LENGTH = 32;
 
 function fromRow(row) {
   return {
@@ -18,6 +25,9 @@ function fromRow(row) {
     avatarUrl: row.avatar_url ?? null,
     // Missing entirely until bio-migration.sql has run.
     bio: row.bio ?? '',
+    // Both missing until profile-details-migration.sql has run.
+    specialties: Array.isArray(row.specialties) ? row.specialties.filter((s) => typeof s === 'string') : [],
+    links: cleanLinks(row.links),
   };
 }
 
@@ -82,17 +92,29 @@ export async function updateChefAvatar(userId, avatarUrl) {
   return fromRow(data);
 }
 
+const PROFILE_COLUMNS = {
+  displayName: 'display_name',
+  bio: 'bio',
+  specialties: 'specialties',
+  links: 'links',
+};
+
 /**
  * Changes what the chef's profile says about them: the name their public
- * page is titled with, and the short bio under it. The page name (slug)
- * isn't here: it's in every link they've already handed out. The bio
- * needs bio-migration.sql; until that has run, Supabase refuses the
- * column and the error says so.
+ * page is titled with, the short bio under it, their specialties and
+ * their links. Pass only what changed: each needs its migration
+ * (bio-migration.sql, profile-details-migration.sql), and a chef whose
+ * project hasn't run one can still change everything else. Until it has,
+ * Supabase refuses the column and the error says so. The page name (slug)
+ * isn't here: it's in every link they've already handed out.
  */
-export async function updateChefProfile(userId, { displayName, bio }) {
+export async function updateChefProfile(userId, changes) {
+  const row = Object.fromEntries(
+    Object.entries(changes).map(([field, value]) => [PROFILE_COLUMNS[field], value])
+  );
   const { data, error } = await supabase
     .from('chefs')
-    .update({ display_name: displayName, bio })
+    .update(row)
     .eq('id', userId)
     .select()
     .single();

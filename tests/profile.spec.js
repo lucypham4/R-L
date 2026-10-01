@@ -276,10 +276,83 @@ test.describe('the profile', () => {
     await expect(page.getByRole('heading', { name: 'My profile' })).toBeVisible();
   });
 
-  test('the bio is what clients read on the public page', async ({ page }) => {
-    await boot(page, { path: '/ana', chef: { ...CHEF, bio: 'Seasonal Vietnamese, cooked in your kitchen.' } });
+  test('a chef picks specialties and adds their links', async ({ page }) => {
+    const calls = await boot(page, { signedIn: true });
+    await openProfile(page);
+    await expect(page.getByRole('list', { name: 'Specialties' })).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Edit' }).click();
+    await page.getByRole('button', { name: 'Add Pastry' }).click();
+    await page.getByRole('button', { name: 'Add Seasonal' }).click();
+    await page.getByLabel('Add a specialty').fill('Vietnamese');
+    await page.getByLabel('Add a specialty').press('Enter');
+    // Enter adds the tag; it doesn't save the form.
+    await expect(page.getByLabel('Add a specialty')).toHaveValue('');
+    await expect(page.getByRole('form', { name: 'Edit profile' })).toBeVisible();
+    // Changed my mind about one.
+    await page.getByRole('button', { name: 'Remove Seasonal' }).click();
+    await expect(page.getByRole('list', { name: 'Your specialties' }).getByRole('listitem')).toHaveText([
+      'Pastry×',
+      'Vietnamese×',
+    ]);
+
+    // A handle, a pasted profile link, and a bare address.
+    await page.getByLabel('Instagram').fill('@ana.cooks');
+    await page.getByLabel('TikTok').fill('https://www.tiktok.com/@anacooks?lang=en');
+    await page.getByLabel('Website').fill('anatran.com');
+    await page.getByRole('button', { name: 'Save' }).click();
+
+    await expect(page.getByRole('list', { name: 'Specialties' }).getByRole('listitem')).toHaveText([
+      'Pastry',
+      'Vietnamese',
+    ]);
+    const links = page.getByRole('list', { name: 'Links' }).getByRole('link');
+    await expect(links).toHaveText(['Instagram: @ana.cooks', 'TikTok: @anacooks', 'Website: anatran.com']);
+    await expect(links.nth(0)).toHaveAttribute('href', 'https://instagram.com/ana.cooks');
+    await expect(links.nth(1)).toHaveAttribute('href', 'https://www.tiktok.com/@anacooks');
+    await expect(links.nth(2)).toHaveAttribute('href', 'https://anatran.com/');
+
+    const saved = calls.find((c) => c.method === 'PATCH' && c.path === '/rest/v1/chefs');
+    // Only what changed is written.
+    expect(saved.body).toEqual({
+      specialties: ['Pastry', 'Vietnamese'],
+      links: { instagram: 'ana.cooks', tiktok: 'anacooks', website: 'https://anatran.com/' },
+    });
+  });
+
+  test('a link that isn’t one is caught before saving', async ({ page }) => {
+    const calls = await boot(page, { signedIn: true });
+    await openProfile(page);
+    await page.getByRole('button', { name: 'Edit' }).click();
+    await page.getByLabel('YouTube').fill('https://www.youtube.com/channel/UC123');
+    await page.getByLabel('Website').fill('my site');
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByText("That doesn't look like a YouTube or Website link.")).toBeVisible();
+    await expect(page.getByLabel('YouTube')).toHaveAttribute('aria-invalid', 'true');
+    expect(calls.filter((c) => c.method === 'PATCH')).toHaveLength(0);
+  });
+
+  test('clients read the bio, specialties and links on the public page', async ({ page }) => {
+    await boot(page, {
+      path: '/ana',
+      chef: {
+        ...CHEF,
+        bio: 'Seasonal Vietnamese, cooked in your kitchen.',
+        specialties: ['Pastry', 'Vietnamese'],
+        // As stored, plus what a hand-edited row could hold.
+        links: { instagram: 'ana.cooks', website: 'javascript:alert(1)', myspace: 'ana' },
+      },
+    });
     await expect(page.getByRole('heading', { name: 'Ana' })).toBeVisible();
-    await expect(page.locator('.gallery-bio')).toHaveText('Seasonal Vietnamese, cooked in your kitchen.');
+    await expect(page.locator('.public-chef-bio')).toHaveText('Seasonal Vietnamese, cooked in your kitchen.');
+    await expect(page.getByRole('list', { name: 'Specialties' }).getByRole('listitem')).toHaveText([
+      'Pastry',
+      'Vietnamese',
+    ]);
+    // Only what parses as a real link becomes one.
+    const links = page.getByRole('list', { name: 'Links' }).getByRole('link');
+    await expect(links).toHaveCount(1);
+    await expect(links).toHaveAttribute('href', 'https://instagram.com/ana.cooks');
   });
 });
 
