@@ -58,12 +58,6 @@
   letter-spacing: -0.02em;
 }
 
-.gallery-tagline {
-  margin-top: 6px;
-  font: 400 0.875rem/1.5 var(--font-sans);
-  color: var(--color-muted);
-}
-
 /* No rule under this one. The count reads as the grid's label, and a
    line between them would cut it off from what it counts; the one under
    the title is all the page needs. */

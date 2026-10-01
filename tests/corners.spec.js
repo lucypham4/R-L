@@ -112,6 +112,13 @@ async function expectRounded(page, screen) {
   expect(buttons, `buttons that aren't pills on ${screen}`).toEqual([]);
 }
 
+/** Settings is the gear on the chef's profile. */
+async function openSettings(page) {
+  await page.getByRole('button', { name: 'My profile' }).click();
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
+}
+
 test.describe('no square corners', () => {
   test('the gallery, its sheets and edit mode', async ({ page }) => {
     await boot(page);
@@ -196,16 +203,34 @@ test.describe('no square corners', () => {
     await expectRounded(page, 'add meal, step 3');
   });
 
+  test('the profile, as a guest', async ({ page }) => {
+    await boot(page);
+    await page.getByRole('button', { name: 'My profile' }).click();
+    await expect(page.getByRole('heading', { name: 'My profile' })).toBeVisible();
+    await expectRounded(page, 'the profile, as a guest');
+    await page.getByRole('button', { name: 'Edit' }).click();
+    await expectRounded(page, 'editing the profile, as a guest');
+  });
+
+  test('the profile, signed in', async ({ page }) => {
+    await boot(page, { signedIn: true });
+    await page.getByRole('button', { name: 'My profile' }).click();
+    await expect(page.getByRole('heading', { name: 'My profile' })).toBeVisible();
+    await expectRounded(page, 'the profile, signed in');
+    await page.getByRole('button', { name: 'Edit' }).click();
+    await expect(page.getByLabel('Short bio')).toBeVisible();
+    await expectRounded(page, 'editing the profile, signed in');
+  });
+
   test('settings, as a guest', async ({ page }) => {
     await boot(page);
-    await page.getByRole('button', { name: 'Settings' }).click();
-    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
+    await openSettings(page);
     await expectRounded(page, 'settings, as a guest');
   });
 
   test('settings, signed in', async ({ page }) => {
     await boot(page, { signedIn: true });
-    await page.getByRole('button', { name: 'Settings' }).click();
+    await openSettings(page);
     await expect(page.getByText(USER.email)).toBeVisible();
     await expectRounded(page, 'settings, signed in');
     await page.getByRole('button', { name: 'Change password' }).click();
@@ -214,7 +239,7 @@ test.describe('no square corners', () => {
 
   test('signing in, and setting up a page', async ({ page }) => {
     await boot(page);
-    await page.getByRole('button', { name: 'Settings' }).click();
+    await openSettings(page);
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
     await page.getByLabel('Email').fill(USER.email);
@@ -250,5 +275,14 @@ test.describe('no square corners', () => {
     await boot(page, { path: '/ana' });
     await expect(page.locator('.meal-card')).toHaveCount(3);
     await expectRounded(page, 'the public page');
+  });
+
+  test('a chef’s public page, scrolled under its pinned header', async ({ page }) => {
+    await page.setViewportSize({ width: 412, height: 500 });
+    await boot(page, { path: '/ana' });
+    await expect(page.locator('.meal-card')).toHaveCount(3);
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await expect(page.locator('.public-chef-bar')).toBeVisible();
+    await expectRounded(page, 'the public page, scrolled');
   });
 });

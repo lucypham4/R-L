@@ -1,11 +1,50 @@
 import { useEffect, useMemo, useState } from 'react';
+import Avatar from './Avatar';
 import Gallery from './Gallery';
 import MealDetailModal from './MealDetailModal';
+import { SpecialtyTags, SocialLinks, chefTitle } from './ChefDetails';
 import { fetchChefBySlug, DEFAULT_PAGE_THEME } from '../lib/chefsApi';
 import { fetchMeals } from '../lib/mealsApi';
 import { leaveDish, pushDish, replaceDish } from '../lib/dishHistory';
 import { stepOnShelf } from '../lib/shelf';
 import './PublicChefPage.css';
+
+/**
+ * Who the page belongs to, at the top: their picture and name, where else
+ * to find them, their bio and their specialties, all centred above the
+ * dishes.
+ */
+function ChefHeader({ chef, headerRef }) {
+  return (
+    <header ref={headerRef} className="public-chef-header">
+      <div className="public-chef-identity">
+        <Avatar src={chef.avatarUrl} size={112} />
+        <h1 className="public-chef-name">{chefTitle(chef.displayName)}</h1>
+      </div>
+      <SocialLinks links={chef.links} className="public-chef-links" />
+      {chef.bio && <p className="public-chef-bio">{chef.bio}</p>}
+      <SpecialtyTags specialties={chef.specialties} className="public-chef-tags" />
+    </header>
+  );
+}
+
+/**
+ * Once the header has scrolled away, the chef stays with the reader: a
+ * small picture and their name pinned to the top, the dishes fading out
+ * beneath it. Decorative -- the heading it repeats is still in the page.
+ */
+function useScrolledPast(el) {
+  const [past, setPast] = useState(false);
+  useEffect(() => {
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(([entry]) => {
+      setPast(!entry.isIntersecting && entry.boundingClientRect.top < 0);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [el]);
+  return past;
+}
 
 export default function PublicChefPage({ slug }) {
   const [status, setStatus] = useState('loading'); // loading | ready | not-found | error
@@ -13,6 +52,9 @@ export default function PublicChefPage({ slug }) {
   const [meals, setMeals] = useState([]);
   const [openMealId, setOpenMealId] = useState(null);
   const [error, setError] = useState('');
+  // A callback ref: the header only exists once the chef has loaded.
+  const [headerEl, setHeaderEl] = useState(null);
+  const scrolledPast = useScrolledPast(headerEl);
 
   useEffect(() => {
     let cancelled = false;
@@ -115,11 +157,17 @@ export default function PublicChefPage({ slug }) {
 
   return (
     <div>
+      <div className={`public-chef-bar ${scrolledPast ? 'public-chef-bar-shown' : ''}`} aria-hidden="true">
+        <div className="public-chef-bar-inner">
+          <Avatar src={chef.avatarUrl} size={56} />
+          <span className="public-chef-bar-name">{chefTitle(chef.displayName)}</span>
+        </div>
+      </div>
+
       <Gallery
         meals={sortedMeals}
         onOpenMeal={handleOpenMeal}
-        title={chef.displayName}
-        tagline="Portfolio & archive"
+        header={<ChefHeader chef={chef} headerRef={setHeaderEl} />}
       />
 
       {openMeal && (

@@ -20,7 +20,7 @@ before you sign up can be copied into the new account (see
 
 The app has two tabs, **Home** and **Add**. Everything else opens from
 those, or from the round profile picture at the top right of Home, which
-goes to Settings.
+goes to your profile.
 
 - **Home**: your dishes as a grid of cards, each with a photo, a name and
   a one-line summary. Search covers names, cuisine, category, summary,
@@ -38,13 +38,23 @@ goes to Settings.
   (see [Photo → speak → AI fill](#photo--speak--ai-fill)). Step 3 is where
   a chef checks and edits everything: name, date, serves, description,
   summary, category, cuisine, ingredients, method and note.
-- **Settings**: profile picture, Appearance (System, Light or Dark),
+- **Profile**: your picture beside your name (as "Chef <name>"), your
+  page's link and icons for your Instagram, TikTok, YouTube and website;
+  then your short bio and your specialties, each in a card of its own,
+  the way clients see them. Three icons top right: the pencil edits all
+  of it (nothing is saved until Save), share hands your public page's
+  link to the phone's share sheet or copies it, and the gear opens
+  Settings. A guest has a picture but no name or bio until they sign in.
+- **Settings**: Appearance (System, Light or Dark),
   Public page theme, account (sign in or out, change password, link to
   your public page) and, once there is an account, a retry for any local
   meals that didn't import.
 - **Public page** at `/<your-page-name>`: a read-only version of Home for
-  clients, with the same dish sheet and the same swiping, in the light or
-  dark theme the chef picked. A link like `/<your-page-name>?meal=<id>`
+  clients. At the top, centred: your picture and name, your links, your
+  bio and your specialties. Once that scrolls away, your picture and name
+  stay pinned to the top with the dishes fading out beneath. The same
+  dish sheet and the same swiping, in the light or dark theme the chef
+  picked. A link like `/<your-page-name>?meal=<id>`
   opens one dish.
 
 There is no router library. `/` is the private app, a single path segment
@@ -109,12 +119,16 @@ page and cross-device access possible on top of that.
    then `supabase/page-theme-migration.sql` once (adds the `page_theme`
    column that stores each chef's light/dark choice for their public
    page), then `supabase/avatar-migration.sql` once (adds the
-   `avatar_url` column for the profile picture set in Settings), then
+   `avatar_url` column for the profile picture set on the profile), then
    `supabase/summary-migration.sql` once (adds each meal's one-sentence
    `summary`, and the policy that lets a chef update their own meals so an
    older meal's summary can be saved; see below), then
    `supabase/meal-delete-migration.sql` once (lets a chef delete their own
-   meals; without it a delete looks as if it worked and changes nothing).
+   meals; without it a delete looks as if it worked and changes nothing),
+   then `supabase/bio-migration.sql` once (adds the `bio` column for the
+   short bio a chef writes on their profile; until it has run, saving a
+   bio fails and says so), then `supabase/profile-details-migration.sql`
+   once (adds the `specialties` and `links` columns, likewise).
 3. In Cloudinary, create an **unsigned** upload preset (Settings → Upload →
    Upload presets → Add upload preset, signing mode "Unsigned"). Unsigned
    presets are what let the browser upload directly without exposing your

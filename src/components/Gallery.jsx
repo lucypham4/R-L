@@ -22,13 +22,12 @@ export default function Gallery({
   onAddMeal,
   onDeleteMeal,
   title = 'Staj',
-  // The chef's own gallery goes without one: the wordmark says enough. A
-  // public page passes its own, under the chef's name.
-  tagline,
-  // The chef's picture, top right, which opens Settings. A public page
-  // leaves it out: its visitors have no settings to open.
+  // In place of the wordmark header: a public page puts its chef there.
+  header,
+  // The chef's picture, top right, which opens their profile. A public
+  // page leaves it out: its visitors have no profile of their own here.
   avatarUrl,
-  onOpenSettings,
+  onOpenProfile,
 }) {
   const [search, setSearch] = useState('');
   const [selectedCuisines, setSelectedCuisines] = useState([]);
@@ -108,17 +107,16 @@ export default function Gallery({
 
   return (
     <div className="gallery">
-      <header className="gallery-header">
-        <div>
+      {header ?? (
+        <header className="gallery-header">
           <h1 className="gallery-title">{title}</h1>
-          {tagline && <p className="gallery-tagline">{tagline}</p>}
-        </div>
-        {onOpenSettings && (
-          <button type="button" className="gallery-avatar" onClick={onOpenSettings} aria-label="Settings">
-            <Avatar src={avatarUrl} size={36} />
-          </button>
-        )}
-      </header>
+          {onOpenProfile && (
+            <button type="button" className="gallery-avatar" onClick={onOpenProfile} aria-label="My profile">
+              <Avatar src={avatarUrl} size={36} />
+            </button>
+          )}
+        </header>
+      )}
 
       <div className="gallery-search-row">
         <div className="gallery-search-field">

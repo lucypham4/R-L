@@ -11,10 +11,11 @@ import OnboardingTour from './components/OnboardingTour';
 import PublicChefPage from './components/PublicChefPage';
 import BottomNav from './components/BottomNav';
 import SettingsPage from './components/SettingsPage';
+import ProfilePage from './components/ProfilePage';
 import { isSupabaseConfigured } from './lib/supabase';
 import { isCloudinaryConfigured } from './lib/cloudinary';
 import { fetchMeals, insertMeal, deleteMeal, updateMealSummary } from './lib/mealsApi';
-import { fetchChefProfile, updateChefPageTheme, updateChefAvatar } from './lib/chefsApi';
+import { fetchChefProfile, updateChefPageTheme, updateChefAvatar, updateChefProfile } from './lib/chefsApi';
 import { getSession, onAuthChange, signOut, isRecoveringPassword, takeEmailLinkError } from './lib/auth';
 import { loadLocalMeals, saveLocalMeals, createLocalMeal } from './lib/localMeals';
 import { scrollToTop } from './lib/motion';
@@ -87,6 +88,9 @@ function AdminApp() {
   const [chefProfile, setChefProfile] = useState(null);
   const [chefProfileChecked, setChefProfileChecked] = useState(!isSupabaseConfigured);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  // The picture in the top right opens the chef's profile; Settings opens
+  // from there, and its Back returns to it.
+  const [showProfile, setShowProfile] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [theme, setTheme] = useState(loadTheme);
   // A guest's profile picture. A chef's is on chefProfile instead.
@@ -272,7 +276,7 @@ function AdminApp() {
 
   // A new profile picture, or null to go back to the default. Signed in,
   // it's saved to the chef's profile; otherwise to this device. Errors
-  // propagate, for Settings to show.
+  // propagate, for the profile page to show.
   async function handleChangeAvatar(blob) {
     if (chefProfile) {
       const url = blob ? await storeAvatar(blob) : null;
@@ -285,6 +289,12 @@ function AdminApp() {
   }
 
   const avatarUrl = chefProfile ? chefProfile.avatarUrl : localAvatar;
+
+  // The chef's name and bio, from Edit on their profile. Errors propagate,
+  // for the form to show.
+  async function handleSaveProfile(fields) {
+    setChefProfile(await updateChefProfile(userId, fields));
+  }
 
   function handleRequestSignIn() {
     setSignInMode('signin');
@@ -401,8 +411,20 @@ function AdminApp() {
         onChangePageTheme={chefProfile ? handleChangePageTheme : undefined}
         localMealCount={localMealCount}
         onImportLocalMeals={handleImportLocalMeals}
+      />
+    );
+  }
+
+  if (showProfile) {
+    return (
+      <ProfilePage
+        onBack={() => setShowProfile(false)}
+        onOpenSettings={() => setShowSettings(true)}
+        chefProfile={chefProfile}
+        publicUrl={publicUrl}
         avatarUrl={avatarUrl}
         onChangeAvatar={handleChangeAvatar}
+        onSaveProfile={handleSaveProfile}
       />
     );
   }
@@ -427,7 +449,7 @@ function AdminApp() {
           onAddMeal={() => setShowAddForm(true)}
           onDeleteMeal={handleDeleteMeal}
           avatarUrl={avatarUrl}
-          onOpenSettings={() => setShowSettings(true)}
+          onOpenProfile={() => setShowProfile(true)}
         />
       </div>
 
