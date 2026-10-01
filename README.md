@@ -38,19 +38,23 @@ goes to your profile.
   (see [Photo → speak → AI fill](#photo--speak--ai-fill)). Step 3 is where
   a chef checks and edits everything: name, date, serves, description,
   summary, category, cuisine, ingredients, method and note.
-- **Profile**: your picture, your name (as "Chef <name>"), your
-  specialties as tags, a short bio, and links to your Instagram, TikTok,
-  YouTube and website, the way clients see them. **Edit** changes all of
-  it; nothing is saved until Save. The share button hands your public page's link to the
-  phone's share sheet, or copies it. The gear opens Settings. A guest has
-  a picture but no name or bio until they sign in.
+- **Profile**: your picture beside your name (as "Chef <name>"), your
+  page's link and icons for your Instagram, TikTok, YouTube and website;
+  then your short bio and your specialties, each in a card of its own,
+  the way clients see them. Three icons top right: the pencil edits all
+  of it (nothing is saved until Save), share hands your public page's
+  link to the phone's share sheet or copies it, and the gear opens
+  Settings. A guest has a picture but no name or bio until they sign in.
 - **Settings**: Appearance (System, Light or Dark),
   Public page theme, account (sign in or out, change password, link to
   your public page) and, once there is an account, a retry for any local
   meals that didn't import.
 - **Public page** at `/<your-page-name>`: a read-only version of Home for
-  clients, with your bio, specialties and links under your name, with the same dish sheet and the same swiping, in the light or
-  dark theme the chef picked. A link like `/<your-page-name>?meal=<id>`
+  clients. At the top, centred: your picture and name, your links, your
+  bio and your specialties. Once that scrolls away, your picture and name
+  stay pinned to the top with the dishes fading out beneath. The same
+  dish sheet and the same swiping, in the light or dark theme the chef
+  picked. A link like `/<your-page-name>?meal=<id>`
   opens one dish.
 
 There is no router library. `/` is the private app, a single path segment

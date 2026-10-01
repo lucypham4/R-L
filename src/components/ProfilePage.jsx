@@ -2,20 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import Avatar from './Avatar';
 import Button from './Button';
 import PhotoCropModal from './PhotoCropModal';
-import { SpecialtyTags, SocialLinks, SpecialtyPicker } from './ChefDetails';
+import { SpecialtyTags, SocialLinks, SpecialtyPicker, chefTitle } from './ChefDetails';
 import { Label, TextInput, TextArea, ErrorText, HelpText } from './TextField';
 import { AVATAR_SIZE } from '../lib/avatar';
 import { BIO_MAX_LENGTH } from '../lib/chefsApi';
 import { PLATFORMS, parseLink } from '../lib/socialLinks';
 import './ProfilePage.css';
-
-// "Chef Ana", as the sketch has it, without making "Chef Ana" into
-// "Chef Chef Ana" for anyone who already called themselves that.
-export function chefTitle(name) {
-  const trimmed = (name || '').trim();
-  if (!trimmed) return '';
-  return /^chef\b/i.test(trimmed) ? trimmed : `Chef ${trimmed}`;
-}
 
 /**
  * Hands the public page's link to the OS share sheet where there is one,
@@ -43,6 +35,22 @@ function BackIcon() {
   return (
     <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
       <path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// Icon/Pencil from the design system, as drawn there.
+function PencilIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+      <path
+        d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -272,9 +280,9 @@ function ProfileForm({ chefProfile, avatarUrl, onChangeAvatar, onSaveProfile, on
 
 /**
  * The chef's own profile, where the picture in the top right of Home
- * goes: their picture, name, specialties, short bio and links as clients
- * see them, with Edit, Share (the public page's link) and Settings beside
- * the name.
+ * goes: their picture beside their name, page link and links, then their
+ * bio and specialties in cards of their own, as clients see them. Edit,
+ * Share (the public page's link) and Settings sit in the header.
  */
 export default function ProfilePage({
   onBack,
@@ -307,10 +315,35 @@ export default function ProfilePage({
   return (
     <div className="profile-page">
       <header className="profile-header">
-        <button type="button" className="profile-back" onClick={onBack} aria-label="Back">
-          <BackIcon />
-        </button>
-        <h1 className="profile-title">My profile</h1>
+        <div className="profile-header-title">
+          <button type="button" className="profile-back" onClick={onBack} aria-label="Back">
+            <BackIcon />
+          </button>
+          <h1 className="profile-title">My profile</h1>
+        </div>
+        {/* Out of the way while the form is open: it has its own Save and
+            Cancel, and sharing a half-edited page makes no sense. */}
+        {!editing && (
+          <div className="profile-actions">
+            <button
+              ref={editRef}
+              type="button"
+              className="profile-icon-btn"
+              onClick={() => setEditing(true)}
+              aria-label="Edit profile"
+            >
+              <PencilIcon />
+            </button>
+            {publicUrl && (
+              <button type="button" className="profile-icon-btn" onClick={handleShare} aria-label="Share your page">
+                <ShareIcon />
+              </button>
+            )}
+            <button type="button" className="profile-icon-btn" onClick={onOpenSettings} aria-label="Settings">
+              <GearIcon />
+            </button>
+          </div>
+        )}
       </header>
 
       {editing ? (
@@ -325,33 +358,22 @@ export default function ProfilePage({
         <>
           <div className="profile-hero">
             <Avatar src={avatarUrl} size={112} className="profile-avatar" />
-            <h2 className="profile-name">{name}</h2>
-            {pageAddress && (
-              <a className="profile-address" href={publicUrl} target="_blank" rel="noreferrer">
-                {pageAddress}
-              </a>
-            )}
-            <div className="profile-actions">
-              <Button ref={editRef} variant="secondary" className="profile-edit" onClick={() => setEditing(true)}>
-                Edit
-              </Button>
-              {publicUrl && (
-                <button type="button" className="profile-icon-btn" onClick={handleShare} aria-label="Share your page">
-                  <ShareIcon />
-                </button>
+            <div className="profile-identity">
+              <h2 className="profile-name">{name}</h2>
+              {pageAddress && (
+                <a className="profile-address" href={publicUrl} target="_blank" rel="noreferrer">
+                  {pageAddress}
+                </a>
               )}
-              <button type="button" className="profile-icon-btn" onClick={onOpenSettings} aria-label="Settings">
-                <GearIcon />
-              </button>
+              <SocialLinks links={chefProfile?.links} className="profile-links" />
             </div>
-            <p className="profile-share-status" role="status">
-              {shareStatus === 'copied' && 'Link copied.'}
-              {shareStatus === 'failed' && `Couldn't copy it. Your page is at ${pageAddress}.`}
-            </p>
-            <SpecialtyTags specialties={chefProfile?.specialties} className="profile-tags" />
           </div>
+          <p className="profile-share-status" role="status">
+            {shareStatus === 'copied' && 'Link copied.'}
+            {shareStatus === 'failed' && `Couldn't copy it. Your page is at ${pageAddress}.`}
+          </p>
 
-          <section className="profile-bio" aria-label="Bio">
+          <section className="profile-card profile-bio" aria-label="Bio">
             {!chefProfile ? (
               <p className="profile-bio-empty">
                 Sign in from Settings for a public page, with your name and a short bio on it.
@@ -365,7 +387,14 @@ export default function ProfilePage({
             )}
           </section>
 
-          <SocialLinks links={chefProfile?.links} className="profile-links" />
+          {chefProfile?.specialties?.length > 0 && (
+            <section className="profile-card profile-specialties" aria-labelledby="profile-specialties-title">
+              <h2 id="profile-specialties-title" className="profile-card-title">
+                Specialties
+              </h2>
+              <SpecialtyTags specialties={chefProfile.specialties} className="profile-tags" />
+            </section>
+          )}
         </>
       )}
     </div>

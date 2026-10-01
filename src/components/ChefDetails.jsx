@@ -18,6 +18,14 @@ const SUGGESTED_SPECIALTIES = [
   'Meal prep',
 ];
 
+// "Chef Ana", as the sketch has it, without making "Chef Ana" into
+// "Chef Chef Ana" for anyone who already called themselves that.
+export function chefTitle(name) {
+  const trimmed = (name || '').trim();
+  if (!trimmed) return '';
+  return /^chef\b/i.test(trimmed) ? trimmed : `Chef ${trimmed}`;
+}
+
 /** What the chef is known for, as a row of tags. */
 export function SpecialtyTags({ specialties, className = '' }) {
   if (!specialties?.length) return null;
@@ -66,7 +74,12 @@ function LinkIcon({ kind }) {
   );
 }
 
-/** Where else to find the chef. Every href is rebuilt from what's stored. */
+/**
+ * Where else to find the chef, as a row of icons: the platform says
+ * enough, and the handle is what the link is for. Screen readers and a
+ * hover still get the platform and handle. Every href is rebuilt from
+ * what's stored.
+ */
 export function SocialLinks({ links, className = '' }) {
   const shown = linksToShow(links);
   if (!shown.length) return null;
@@ -74,10 +87,17 @@ export function SocialLinks({ links, className = '' }) {
     <ul className={`chef-links ${className}`} aria-label="Links">
       {shown.map((link) => (
         <li key={link.key}>
-          <a className="chef-link" href={link.href} target="_blank" rel="noopener noreferrer">
+          <a
+            className="chef-link"
+            href={link.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={`${link.label}: ${link.text}`}
+          >
             <LinkIcon kind={link.key} />
-            <span className="visually-hidden">{link.label}: </span>
-            {link.text}
+            <span className="visually-hidden">
+              {link.label}: {link.text}
+            </span>
           </a>
         </li>
       ))}

@@ -27,20 +27,29 @@
   }
 }
 
-/* "< My profile": the back chevron and the title read as one line, as
-   in the sketch. The chevron is padded out to a 44px target and pulled
+/* "< My profile" on the left, as in the sketch; Edit, Share and Settings
+   on the right. The chevron is padded out to a 44px target and pulled
    back by the padding so its glyph sits on the page margin. */
 .profile-header {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  justify-content: space-between;
+  gap: var(--space-sm);
   margin-bottom: var(--space-2xl);
+}
+
+.profile-header-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
 }
 
 .profile-back {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   width: var(--control-height);
   height: var(--control-height);
   margin-left: -11px;
@@ -58,54 +67,16 @@
   letter-spacing: -0.01em;
 }
 
-/* Everything below the header shares one centred column, the width of a
-   phone even on a wide screen: it's a card about one person, not a page
-   to fill. */
-.profile-hero,
-.profile-bio,
-.profile-form {
-  max-width: 420px;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.profile-hero {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-}
-
-.profile-name {
-  margin-top: var(--space-lg);
-  font: var(--text-h2);
-  letter-spacing: var(--text-h2-ls);
-  overflow-wrap: anywhere;
-}
-
-.profile-address {
-  margin-top: var(--space-xs);
-  font: var(--text-meta);
-  letter-spacing: 0.04em;
-  color: var(--color-muted);
-  text-decoration: none;
-}
-
-@media (hover: hover) {
-  .profile-address:hover {
-    color: var(--color-accent);
-  }
-}
-
 .profile-actions {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  margin-top: var(--space-lg);
+  /* The last icon's glyph on the margin, as the chevron's is on the left. */
+  margin-right: -11px;
 }
 
 /* Buttons on the profile are outlined in a light grey rather than ink:
-   on the beige, a black stroke shouts over the name it sits under. */
+   on the beige, a black stroke shouts over what it sits beside. */
 .profile-page .btn-secondary {
   border-color: var(--color-line-strong);
 }
@@ -114,12 +85,6 @@
   .profile-page .btn-secondary:hover:not(:disabled) {
     background: var(--color-raised);
   }
-}
-
-/* Snug: a small pill beside two icons, not a call to action. */
-.profile-edit {
-  height: 36px;
-  padding: 0 16px;
 }
 
 .profile-icon-btn {
@@ -143,6 +108,52 @@
   transition-duration: var(--dur-press);
 }
 
+/* Everything below the header shares one column, the width of a phone
+   even on a wide screen: it's about one person, not a page to fill. */
+.profile-hero,
+.profile-share-status,
+.profile-card,
+.profile-form {
+  max-width: 420px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Picture on the left, who they are and where to find them beside it. */
+.profile-hero {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+}
+
+.profile-identity {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.profile-name {
+  font: var(--text-h2);
+  letter-spacing: var(--text-h2-ls);
+  overflow-wrap: anywhere;
+}
+
+.profile-address {
+  font: var(--text-meta);
+  letter-spacing: 0.04em;
+  color: var(--color-muted);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+@media (hover: hover) {
+  .profile-address:hover {
+    color: var(--color-accent);
+  }
+}
+
 /* Always in the page, so a screen reader hears "Link copied" when it
    changes; empty, it takes no room. */
 .profile-share-status {
@@ -155,15 +166,9 @@
   margin-top: 0;
 }
 
-/* Under the buttons, centred like everything else in the hero. */
-.profile-tags {
-  justify-content: center;
-  margin-top: var(--space-lg);
-}
-
-/* The bio is what people see, so it sits in a card of its own: the
-   rounded box in the sketch, white on the beige. */
-.profile-bio {
+/* The bio and the specialties are what people see, so each sits in a
+   card of its own: the rounded box in the sketch, white on the beige. */
+.profile-card {
   margin-top: var(--space-xl);
   padding: var(--space-lg) var(--space-xl);
   background: var(--color-raised);
@@ -182,15 +187,20 @@
   color: var(--color-muted);
 }
 
-.profile-links {
-  justify-content: center;
-  max-width: 420px;
-  margin: var(--space-lg) auto 0;
+.profile-specialties {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-lg);
 }
 
-.profile-links .chef-link {
-  background: var(--color-raised);
-  border-color: transparent;
+.profile-card-title {
+  font: 400 1.5rem/1.2 var(--font-serif);
+  letter-spacing: -0.01em;
+}
+
+.profile-tags {
+  justify-content: center;
 }
 
 .profile-form {

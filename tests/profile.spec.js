@@ -36,7 +36,7 @@ function session() {
  * cares about and returns undefined for the rest. Every request is kept
  * in `calls`.
  */
-async function boot(page, { signedIn = false, auth = () => undefined, chef: initialChef = CHEF, path = '/' } = {}) {
+async function boot(page, { signedIn = false, auth = () => undefined, chef: initialChef = CHEF, path = '/', meals = [] } = {}) {
   const calls = [];
   let chef = { ...initialChef };
   await page.route('**stub.supabase.co/**', async (route) => {
@@ -56,7 +56,7 @@ async function boot(page, { signedIn = false, auth = () => undefined, chef: init
       }
       return json([chef]);
     }
-    if (url.pathname === '/rest/v1/meals') return json([]);
+    if (url.pathname === '/rest/v1/meals') return json(meals);
     return json([]);
   });
   await page.addInitScript((stored) => {
@@ -353,6 +353,37 @@ test.describe('the profile', () => {
     const links = page.getByRole('list', { name: 'Links' }).getByRole('link');
     await expect(links).toHaveCount(1);
     await expect(links).toHaveAttribute('href', 'https://instagram.com/ana.cooks');
+  });
+});
+
+test.describe('the public page', () => {
+  const photo = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="#b56"/></svg>');
+  const MEALS = Array.from({ length: 8 }, (_, i) => ({
+    id: `m${i}`,
+    name: `Dish ${i}`,
+    cuisine: 'French',
+    category: 'Main',
+    date: `2026-09-${String(10 + i).padStart(2, '0')}`,
+    photos: [photo],
+    ingredients: [],
+    method: [],
+  }));
+
+  test('keeps the chef pinned to the top once their header has scrolled away', async ({ page }) => {
+    await boot(page, { path: '/ana', meals: MEALS, chef: { ...CHEF, bio: 'Seasonal Vietnamese.' } });
+    await expect(page.getByRole('heading', { name: 'Chef Ana' })).toBeVisible();
+    const bar = page.locator('.public-chef-bar');
+    await expect(bar).toBeHidden();
+
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await expect(bar).toBeVisible();
+    await expect(bar).toHaveText('Chef Ana');
+    // It repeats the heading for the eye only, and takes no taps.
+    await expect(bar).toHaveAttribute('aria-hidden', 'true');
+    expect(await bar.evaluate((el) => getComputedStyle(el).pointerEvents)).toBe('none');
+
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expect(bar).toBeHidden();
   });
 });
 

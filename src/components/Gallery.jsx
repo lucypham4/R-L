@@ -22,10 +22,8 @@ export default function Gallery({
   onAddMeal,
   onDeleteMeal,
   title = 'Staj',
-  // A public page's word from its chef (bio, specialties, links), under
-  // their name. The chef's own gallery goes without: the wordmark says
-  // enough.
-  about,
+  // In place of the wordmark header: a public page puts its chef there.
+  header,
   // The chef's picture, top right, which opens their profile. A public
   // page leaves it out: its visitors have no profile of their own here.
   avatarUrl,
@@ -109,17 +107,16 @@ export default function Gallery({
 
   return (
     <div className="gallery">
-      <header className="gallery-header">
-        <div>
+      {header ?? (
+        <header className="gallery-header">
           <h1 className="gallery-title">{title}</h1>
-          {about}
-        </div>
-        {onOpenProfile && (
-          <button type="button" className="gallery-avatar" onClick={onOpenProfile} aria-label="My profile">
-            <Avatar src={avatarUrl} size={36} />
-          </button>
-        )}
-      </header>
+          {onOpenProfile && (
+            <button type="button" className="gallery-avatar" onClick={onOpenProfile} aria-label="My profile">
+              <Avatar src={avatarUrl} size={36} />
+            </button>
+          )}
+        </header>
+      )}
 
       <div className="gallery-search-row">
         <div className="gallery-search-field">

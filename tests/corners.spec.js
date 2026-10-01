@@ -276,4 +276,13 @@ test.describe('no square corners', () => {
     await expect(page.locator('.meal-card')).toHaveCount(3);
     await expectRounded(page, 'the public page');
   });
+
+  test('a chef’s public page, scrolled under its pinned header', async ({ page }) => {
+    await page.setViewportSize({ width: 412, height: 500 });
+    await boot(page, { path: '/ana' });
+    await expect(page.locator('.meal-card')).toHaveCount(3);
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await expect(page.locator('.public-chef-bar')).toBeVisible();
+    await expectRounded(page, 'the public page, scrolled');
+  });
 });
