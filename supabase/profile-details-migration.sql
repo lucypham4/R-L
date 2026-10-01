@@ -37,3 +37,8 @@ end $$;
 -- No policy changes needed: "Public read access" already lets a visitor
 -- read them on the public page, and "Own profile update" already scopes
 -- writes to auth.uid() = id.
+
+-- Tell the API about the new columns now, rather than whenever it next
+-- reloads: until it does, saving them fails with "Could not find the ...
+-- column of 'chefs' in the schema cache".
+notify pgrst, 'reload schema';

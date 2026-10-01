@@ -118,6 +118,29 @@ export async function updateChefProfile(userId, changes) {
     .eq('id', userId)
     .select()
     .single();
-  if (error) throw error;
+  if (error) throw missingColumnError(error) ?? error;
   return fromRow(data);
+}
+
+// What each migration adds, in words a chef would use.
+const COLUMN_FEATURES = {
+  bio: 'bios',
+  specialties: 'specialties',
+  links: 'links',
+};
+
+/**
+ * Supabase's answer when a migration hasn't run is about its schema cache
+ * ("Could not find the 'bio' column of 'chefs' in the schema cache"),
+ * which means nothing to the chef reading it. Says what can't be saved
+ * instead, or undefined for any other error.
+ */
+function missingColumnError(error) {
+  // PGRST204: PostgREST has no such column. 42703: Postgres hasn't either.
+  if (error.code !== 'PGRST204' && error.code !== '42703') return undefined;
+  const column = Object.keys(COLUMN_FEATURES).find((c) => (error.message || '').includes(`'${c}'`) || (error.message || '').includes(`.${c} `));
+  const what = column ? COLUMN_FEATURES[column] : 'that';
+  const friendly = new Error(`This app isn't set up to save ${what} yet, so nothing was saved. Try again once it is.`);
+  friendly.cause = error;
+  return friendly;
 }

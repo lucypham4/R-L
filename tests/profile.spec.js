@@ -224,7 +224,7 @@ test.describe('the profile', () => {
         ? route.fulfill({
             status: 400,
             contentType: 'application/json',
-            body: JSON.stringify({ code: '42703', message: 'column chefs.bio does not exist' }),
+            body: JSON.stringify({ code: 'PGRST204', message: "Could not find the 'bio' column of 'chefs' in the schema cache" }),
           })
         : route.fallback()
     );
@@ -232,7 +232,9 @@ test.describe('the profile', () => {
     await page.getByRole('button', { name: 'Edit' }).click();
     await page.getByLabel('Short bio').fill('Hello');
     await page.getByRole('button', { name: 'Save' }).click();
-    await expect(page.getByText('column chefs.bio does not exist')).toBeVisible();
+    // Said in a chef's words, not the database's.
+    await expect(page.getByText("This app isn't set up to save bios yet, so nothing was saved. Try again once it is.")).toBeVisible();
+    await expect(page.getByText('schema cache')).toHaveCount(0);
     // Still editing, with what was typed.
     await expect(page.getByLabel('Short bio')).toHaveValue('Hello');
   });
@@ -318,6 +320,21 @@ test.describe('the profile', () => {
       specialties: ['Pastry', 'Vietnamese'],
       links: { instagram: 'ana.cooks', tiktok: 'anacooks', website: 'https://anatran.com/' },
     });
+  });
+
+  test('the edit form fits a narrow phone, link fields included', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 700 });
+    await boot(page, { signedIn: true });
+    await openProfile(page);
+    await page.getByRole('button', { name: 'Edit' }).click();
+    await expect(page.getByLabel('Website')).toBeVisible();
+    const overflow = await page.evaluate(() => {
+      const width = document.documentElement.clientWidth;
+      return [...document.querySelectorAll('.profile-form input, .profile-form textarea')]
+        .filter((el) => el.getBoundingClientRect().right > width + 0.5)
+        .map((el) => el.id || el.name || el.placeholder);
+    });
+    expect(overflow).toEqual([]);
   });
 
   test('a link that isn’t one is caught before saving', async ({ page }) => {
