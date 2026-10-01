@@ -120,7 +120,6 @@ export default function PublicChefPage({ slug }) {
         meals={sortedMeals}
         onOpenMeal={handleOpenMeal}
         title={chef.displayName}
-        tagline="Portfolio & archive"
         about={
           <div className="public-chef-about">
             {chef.bio && <p className="public-chef-bio">{chef.bio}</p>}

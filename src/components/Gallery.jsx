@@ -22,11 +22,9 @@ export default function Gallery({
   onAddMeal,
   onDeleteMeal,
   title = 'Staj',
-  // The chef's own gallery goes without one: the wordmark says enough. A
-  // public page passes its own, under the chef's name.
-  tagline,
   // A public page's word from its chef (bio, specialties, links), under
-  // the tagline.
+  // their name. The chef's own gallery goes without: the wordmark says
+  // enough.
   about,
   // The chef's picture, top right, which opens their profile. A public
   // page leaves it out: its visitors have no profile of their own here.
@@ -114,7 +112,6 @@ export default function Gallery({
       <header className="gallery-header">
         <div>
           <h1 className="gallery-title">{title}</h1>
-          {tagline && <p className="gallery-tagline">{tagline}</p>}
           {about}
         </div>
         {onOpenProfile && (
