@@ -1,5 +1,23 @@
-.bottom-nav {
+.bottom-nav,
+.bottom-nav-fade {
   display: none;
+}
+
+/* Under the pill, the full width of the screen: the page's own colour at
+   the bottom edge, thinning to nothing as it rises past the pill. It
+   takes no taps, so a dish half under it is still tappable. */
+@media (max-width: 640px) {
+  .bottom-nav-fade {
+    display: block;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 39;
+    height: calc(128px + env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(to top, var(--color-bg) 25%, transparent);
+    pointer-events: none;
+  }
 }
 
 /* Phone breakpoint only, per the design system: a persistent floating

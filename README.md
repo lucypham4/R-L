@@ -51,8 +51,9 @@ goes to your profile.
   meals that didn't import.
 - **Public page** at `/<your-page-name>`: a read-only version of Home for
   clients. At the top, centred: your picture and name, your links, your
-  bio and your specialties. Once that scrolls away, your picture and name
-  stay pinned to the top with the dishes fading out beneath. The same
+  bio and your specialties. As the page scrolls, your picture and name
+  shrink and slide into a bar at the top left, and stay there with the
+  dishes fading out beneath. The same
   dish sheet and the same swiping, in the light or dark theme the chef
   picked. A link like `/<your-page-name>?meal=<id>`
   opens one dish.

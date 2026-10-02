@@ -246,6 +246,23 @@ passes through sizes that are neither rest — and drives it with real
 touch points, since `Input.synthesizeScrollGesture` does nothing in
 headless Chromium.
 
+**The chef's header** (`PublicChefPage`, `src/lib/chefHeader.js`). The
+same idea as the dish sheet, on the window's own scroll: the chef's
+picture and name travel from the top of their public page, large and
+centred, into the bar pinned at the top left. The name rises with the page
+until it reaches the bar, so it never parts from the links under it, while
+it slides left and shrinks; the picture shrinks ahead of it (ease-out) so
+the two never cross. The header's own picture and name stay in the page
+to hold their place, the bar has empty slots for where they land, and the
+module only measures both and interpolates. Under reduced motion they
+scroll with the page and swap into the bar half-way, instead of
+travelling.
+
+**The fade under the nav** (`.bottom-nav-fade`). Not motion, but what the
+page does as it moves: a full-width band under the pill, the page's own
+colour at the bottom edge thinning to clear above the pill, so a dish
+scrolling down behind the nav goes soft rather than running into it.
+
 **Depth of field** (`.app-stage`). The gallery behind an open dish blurs,
 dims and scales back a hair. It does the work a heavy scrim would, without
 draining the colour out of the food photography behind it. Applied once on

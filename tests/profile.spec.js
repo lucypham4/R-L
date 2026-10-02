@@ -386,21 +386,71 @@ test.describe('the public page', () => {
     method: [],
   }));
 
-  test('keeps the chef pinned to the top once their header has scrolled away', async ({ page }) => {
+  const box = (locator) => locator.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return { x: r.left, y: r.top, w: r.width, h: r.height, cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
+  });
+  const scrollTo = (page, y) => page.evaluate((top) => window.scrollTo(0, top), y);
+
+  test('carries the picture and name into the bar at the top left as the page scrolls', async ({ page }) => {
     await boot(page, { path: '/ana', meals: MEALS, chef: { ...CHEF, bio: 'Seasonal Vietnamese.' } });
     await expect(page.getByRole('heading', { name: 'Chef Ana' })).toBeVisible();
-    const bar = page.locator('.public-chef-bar');
-    await expect(bar).toBeHidden();
+    const avatar = page.locator('.public-chef-travel-avatar');
+    const name = page.locator('.public-chef-travel-name');
+    const width = await page.evaluate(() => document.documentElement.clientWidth);
 
-    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-    await expect(bar).toBeVisible();
-    await expect(bar).toHaveText('Chef Ana');
-    // It repeats the heading for the eye only, and takes no taps.
-    await expect(bar).toHaveAttribute('aria-hidden', 'true');
-    expect(await bar.evaluate((el) => getComputedStyle(el).pointerEvents)).toBe('none');
+    // At the top: large and centred, exactly over the header's own.
+    await expect.poll(async () => Math.round((await box(avatar)).w)).toBe(112);
+    const slot = await box(page.locator('.public-chef-avatar-slot'));
+    const top = await box(avatar);
+    expect(Math.abs(top.cx - slot.cx)).toBeLessThan(1);
+    expect(Math.abs(top.cy - slot.cy)).toBeLessThan(1);
+    expect(Math.abs(top.cx - width / 2)).toBeLessThan(1);
+    const nameTop = await box(name);
+    expect(Math.abs(nameTop.cx - width / 2)).toBeLessThan(2);
 
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await expect(bar).toBeHidden();
+    // Part way, it is part way: shrinking, and on its way left.
+    await scrollTo(page, 40);
+    await expect.poll(async () => (await box(avatar)).w).toBeLessThan(112);
+    const mid = await box(avatar);
+    expect(mid.w).toBeGreaterThan(56);
+    expect(mid.cx).toBeLessThan(top.cx);
+
+    // All the way: small, at the top left, the name beside it.
+    await scrollTo(page, 2000);
+    await expect.poll(async () => Math.round((await box(avatar)).w)).toBe(56);
+    const end = await box(avatar);
+    const nameEnd = await box(name);
+    expect(Math.round(end.x)).toBe(20);
+    expect(Math.abs(nameEnd.x - (end.x + end.w + 12))).toBeLessThan(1);
+    expect(Math.abs(nameEnd.cy - end.cy)).toBeLessThan(2);
+    expect(nameEnd.h).toBeLessThan(nameTop.h);
+    await expect(page.locator('.public-chef-bar-backdrop')).toHaveCSS('opacity', '1');
+
+    // And back.
+    await scrollTo(page, 0);
+    await expect.poll(async () => Math.round((await box(avatar)).w)).toBe(112);
+
+    // The travelling copies are for the eye; the heading is the header's.
+    for (const el of [avatar, name, page.locator('.public-chef-bar')]) {
+      await expect(el).toHaveAttribute('aria-hidden', 'true');
+      expect(await el.evaluate((n) => getComputedStyle(n).pointerEvents)).toBe('none');
+    }
+  });
+
+  test('with reduced motion, the picture and name swap places instead of travelling', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await boot(page, { path: '/ana', meals: MEALS });
+    const avatar = page.locator('.public-chef-travel-avatar');
+    await expect.poll(async () => Math.round((await box(avatar)).w)).toBe(112);
+
+    // A little way down, nothing has shrunk: it scrolls with the page.
+    await scrollTo(page, 30);
+    await expect.poll(async () => Math.round((await box(avatar)).y)).toBeLessThan(32);
+    expect(Math.round((await box(avatar)).w)).toBe(112);
+
+    await scrollTo(page, 2000);
+    await expect.poll(async () => Math.round((await box(avatar)).w)).toBe(56);
   });
 });
 

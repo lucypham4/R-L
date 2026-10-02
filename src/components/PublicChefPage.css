@@ -53,10 +53,35 @@
   overflow-wrap: anywhere;
 }
 
-/* Pinned once the header has gone: a band of the page's own background
-   with the chef in it, fading out over the dishes below rather than
-   ending on a hard edge. It takes no taps; the dishes under the fade
-   stay tappable. */
+/* The header's own picture and name hold their place; once the
+   travelling copies have measured them, those are what you see. The name
+   stays a heading for screen readers, just not one you see twice. */
+.public-chef-avatar-slot {
+  display: block;
+  line-height: 0;
+}
+
+.public-chef-name > span {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: top;
+}
+
+.public-chef-travelling .public-chef-avatar-slot {
+  opacity: 0;
+}
+
+.public-chef-travelling .public-chef-name > span {
+  color: transparent;
+}
+
+/* The bar at the top: fixed, full width, taking no taps so the dishes
+   under its fade stay tappable. Its backdrop is a band of the page's own
+   background that fades in as the chef arrives, running on into a
+   gradient over the dishes rather than ending on a hard edge. */
 .public-chef-bar {
   position: fixed;
   top: 0;
@@ -64,30 +89,7 @@
   right: 0;
   z-index: 30;
   padding: calc(var(--space-2xl) + env(safe-area-inset-top, 0px)) var(--page-margin-sm) var(--space-md);
-  background: var(--color-bg);
   pointer-events: none;
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(calc(-1 * var(--rise)));
-  transition: opacity var(--dur-move) var(--ease), transform var(--dur-move) var(--ease),
-    visibility 0s linear var(--dur-move);
-}
-
-.public-chef-bar::after {
-  content: '';
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  height: var(--space-3xl);
-  background: linear-gradient(var(--color-bg), transparent);
-}
-
-.public-chef-bar-shown {
-  opacity: 1;
-  visibility: visible;
-  transform: none;
-  transition: opacity var(--dur-move) var(--ease), transform var(--dur-move) var(--ease);
 }
 
 @media (min-width: 768px) {
@@ -97,7 +99,25 @@
   }
 }
 
+.public-chef-bar-backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--color-bg);
+  opacity: 0;
+}
+
+.public-chef-bar-backdrop::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: var(--space-3xl);
+  background: linear-gradient(var(--color-bg), transparent);
+}
+
 .public-chef-bar-inner {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-md);
@@ -105,10 +125,50 @@
   margin: 0 auto;
 }
 
+/* Where the picture and name come to rest. Empty: they only mark the
+   place, and the name slot sets the size the name shrinks to. */
+.public-chef-bar-avatar {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+}
+
 .public-chef-bar-name {
+  min-width: 0;
   font: 400 1.5rem/1.2 var(--font-serif);
   letter-spacing: -0.01em;
+  white-space: nowrap;
+  visibility: hidden;
+}
+
+/* The travelling copies, placed from their top-left corner by
+   lib/chefHeader.js. Hidden until it has measured where they go. */
+.public-chef-travel-avatar,
+.public-chef-travel-name {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 31;
+  transform-origin: 0 0;
+  pointer-events: none;
+  opacity: 0;
+  will-change: transform;
+}
+
+.public-chef-travel-avatar {
+  line-height: 0;
+}
+
+.public-chef-travel-name {
+  display: block;
+  font: 400 2.125rem/1.1 var(--font-serif);
+  letter-spacing: -0.02em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.public-chef-travelling .public-chef-travel-avatar,
+.public-chef-travelling .public-chef-travel-name {
+  opacity: 1;
 }
