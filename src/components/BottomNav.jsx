@@ -47,25 +47,30 @@ export default function BottomNav({ onHome, onAdd, active = 'home' }) {
   const handlers = { home: onHome, add: onAdd };
 
   return (
-    <nav className="bottom-nav" aria-label="Primary">
-      {/* The tab labels are icon-only now, so tab.label reaches screen
-          readers through aria-label instead of visible text. Without it
-          this nav is two unlabelled buttons. */}
-      {TABS.map((tab) => {
-        const isActive = active === tab.id;
-        return (
-          <button
-            key={tab.id}
-            type="button"
-            className={`bottom-nav-tab ${isActive ? 'bottom-nav-tab-active' : ''}`}
-            aria-current={isActive ? 'page' : undefined}
-            aria-label={tab.label}
-            onClick={handlers[tab.id]}
-          >
-            <Icon name={tab.id} />
-          </button>
-        );
-      })}
-    </nav>
+    <>
+      {/* The page fading out under the pill, so a dish scrolling down
+          behind it goes soft rather than running into it. */}
+      <div className="bottom-nav-fade" aria-hidden="true" />
+      <nav className="bottom-nav" aria-label="Primary">
+        {/* The tab labels are icon-only now, so tab.label reaches screen
+            readers through aria-label instead of visible text. Without it
+            this nav is two unlabelled buttons. */}
+        {TABS.map((tab) => {
+          const isActive = active === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              className={`bottom-nav-tab ${isActive ? 'bottom-nav-tab-active' : ''}`}
+              aria-current={isActive ? 'page' : undefined}
+              aria-label={tab.label}
+              onClick={handlers[tab.id]}
+            >
+              <Icon name={tab.id} />
+            </button>
+          );
+        })}
+      </nav>
+    </>
   );
 }

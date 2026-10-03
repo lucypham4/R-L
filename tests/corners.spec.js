@@ -282,7 +282,7 @@ test.describe('no square corners', () => {
     await boot(page, { path: '/ana' });
     await expect(page.locator('.meal-card')).toHaveCount(3);
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-    await expect(page.locator('.public-chef-bar')).toBeVisible();
+    await expect(page.locator('.public-chef-bar-backdrop')).toHaveCSS('opacity', '1');
     await expectRounded(page, 'the public page, scrolled');
   });
 });

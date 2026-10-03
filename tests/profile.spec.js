@@ -224,7 +224,7 @@ test.describe('the profile', () => {
         ? route.fulfill({
             status: 400,
             contentType: 'application/json',
-            body: JSON.stringify({ code: '42703', message: 'column chefs.bio does not exist' }),
+            body: JSON.stringify({ code: 'PGRST204', message: "Could not find the 'bio' column of 'chefs' in the schema cache" }),
           })
         : route.fallback()
     );
@@ -232,7 +232,9 @@ test.describe('the profile', () => {
     await page.getByRole('button', { name: 'Edit' }).click();
     await page.getByLabel('Short bio').fill('Hello');
     await page.getByRole('button', { name: 'Save' }).click();
-    await expect(page.getByText('column chefs.bio does not exist')).toBeVisible();
+    // Said in a chef's words, not the database's.
+    await expect(page.getByText("This app isn't set up to save bios yet, so nothing was saved. Try again once it is.")).toBeVisible();
+    await expect(page.getByText('schema cache')).toHaveCount(0);
     // Still editing, with what was typed.
     await expect(page.getByLabel('Short bio')).toHaveValue('Hello');
   });
@@ -320,6 +322,21 @@ test.describe('the profile', () => {
     });
   });
 
+  test('the edit form fits a narrow phone, link fields included', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 700 });
+    await boot(page, { signedIn: true });
+    await openProfile(page);
+    await page.getByRole('button', { name: 'Edit' }).click();
+    await expect(page.getByLabel('Website')).toBeVisible();
+    const overflow = await page.evaluate(() => {
+      const width = document.documentElement.clientWidth;
+      return [...document.querySelectorAll('.profile-form input, .profile-form textarea')]
+        .filter((el) => el.getBoundingClientRect().right > width + 0.5)
+        .map((el) => el.id || el.name || el.placeholder);
+    });
+    expect(overflow).toEqual([]);
+  });
+
   test('a link that isn’t one is caught before saving', async ({ page }) => {
     const calls = await boot(page, { signedIn: true });
     await openProfile(page);
@@ -369,21 +386,132 @@ test.describe('the public page', () => {
     method: [],
   }));
 
-  test('keeps the chef pinned to the top once their header has scrolled away', async ({ page }) => {
+  const box = (locator) => locator.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return { x: r.left, y: r.top, w: r.width, h: r.height, cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
+  });
+  // Scrolls, then waits for the frame the scroll event draws.
+  const scrollTo = (page, y) =>
+    page.evaluate(async (top) => {
+      window.scrollTo(0, top);
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    }, y);
+
+  // The scroll at which the name has risen into the bar: the collapsed rest,
+  // where its snap area starts.
+  const collapseAt = (page) =>
+    page.evaluate(() => document.querySelector('.public-chef-snap-area').getBoundingClientRect().top + window.scrollY);
+  const noSnap = (page) => page.evaluate(() => (document.documentElement.style.scrollSnapType = 'none'));
+  const opacity = (locator) => locator.evaluate((el) => Number(getComputedStyle(el).opacity));
+
+  test('carries the picture and name into the bar at the top left as the page scrolls', async ({ page }) => {
     await boot(page, { path: '/ana', meals: MEALS, chef: { ...CHEF, bio: 'Seasonal Vietnamese.' } });
     await expect(page.getByRole('heading', { name: 'Chef Ana' })).toBeVisible();
-    const bar = page.locator('.public-chef-bar');
-    await expect(bar).toBeHidden();
+    const avatar = page.locator('.public-chef-travel-avatar');
+    const large = page.locator('.public-chef-travel-name:not(.public-chef-travel-name-small)');
+    const small = page.locator('.public-chef-travel-name-small');
+    const width = await page.evaluate(() => document.documentElement.clientWidth);
 
-    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-    await expect(bar).toBeVisible();
-    await expect(bar).toHaveText('Chef Ana');
-    // It repeats the heading for the eye only, and takes no taps.
-    await expect(bar).toHaveAttribute('aria-hidden', 'true');
-    expect(await bar.evaluate((el) => getComputedStyle(el).pointerEvents)).toBe('none');
+    // At the top: large and centred, exactly over the header's own.
+    await expect.poll(async () => Math.round((await box(avatar)).w)).toBe(112);
+    const slot = await box(page.locator('.public-chef-avatar-slot'));
+    const top = await box(avatar);
+    expect(Math.abs(top.cx - slot.cx)).toBeLessThan(1);
+    expect(Math.abs(top.cy - slot.cy)).toBeLessThan(1);
+    expect(Math.abs(top.cx - width / 2)).toBeLessThan(1);
+    expect(Math.abs((await box(large)).cx - width / 2)).toBeLessThan(2);
+    expect(await opacity(large)).toBe(1);
+    expect(await opacity(small)).toBe(0);
 
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await expect(bar).toBeHidden();
+    // The whole journey, sampled: the picture only shrinks, and never by a
+    // jump; it goes across before it goes up; and it never crosses the
+    // name rising beside it.
+    await noSnap(page);
+    const D = await collapseAt(page);
+    let prev = top;
+    const samples = [];
+    for (let i = 1; i <= 20; i++) {
+      await scrollTo(page, (D * i) / 20);
+      const a = await box(avatar);
+      const n = await box((await opacity(large)) >= 0.5 ? large : small);
+      samples.push({ a, n });
+      expect(a.w).toBeLessThanOrEqual(prev.w + 0.01);
+      expect(prev.w - a.w).toBeLessThan(15);
+      const clear = a.x + a.w <= n.x || a.y + a.h <= n.y;
+      expect(clear, `picture and name overlap at ${i * 5}%`).toBe(true);
+      prev = a;
+    }
+    // Across first: a quarter of the way, it has gone further left than up.
+    const q = samples[4].a;
+    expect((top.cx - q.cx) / (top.cx - 48)).toBeGreaterThan((top.cy - q.cy) / (top.cy - 60));
+    // Part way, it is part way.
+    expect(samples[3].a.w).toBeGreaterThan(56);
+    expect(samples[3].a.w).toBeLessThan(112);
+
+    // The names hand over between 45% and 55%: half-way, both show.
+    await scrollTo(page, D * 0.5);
+    expect(await opacity(large)).toBeGreaterThan(0);
+    expect(await opacity(small)).toBeGreaterThan(0);
+
+    // All the way: small, at the top left, the small name beside it.
+    await scrollTo(page, D + 400);
+    await expect.poll(async () => Math.round((await box(avatar)).w)).toBe(56);
+    const end = await box(avatar);
+    const nameEnd = await box(small);
+    expect(Math.round(end.x)).toBe(20);
+    expect(Math.abs(nameEnd.x - (end.x + end.w + 12))).toBeLessThan(1);
+    expect(Math.abs(nameEnd.cy - end.cy)).toBeLessThan(2);
+    expect(await opacity(large)).toBe(0);
+    expect(await opacity(small)).toBe(1);
+    // Whole, not cut short with an ellipsis.
+    expect(await small.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+    await expect(page.locator('.public-chef-bar-backdrop')).toHaveCSS('opacity', '1');
+
+    // And back.
+    await scrollTo(page, 0);
+    await expect.poll(async () => Math.round((await box(avatar)).w)).toBe(112);
+
+    // The travelling copies are for the eye; the heading is the header's.
+    for (const el of [avatar, large, small, page.locator('.public-chef-bar')]) {
+      await expect(el).toHaveAttribute('aria-hidden', 'true');
+      expect(await el.evaluate((n) => getComputedStyle(n).pointerEvents)).toBe('none');
+    }
+  });
+
+  test('a release between the two rests settles on the nearer one; further down scrolls freely', async ({ page }) => {
+    await boot(page, { path: '/ana', meals: MEALS });
+    await expect.poll(async () => Math.round((await box(page.locator('.public-chef-travel-avatar'))).w)).toBe(112);
+    const D = await collapseAt(page);
+    const settle = async (y) => {
+      await scrollTo(page, y);
+      await page.waitForTimeout(400);
+      return page.evaluate(() => window.scrollY);
+    };
+    expect(await settle(D * 0.3)).toBe(0);
+    expect(Math.abs((await settle(D * 0.7)) - D)).toBeLessThan(2);
+    // Among the dishes, between the collapse and the end of the page.
+    const max = await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);
+    const far = Math.round((D + max) / 2);
+    expect(far - D).toBeGreaterThan(200);
+    expect(Math.abs((await settle(far)) - far)).toBeLessThan(2);
+  });
+
+  test('with reduced motion, the picture and name jump between the rests instead of travelling', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await boot(page, { path: '/ana', meals: MEALS });
+    const avatar = page.locator('.public-chef-travel-avatar');
+    await expect.poll(async () => Math.round((await box(avatar)).w)).toBe(112);
+    await noSnap(page);
+    const D = await collapseAt(page);
+
+    // Before half-way nothing shrinks: it holds its place in the page.
+    await scrollTo(page, D * 0.4);
+    await expect.poll(async () => Math.round((await box(avatar)).y)).toBe(Math.round(32 - D * 0.4));
+    expect(Math.round((await box(avatar)).w)).toBe(112);
+
+    // Past it, it is in the bar.
+    await scrollTo(page, D * 0.6);
+    await expect.poll(async () => Math.round((await box(avatar)).w)).toBe(56);
   });
 });
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Avatar from './Avatar';
 import Gallery from './Gallery';
 import MealDetailModal from './MealDetailModal';
@@ -7,19 +7,27 @@ import { fetchChefBySlug, DEFAULT_PAGE_THEME } from '../lib/chefsApi';
 import { fetchMeals } from '../lib/mealsApi';
 import { leaveDish, pushDish, replaceDish } from '../lib/dishHistory';
 import { stepOnShelf } from '../lib/shelf';
+import { measureChefHeader, chefHeaderFrame, applyChefHeaderFrame } from '../lib/chefHeader';
+import { prefersReducedMotion, onReducedMotionChange, tokenMs } from '../lib/motion';
 import './PublicChefPage.css';
 
 /**
  * Who the page belongs to, at the top: their picture and name, where else
  * to find them, their bio and their specialties, all centred above the
- * dishes.
+ * dishes. The picture and name here hold their place (and give screen
+ * readers the heading); what you see of them is the travelling copy
+ * below, which starts exactly on top of them.
  */
-function ChefHeader({ chef, headerRef }) {
+function ChefHeader({ chef, bind }) {
   return (
-    <header ref={headerRef} className="public-chef-header">
+    <header className="public-chef-header">
       <div className="public-chef-identity">
-        <Avatar src={chef.avatarUrl} size={112} />
-        <h1 className="public-chef-name">{chefTitle(chef.displayName)}</h1>
+        <span ref={bind('startAvatar')} className="public-chef-avatar-slot">
+          <Avatar src={chef.avatarUrl} size={112} />
+        </span>
+        <h1 className="public-chef-name">
+          <span ref={bind('startName')}>{chefTitle(chef.displayName)}</span>
+        </h1>
       </div>
       <SocialLinks links={chef.links} className="public-chef-links" />
       {chef.bio && <p className="public-chef-bio">{chef.bio}</p>}
@@ -28,22 +36,75 @@ function ChefHeader({ chef, headerRef }) {
   );
 }
 
+// The pieces that travel between the header and the bar. Under reduced
+// motion they jump instead, and fade in where they land.
+const TRAVELLERS = ['travelAvatar', 'travelName', 'travelNameSmall'];
+
 /**
- * Once the header has scrolled away, the chef stays with the reader: a
- * small picture and their name pinned to the top, the dishes fading out
- * beneath it. Decorative -- the heading it repeats is still in the page.
+ * Drives the picture and name between the header and the pinned bar from
+ * the scroll position (lib/chefHeader.js), and snaps the page between the
+ * two rests. Returns a ref binder for the pieces, and whether the
+ * travelling copies have taken over yet: until the first measure they stay
+ * hidden and the header's own show.
  */
-function useScrolledPast(el) {
-  const [past, setPast] = useState(false);
+function useTravellingHeader(ready) {
+  const els = useRef({});
+  const bind = useCallback((key) => (el) => {
+    els.current[key] = el;
+  }, []);
+  const [travelling, setTravelling] = useState(false);
+
   useEffect(() => {
-    if (!el || typeof IntersectionObserver === 'undefined') return;
-    const observer = new IntersectionObserver(([entry]) => {
-      setPast(!entry.isIntersecting && entry.boundingClientRect.top < 0);
+    if (!ready) return;
+    const e = els.current;
+    const keys = ['root', 'startAvatar', 'startName', 'endAvatar', 'endName', 'backdrop', 'snapCollapsed', ...TRAVELLERS];
+    if (keys.some((k) => !e[k])) return;
+
+    let g = null;
+    let last = null;
+    let quantise = prefersReducedMotion();
+    // Straight from the scroll event, as the dish sheet does: a frame
+    // scheduled after it would land a frame behind the page.
+    const render = () => {
+      if (!g) return;
+      const f = chefHeaderFrame(window.scrollY, g, quantise);
+      applyChefHeaderFrame(f, g, e);
+      if (quantise && last && last.m !== f.m) {
+        const duration = tokenMs('--dur-color');
+        for (const key of TRAVELLERS) {
+          const to = Number(getComputedStyle(e[key]).opacity);
+          if (to > 0) e[key].animate([{ opacity: 0 }, { opacity: to }], { duration, easing: 'ease-out' });
+        }
+      }
+      last = f;
+    };
+    const measure = () => {
+      g = measureChefHeader(e);
+      render();
+    };
+
+    measure();
+    setTravelling(true);
+    document.documentElement.classList.add('public-chef-snap');
+    window.addEventListener('scroll', render, { passive: true });
+    window.addEventListener('resize', measure);
+    const resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    resize?.observe(e.startName);
+    document.fonts?.ready.then(measure);
+    const offMotion = onReducedMotionChange((reduce) => {
+      quantise = reduce;
+      render();
     });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [el]);
-  return past;
+    return () => {
+      document.documentElement.classList.remove('public-chef-snap');
+      window.removeEventListener('scroll', render);
+      window.removeEventListener('resize', measure);
+      resize?.disconnect();
+      offMotion();
+    };
+  }, [ready]);
+
+  return { bind, travelling };
 }
 
 export default function PublicChefPage({ slug }) {
@@ -52,9 +113,7 @@ export default function PublicChefPage({ slug }) {
   const [meals, setMeals] = useState([]);
   const [openMealId, setOpenMealId] = useState(null);
   const [error, setError] = useState('');
-  // A callback ref: the header only exists once the chef has loaded.
-  const [headerEl, setHeaderEl] = useState(null);
-  const scrolledPast = useScrolledPast(headerEl);
+  const { bind, travelling } = useTravellingHeader(status === 'ready');
 
   useEffect(() => {
     let cancelled = false;
@@ -155,20 +214,40 @@ export default function PublicChefPage({ slug }) {
     );
   }
 
+  const name = chefTitle(chef.displayName);
+
   return (
-    <div>
-      <div className={`public-chef-bar ${scrolledPast ? 'public-chef-bar-shown' : ''}`} aria-hidden="true">
+    <div ref={bind('root')} className={`public-chef-page ${travelling ? 'public-chef-travelling' : ''}`}>
+      {/* The bar the chef settles into: a backdrop that fades in as they
+          arrive, and empty slots marking where the picture and name end
+          up. Decorative, like the travelling copies: the heading is in
+          the header. */}
+      <div className="public-chef-bar" aria-hidden="true">
+        <div ref={bind('backdrop')} className="public-chef-bar-backdrop" />
         <div className="public-chef-bar-inner">
-          <Avatar src={chef.avatarUrl} size={56} />
-          <span className="public-chef-bar-name">{chefTitle(chef.displayName)}</span>
+          <span ref={bind('endAvatar')} className="public-chef-bar-avatar" />
+          <span ref={bind('endName')} className="public-chef-bar-name">
+            {name}
+          </span>
         </div>
       </div>
+      <div ref={bind('travelAvatar')} className="public-chef-travel-avatar" aria-hidden="true">
+        <Avatar src={chef.avatarUrl} size={112} />
+      </div>
+      <span ref={bind('travelName')} className="public-chef-travel-name" aria-hidden="true">
+        {name}
+      </span>
+      <span ref={bind('travelNameSmall')} className="public-chef-travel-name public-chef-travel-name-small" aria-hidden="true">
+        {name}
+      </span>
 
-      <Gallery
-        meals={sortedMeals}
-        onOpenMeal={handleOpenMeal}
-        header={<ChefHeader chef={chef} headerRef={setHeaderEl} />}
-      />
+      <Gallery meals={sortedMeals} onOpenMeal={handleOpenMeal} header={<ChefHeader chef={chef} bind={bind} />} />
+
+      {/* The collapsed rest's snap area, from where the name sits in the
+          bar to the end of the page, and a last snap point at the very
+          end (see PublicChefPage.css). */}
+      <div ref={bind('snapCollapsed')} className="public-chef-snap-area" aria-hidden="true" />
+      <div className="public-chef-snap-end" aria-hidden="true" />
 
       {openMeal && (
         <MealDetailModal

@@ -256,12 +256,18 @@
 }
 
 /* Platform beside its field: four short fields stacked under labels of
-   their own would be most of a screen. */
+   their own would be most of a screen. The field's column may shrink
+   below the input's own idea of its width: Safari's is wide enough to
+   push a plain 1fr column off a phone's screen. */
 .profile-link-field {
   display: grid;
-  grid-template-columns: 88px 1fr;
+  grid-template-columns: 88px minmax(0, 1fr);
   align-items: center;
   gap: var(--space-md);
+}
+
+.profile-link-field .field-input {
+  min-width: 0;
 }
 
 .profile-link-label {

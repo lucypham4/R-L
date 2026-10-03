@@ -52,3 +52,37 @@ test('the nav pill looks as roomy at its right end as at its left', async ({ pag
   const { left, right } = await endClearances(page);
   expect(Math.abs(left - right), `left ${left.toFixed(2)}px, right ${right.toFixed(2)}px`).toBeLessThan(0.5);
 });
+
+test('the page fades out under the pill, from solid at the bottom edge to clear above it', async ({ page }) => {
+  await page.route('**stub.supabase.co/**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+  );
+  await page.addInitScript(() => localStorage.setItem('onboarding-seen-local', '1'));
+  await page.goto('/');
+  const fade = page.locator('.bottom-nav-fade');
+  await expect(fade).toBeVisible();
+
+  const look = await page.evaluate(() => {
+    const el = document.querySelector('.bottom-nav-fade');
+    const nav = document.querySelector('.bottom-nav').getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    const cs = getComputedStyle(el);
+    return {
+      fullWidth: r.left === 0 && r.right === document.documentElement.clientWidth,
+      onBottomEdge: Math.abs(r.bottom - window.innerHeight) < 1,
+      risesPastPill: r.top < nav.top,
+      under: Number(cs.zIndex) < Number(getComputedStyle(document.querySelector('.bottom-nav')).zIndex),
+      gradient: cs.backgroundImage,
+      taps: cs.pointerEvents,
+      bg: getComputedStyle(document.body).backgroundColor,
+    };
+  });
+  expect(look).toMatchObject({ fullWidth: true, onBottomEdge: true, risesPastPill: true, under: true, taps: 'none' });
+  // Drawn upwards: the page's own colour first, nothing at the top.
+  expect(look.gradient.startsWith('linear-gradient(to top, ' + look.bg)).toBe(true);
+  expect(look.gradient).toMatch(/rgba\(0, 0, 0, 0\)\)$/);
+
+  // No nav on a wide screen, so no fade either.
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await expect(fade).toBeHidden();
+});

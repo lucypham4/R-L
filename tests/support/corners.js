@@ -16,7 +16,9 @@
  * - it isn't clipped away or rounded off by an ancestor that clips;
  * - its edge doesn't fade out. A band whose lower edge runs on into a
  *   gradient (an absolutely placed ::before or ::after hung below it) has
- *   no hard edge there, so no corner either.
+ *   no hard edge there, so no corner either; nor does a band whose own
+ *   gradient runs up to transparent at its top edge, like the fade behind
+ *   the bottom nav.
  *
  * `frames` are selectors for things drawn to be exported as images of
  * their own, like the share card: their edges are the image's edges, as
@@ -74,6 +76,15 @@ export function findSquareCorners(page, { frames = [] } = {}) {
         );
       });
 
+    // Its own background is a gradient drawn upwards that ends fully
+    // transparent, over no background colour: nothing draws its top edge.
+    const fadesAtTop = (cs) => {
+      const bg = cs.backgroundImage;
+      if (!bg.startsWith('linear-gradient(to top') || alpha(cs.backgroundColor) > 0) return false;
+      const colors = bg.match(/rgba?\([^)]*\)/g) ?? [];
+      return colors.length > 0 && alpha(colors[colors.length - 1]) === 0;
+    };
+
     const inFixed = (el) => {
       for (let p = el; p; p = p.parentElement) {
         const pos = getComputedStyle(p).position;
@@ -104,7 +115,7 @@ export function findSquareCorners(page, { frames = [] } = {}) {
         (alpha(cs.backgroundColor) > 0 && cs.backgroundColor !== behind(el)) || cs.backgroundImage !== 'none';
       const shadow = cs.boxShadow && cs.boxShadow !== 'none';
       const whole = media || fill || shadow;
-      const soft = { Bottom: fadesBelow(el, r.height) };
+      const soft = { Bottom: fadesBelow(el, r.height), Top: fadesAtTop(cs) };
       const drawn = (side) =>
         !soft[side] &&
         (whole ||
