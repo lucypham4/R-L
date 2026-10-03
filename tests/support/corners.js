@@ -17,8 +17,8 @@
  * - its edge doesn't fade out. A band whose lower edge runs on into a
  *   gradient (an absolutely placed ::before or ::after hung below it) has
  *   no hard edge there, so no corner either; nor does a band whose own
- *   gradient runs up to transparent at its top edge, like the fade behind
- *   the bottom nav.
+ *   gradient, or mask, runs up to transparent at its top edge, like the
+ *   fade behind the bottom nav.
  *
  * `frames` are selectors for things drawn to be exported as images of
  * their own, like the share card: their edges are the image's edges, as
@@ -76,14 +76,17 @@ export function findSquareCorners(page, { frames = [] } = {}) {
         );
       });
 
-    // Its own background is a gradient drawn upwards that ends fully
-    // transparent, over no background colour: nothing draws its top edge.
-    const fadesAtTop = (cs) => {
-      const bg = cs.backgroundImage;
-      if (!bg.startsWith('linear-gradient(to top') || alpha(cs.backgroundColor) > 0) return false;
-      const colors = bg.match(/rgba?\([^)]*\)/g) ?? [];
+    // A gradient drawn upwards that ends fully transparent: as its own
+    // background over no background colour, or as its mask. Either way
+    // nothing draws its top edge.
+    const endsClear = (gradient) => {
+      if (!gradient || !gradient.startsWith('linear-gradient(to top')) return false;
+      const colors = gradient.match(/rgba?\([^)]*\)/g) ?? [];
       return colors.length > 0 && alpha(colors[colors.length - 1]) === 0;
     };
+    const fadesAtTop = (cs) =>
+      endsClear(cs.maskImage || cs.webkitMaskImage) ||
+      (alpha(cs.backgroundColor) === 0 && endsClear(cs.backgroundImage));
 
     const inFixed = (el) => {
       for (let p = el; p; p = p.parentElement) {

@@ -99,11 +99,19 @@
   }
 }
 
+/* The header's backdrop, as the dish's: a screen-tall band of the page's
+   colour, moved (by lib/chefHeader.js) so its lower edge sits just under
+   the header as it collapses, with the dish's soft --space-xl edge hung
+   below. What scrolls on slides under it and fades through that edge. */
 .public-chef-bar-backdrop {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100vh;
   background: var(--color-bg);
   opacity: 0;
+  will-change: transform;
 }
 
 .public-chef-bar-backdrop::after {
@@ -112,7 +120,7 @@
   top: 100%;
   left: 0;
   right: 0;
-  height: var(--space-3xl);
+  height: var(--space-xl);
   background: linear-gradient(var(--color-bg), transparent);
 }
 

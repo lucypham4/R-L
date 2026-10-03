@@ -3,9 +3,11 @@
   display: none;
 }
 
-/* Under the pill, the full width of the screen: the page's own colour at
-   the bottom edge, thinning to nothing as it rises past the pill. It
-   takes no taps, so a dish half under it is still tappable. */
+/* Under the pill, the full width of the screen: a veil of the page's own
+   colour, translucent even at the bottom edge so the dishes still show
+   through it, thinning along an eased curve to nothing as it rises past
+   the pill. The mask carries the fade, so the same stops work in light and
+   dark. It takes no taps, so a dish half under it is still tappable. */
 @media (max-width: 640px) {
   .bottom-nav-fade {
     display: block;
@@ -14,8 +16,26 @@
     right: 0;
     bottom: 0;
     z-index: 39;
-    height: calc(128px + env(safe-area-inset-bottom, 0px));
-    background: linear-gradient(to top, var(--color-bg) 25%, transparent);
+    height: calc(140px + env(safe-area-inset-bottom, 0px));
+    background: var(--color-bg);
+    -webkit-mask-image: linear-gradient(
+      to top,
+      rgb(0 0 0 / 0.7) 0%,
+      rgb(0 0 0 / 0.55) 20%,
+      rgb(0 0 0 / 0.36) 42%,
+      rgb(0 0 0 / 0.18) 64%,
+      rgb(0 0 0 / 0.06) 84%,
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to top,
+      rgb(0 0 0 / 0.7) 0%,
+      rgb(0 0 0 / 0.55) 20%,
+      rgb(0 0 0 / 0.36) 42%,
+      rgb(0 0 0 / 0.18) 64%,
+      rgb(0 0 0 / 0.06) 84%,
+      transparent 100%
+    );
     pointer-events: none;
   }
 }
