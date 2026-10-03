@@ -72,15 +72,25 @@ test('the page fades out under the pill, from solid at the bottom edge to clear 
       onBottomEdge: Math.abs(r.bottom - window.innerHeight) < 1,
       risesPastPill: r.top < nav.top,
       under: Number(cs.zIndex) < Number(getComputedStyle(document.querySelector('.bottom-nav')).zIndex),
-      gradient: cs.backgroundImage,
+      fill: cs.backgroundColor,
+      mask: cs.maskImage || cs.webkitMaskImage,
       taps: cs.pointerEvents,
       bg: getComputedStyle(document.body).backgroundColor,
     };
   });
   expect(look).toMatchObject({ fullWidth: true, onBottomEdge: true, risesPastPill: true, under: true, taps: 'none' });
-  // Drawn upwards: the page's own colour first, nothing at the top.
-  expect(look.gradient.startsWith('linear-gradient(to top, ' + look.bg)).toBe(true);
-  expect(look.gradient).toMatch(/rgba\(0, 0, 0, 0\)\)$/);
+  // The page's own colour, veiled: translucent even at the bottom edge,
+  // thinning smoothly to nothing at the top.
+  expect(look.fill).toBe(look.bg);
+  expect(look.mask.startsWith('linear-gradient(to top')).toBe(true);
+  const stops = [...look.mask.matchAll(/rgba?\(([^)]*)\)/g)].map((m) => {
+    const parts = m[1].split(/[\s,/]+/).filter(Boolean);
+    return parts.length > 3 ? parseFloat(parts[3]) : 1;
+  });
+  expect(stops[0]).toBeLessThan(0.8);
+  expect(stops.at(-1)).toBe(0);
+  for (let i = 1; i < stops.length; i++) expect(stops[i]).toBeLessThan(stops[i - 1]);
+  expect(stops.length).toBeGreaterThan(3);
 
   // No nav on a wide screen, so no fade either.
   await page.setViewportSize({ width: 1280, height: 800 });

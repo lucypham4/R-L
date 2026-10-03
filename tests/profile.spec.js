@@ -420,6 +420,7 @@ test.describe('the public page', () => {
     expect(Math.abs(top.cy - slot.cy)).toBeLessThan(1);
     expect(Math.abs(top.cx - width / 2)).toBeLessThan(1);
     expect(Math.abs((await box(large)).cx - width / 2)).toBeLessThan(2);
+    const nameTopBottom = (await box(large)).y + (await box(large)).h + 12;
     expect(await opacity(large)).toBe(1);
     expect(await opacity(small)).toBe(0);
 
@@ -447,6 +448,23 @@ test.describe('the public page', () => {
     // Part way, it is part way.
     expect(samples[3].a.w).toBeGreaterThan(56);
     expect(samples[3].a.w).toBeLessThan(112);
+
+    // Unhurried: the collapse takes twice the name's own rise of scroll, so
+    // the name rises at half the page's speed, as the dish's does.
+    const nameRise = (await page.evaluate(() => {
+      const n = document.querySelector('.public-chef-name > span').getBoundingClientRect();
+      const s = document.querySelector('.public-chef-bar-name').getBoundingClientRect();
+      return n.top + window.scrollY + n.height / 2 - (s.top + s.height / 2);
+    }));
+    expect(D / nameRise).toBeGreaterThan(1.9);
+
+    // The backdrop's lower edge follows the header up: half-way, it sits
+    // between where the header ends at the top and where the bar ends.
+    await scrollTo(page, D * 0.5);
+    const edge = await page.locator('.public-chef-bar-backdrop').evaluate((el) => el.getBoundingClientRect().bottom);
+    const barBottom = await page.locator('.public-chef-bar').evaluate((el) => el.getBoundingClientRect().bottom);
+    expect(edge).toBeGreaterThan(barBottom);
+    expect(edge).toBeLessThan(nameTopBottom);
 
     // The names hand over between 45% and 55%: half-way, both show.
     await scrollTo(page, D * 0.5);
@@ -504,9 +522,10 @@ test.describe('the public page', () => {
     await noSnap(page);
     const D = await collapseAt(page);
 
-    // Before half-way nothing shrinks: it holds its place in the page.
+    // Before half-way nothing moves: it holds its rest, as the dish's
+    // pieces do, while the page scrolls on under the header.
     await scrollTo(page, D * 0.4);
-    await expect.poll(async () => Math.round((await box(avatar)).y)).toBe(Math.round(32 - D * 0.4));
+    await expect.poll(async () => Math.round((await box(avatar)).y)).toBe(32);
     expect(Math.round((await box(avatar)).w)).toBe(112);
 
     // Past it, it is in the bar.

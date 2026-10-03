@@ -263,22 +263,31 @@ bar pinned at the top left, and they move by the dish sheet's rules.
   the same Chrome reason the sheet has one.
 - *The name hands over*: a large copy and a small one travel together,
   each scaled to stand in for the other, crossing between 45% and 55%.
+- *It's unhurried.* The collapse takes twice the name's own rise of
+  scroll (229px on a phone), so the name rises at half the page's speed,
+  near the dish name's rate (its hand-over takes the sheet's ~500px).
+- *What scrolls on slides under the header*, as the recipe slides under
+  the dish's: the backdrop's lower edge follows the header up, with the
+  dish's soft `--space-xl` edge, and the links, bio and specialties pass
+  under it.
 - *The picture arcs into place*, across first and then up, as the photo
   does into its thumbnail. Here the name starts under the picture and
-  rises into the bar with the page, so the picture makes its arc in the
-  first 55% of the journey and is out of the name's way before it
-  arrives. `tests/profile.spec.js` samples the journey and checks the two
-  never overlap.
-- *The bar's backdrop comes in over the last fifth*, as the header's does.
+  rises into the bar, so the picture makes its arc in the first 55% of
+  the journey and is out of the name's way before it arrives.
+  `tests/profile.spec.js` samples the journey and checks the two never
+  overlap.
 
-Under reduced motion the picture and name hold their place in the page
-until half-way, then jump to the bar and fade in where they land, over
-`--dur-color`.
+Under reduced motion the picture and name hold their rest until
+half-way, then jump to the bar and fade in where they land, over
+`--dur-color`. The Figma file's Chef profile v1 section has the journey
+at 0–100% and a frame that plays it, all computed from
+`lib/chefHeader.js`.
 
 **The fade under the nav** (`.bottom-nav-fade`). Not motion, but what the
-page does as it moves: a full-width band under the pill, the page's own
-colour at the bottom edge thinning to clear above the pill, so a dish
-scrolling down behind the nav goes soft rather than running into it.
+page does as it moves: a full-width veil of the page's own colour under
+the pill, translucent even at the bottom edge (70%) so the dishes still
+show through, thinning along an eased curve to clear above the pill. A
+mask carries the fade, so the same stops serve light and dark.
 
 **Depth of field** (`.app-stage`). The gallery behind an open dish blurs,
 dims and scales back a hair. It does the work a heavy scrim would, without
