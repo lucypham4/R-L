@@ -390,13 +390,26 @@ test.describe('the public page', () => {
     const r = el.getBoundingClientRect();
     return { x: r.left, y: r.top, w: r.width, h: r.height, cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
   });
-  const scrollTo = (page, y) => page.evaluate((top) => window.scrollTo(0, top), y);
+  // Scrolls, then waits for the frame the scroll event draws.
+  const scrollTo = (page, y) =>
+    page.evaluate(async (top) => {
+      window.scrollTo(0, top);
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    }, y);
+
+  // The scroll at which the name has risen into the bar: the collapsed rest,
+  // where its snap area starts.
+  const collapseAt = (page) =>
+    page.evaluate(() => document.querySelector('.public-chef-snap-area').getBoundingClientRect().top + window.scrollY);
+  const noSnap = (page) => page.evaluate(() => (document.documentElement.style.scrollSnapType = 'none'));
+  const opacity = (locator) => locator.evaluate((el) => Number(getComputedStyle(el).opacity));
 
   test('carries the picture and name into the bar at the top left as the page scrolls', async ({ page }) => {
     await boot(page, { path: '/ana', meals: MEALS, chef: { ...CHEF, bio: 'Seasonal Vietnamese.' } });
     await expect(page.getByRole('heading', { name: 'Chef Ana' })).toBeVisible();
     const avatar = page.locator('.public-chef-travel-avatar');
-    const name = page.locator('.public-chef-travel-name');
+    const large = page.locator('.public-chef-travel-name:not(.public-chef-travel-name-small)');
+    const small = page.locator('.public-chef-travel-name-small');
     const width = await page.evaluate(() => document.documentElement.clientWidth);
 
     // At the top: large and centred, exactly over the header's own.
@@ -406,25 +419,52 @@ test.describe('the public page', () => {
     expect(Math.abs(top.cx - slot.cx)).toBeLessThan(1);
     expect(Math.abs(top.cy - slot.cy)).toBeLessThan(1);
     expect(Math.abs(top.cx - width / 2)).toBeLessThan(1);
-    const nameTop = await box(name);
-    expect(Math.abs(nameTop.cx - width / 2)).toBeLessThan(2);
+    expect(Math.abs((await box(large)).cx - width / 2)).toBeLessThan(2);
+    expect(await opacity(large)).toBe(1);
+    expect(await opacity(small)).toBe(0);
 
-    // Part way, it is part way: shrinking, and on its way left.
-    await scrollTo(page, 40);
-    await expect.poll(async () => (await box(avatar)).w).toBeLessThan(112);
-    const mid = await box(avatar);
-    expect(mid.w).toBeGreaterThan(56);
-    expect(mid.cx).toBeLessThan(top.cx);
+    // The whole journey, sampled: the picture only shrinks, and never by a
+    // jump; it goes across before it goes up; and it never crosses the
+    // name rising beside it.
+    await noSnap(page);
+    const D = await collapseAt(page);
+    let prev = top;
+    const samples = [];
+    for (let i = 1; i <= 20; i++) {
+      await scrollTo(page, (D * i) / 20);
+      const a = await box(avatar);
+      const n = await box((await opacity(large)) >= 0.5 ? large : small);
+      samples.push({ a, n });
+      expect(a.w).toBeLessThanOrEqual(prev.w + 0.01);
+      expect(prev.w - a.w).toBeLessThan(15);
+      const clear = a.x + a.w <= n.x || a.y + a.h <= n.y;
+      expect(clear, `picture and name overlap at ${i * 5}%`).toBe(true);
+      prev = a;
+    }
+    // Across first: a quarter of the way, it has gone further left than up.
+    const q = samples[4].a;
+    expect((top.cx - q.cx) / (top.cx - 48)).toBeGreaterThan((top.cy - q.cy) / (top.cy - 60));
+    // Part way, it is part way.
+    expect(samples[3].a.w).toBeGreaterThan(56);
+    expect(samples[3].a.w).toBeLessThan(112);
 
-    // All the way: small, at the top left, the name beside it.
-    await scrollTo(page, 2000);
+    // The names hand over between 45% and 55%: half-way, both show.
+    await scrollTo(page, D * 0.5);
+    expect(await opacity(large)).toBeGreaterThan(0);
+    expect(await opacity(small)).toBeGreaterThan(0);
+
+    // All the way: small, at the top left, the small name beside it.
+    await scrollTo(page, D + 400);
     await expect.poll(async () => Math.round((await box(avatar)).w)).toBe(56);
     const end = await box(avatar);
-    const nameEnd = await box(name);
+    const nameEnd = await box(small);
     expect(Math.round(end.x)).toBe(20);
     expect(Math.abs(nameEnd.x - (end.x + end.w + 12))).toBeLessThan(1);
     expect(Math.abs(nameEnd.cy - end.cy)).toBeLessThan(2);
-    expect(nameEnd.h).toBeLessThan(nameTop.h);
+    expect(await opacity(large)).toBe(0);
+    expect(await opacity(small)).toBe(1);
+    // Whole, not cut short with an ellipsis.
+    expect(await small.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
     await expect(page.locator('.public-chef-bar-backdrop')).toHaveCSS('opacity', '1');
 
     // And back.
@@ -432,24 +472,45 @@ test.describe('the public page', () => {
     await expect.poll(async () => Math.round((await box(avatar)).w)).toBe(112);
 
     // The travelling copies are for the eye; the heading is the header's.
-    for (const el of [avatar, name, page.locator('.public-chef-bar')]) {
+    for (const el of [avatar, large, small, page.locator('.public-chef-bar')]) {
       await expect(el).toHaveAttribute('aria-hidden', 'true');
       expect(await el.evaluate((n) => getComputedStyle(n).pointerEvents)).toBe('none');
     }
   });
 
-  test('with reduced motion, the picture and name swap places instead of travelling', async ({ page }) => {
+  test('a release between the two rests settles on the nearer one; further down scrolls freely', async ({ page }) => {
+    await boot(page, { path: '/ana', meals: MEALS });
+    await expect.poll(async () => Math.round((await box(page.locator('.public-chef-travel-avatar'))).w)).toBe(112);
+    const D = await collapseAt(page);
+    const settle = async (y) => {
+      await scrollTo(page, y);
+      await page.waitForTimeout(400);
+      return page.evaluate(() => window.scrollY);
+    };
+    expect(await settle(D * 0.3)).toBe(0);
+    expect(Math.abs((await settle(D * 0.7)) - D)).toBeLessThan(2);
+    // Among the dishes, between the collapse and the end of the page.
+    const max = await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);
+    const far = Math.round((D + max) / 2);
+    expect(far - D).toBeGreaterThan(200);
+    expect(Math.abs((await settle(far)) - far)).toBeLessThan(2);
+  });
+
+  test('with reduced motion, the picture and name jump between the rests instead of travelling', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await boot(page, { path: '/ana', meals: MEALS });
     const avatar = page.locator('.public-chef-travel-avatar');
     await expect.poll(async () => Math.round((await box(avatar)).w)).toBe(112);
+    await noSnap(page);
+    const D = await collapseAt(page);
 
-    // A little way down, nothing has shrunk: it scrolls with the page.
-    await scrollTo(page, 30);
-    await expect.poll(async () => Math.round((await box(avatar)).y)).toBeLessThan(32);
+    // Before half-way nothing shrinks: it holds its place in the page.
+    await scrollTo(page, D * 0.4);
+    await expect.poll(async () => Math.round((await box(avatar)).y)).toBe(Math.round(32 - D * 0.4));
     expect(Math.round((await box(avatar)).w)).toBe(112);
 
-    await scrollTo(page, 2000);
+    // Past it, it is in the bar.
+    await scrollTo(page, D * 0.6);
     await expect.poll(async () => Math.round((await box(avatar)).w)).toBe(56);
   });
 });

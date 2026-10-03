@@ -247,16 +247,33 @@ touch points, since `Input.synthesizeScrollGesture` does nothing in
 headless Chromium.
 
 **The chef's header** (`PublicChefPage`, `src/lib/chefHeader.js`). The
-same idea as the dish sheet, on the window's own scroll: the chef's
-picture and name travel from the top of their public page, large and
-centred, into the bar pinned at the top left. The name rises with the page
-until it reaches the bar, so it never parts from the links under it, while
-it slides left and shrinks; the picture shrinks ahead of it (ease-out) so
-the two never cross. The header's own picture and name stay in the page
-to hold their place, the bar has empty slots for where they land, and the
-module only measures both and interpolates. Under reduced motion they
-scroll with the page and swap into the bar half-way, instead of
-travelling.
+dish sheet's collapse, on the window's own scroll: the chef's picture and
+name travel from the top of their public page, large and centred, into the
+bar pinned at the top left, and they move by the dish sheet's rules.
+
+- *One scroll position drives it*, so a page left half-way leaves them
+  half-way and scrolling back reverses it. It draws straight from the
+  scroll event, not a frame later.
+- *Two rests snap, the dishes don't.* `scroll-snap-type: y mandatory` on
+  the page, with the top at one rest and, at the other, an area that runs
+  from where the name sits in the bar to the end of the page. That area is
+  taller than the view, so past the collapse the dishes scroll freely, as
+  the recipe does inside the sheet; only a release between the two rests
+  settles on the nearer one. And a last snap point at the very end, for
+  the same Chrome reason the sheet has one.
+- *The name hands over*: a large copy and a small one travel together,
+  each scaled to stand in for the other, crossing between 45% and 55%.
+- *The picture arcs into place*, across first and then up, as the photo
+  does into its thumbnail. Here the name starts under the picture and
+  rises into the bar with the page, so the picture makes its arc in the
+  first 55% of the journey and is out of the name's way before it
+  arrives. `tests/profile.spec.js` samples the journey and checks the two
+  never overlap.
+- *The bar's backdrop comes in over the last fifth*, as the header's does.
+
+Under reduced motion the picture and name hold their place in the page
+until half-way, then jump to the bar and fade in where they land, over
+`--dur-color`.
 
 **The fade under the nav** (`.bottom-nav-fade`). Not motion, but what the
 page does as it moves: a full-width band under the pill, the page's own

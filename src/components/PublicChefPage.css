@@ -168,7 +168,54 @@
   white-space: nowrap;
 }
 
-.public-chef-travelling .public-chef-travel-avatar,
-.public-chef-travelling .public-chef-travel-name {
+/* The bar's size of the name, which the large one hands over to. Its
+   opacity, like the large one's, is the script's once it has taken over. */
+.public-chef-travel-name-small {
+  font: 400 1.5rem/1.2 var(--font-serif);
+  letter-spacing: -0.01em;
+}
+
+.public-chef-travelling .public-chef-travel-avatar {
   opacity: 1;
+}
+
+/* The two rests snap, as the dish sheet's do: a release between the top
+   and the collapsed bar settles on the nearer one. The top is the
+   header's picture (offset to the page's top by lib/chefHeader.js); the
+   collapsed rest is the top of an area that runs from where the name sits
+   in the bar to the end of the page. That area is taller than the view,
+   so anywhere inside it is a place to rest: past the collapse, the
+   dishes scroll freely, as the recipe does inside the dish's sheet. */
+html.public-chef-snap {
+  scroll-snap-type: y mandatory;
+}
+
+.public-chef-page {
+  position: relative;
+}
+
+.public-chef-avatar-slot {
+  scroll-snap-align: start;
+}
+
+.public-chef-snap-area {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  scroll-snap-align: start;
+}
+
+/* A last snap point at the very end, as the dish sheet has, for the same
+   reason: Chrome decides whether an area covers the view at the requested
+   scroll, before clamping, so without it a fling past the end could snap
+   all the way back to the collapse. */
+.public-chef-snap-end {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 0;
+  scroll-snap-align: end;
 }
