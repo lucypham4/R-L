@@ -9,7 +9,6 @@ test.beforeEach(async ({ page }) => {
   await page.route('**stub.supabase.co/**', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
   );
-  await page.addInitScript(() => localStorage.setItem('onboarding-seen-local', '1'));
 });
 
 // Where the glint's layer sits: 100% is off the word's left, 0% off its right.
