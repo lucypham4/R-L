@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { getSquareCropUrl } from '../lib/autoSquareCrop';
-import CloseIcon from './CloseIcon';
+import DeleteBadge from './DeleteBadge';
 import './MealCard.css';
 
 const dateFormatter = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -77,14 +77,7 @@ export default function MealCard({ meal, onOpen, onLongPress, editMode, onDelete
       </button>
 
       {editMode && (
-        <button
-          type="button"
-          className="meal-card-delete-badge"
-          aria-label={`Delete ${meal.name}`}
-          onClick={() => onDelete(meal.id)}
-        >
-          <CloseIcon size={16} />
-        </button>
+        <DeleteBadge className="meal-card-delete-badge" label={`Delete ${meal.name}`} onClick={() => onDelete(meal.id)} />
       )}
     </div>
   );

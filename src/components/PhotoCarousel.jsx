@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import CloseIcon from './CloseIcon';
+import DeleteBadge from './DeleteBadge';
 import './PhotoCarousel.css';
 
 const SWIPE_THRESHOLD = 50;
@@ -54,14 +54,7 @@ export default function PhotoCarousel({
                 <img src={photo.src} alt="" />
               </button>
               {onRemove && (
-                <span
-                  className="photo-carousel-remove"
-                  role="button"
-                  aria-label={`Remove photo ${i + 1}`}
-                  onClick={() => onRemove(i)}
-                >
-                  <CloseIcon size={12} />
-                </span>
+                <DeleteBadge className="photo-carousel-remove" label={`Remove photo ${i + 1}`} onClick={() => onRemove(i)} />
               )}
             </div>
           ))}

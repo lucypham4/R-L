@@ -16,30 +16,15 @@
   touch-action: manipulation;
 }
 
-/* Edit mode's ×. It hangs off the photo's top-right corner rather than
-   sitting inside it, so it reads as something attached to the dish, not
-   part of the picture. The offsets are from the card's own box; the card
-   is a button, and its default padding sets the photo 6px in at the side
-   and 1px down, which leaves the × 10px past the photo's right edge and
-   8px above its top.
-
-   Neutral, not the danger red: a tap here deletes, but a × on every card
-   at once would shout. The glyph is ink so it still reads on the darker
-   --color-line-strong of dark mode. */
+/* Edit mode's × (DeleteBadge) hangs off the photo's top-right corner
+   rather than sitting inside it, so it reads as something attached to the
+   dish, not part of the picture. The offsets are from the card's own box;
+   the card is a button, and its default padding sets the photo 6px in at
+   the side and 1px down, which leaves the × 10px past the photo's right
+   edge and 8px above its top. */
 .meal-card-delete-badge {
-  position: absolute;
   top: -7px;
   right: -4px;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: var(--color-line-strong);
-  color: var(--color-ink);
-  box-shadow: var(--shadow-sm);
 }
 
 .meal-card-image {

@@ -1,0 +1,17 @@
+/* Neutral, not the danger red: a tap here deletes, but a × on every card
+   at once would shout. The glyph is ink so it still reads on the darker
+   --color-line-strong of dark mode. Where it hangs is the caller's: it
+   only has to be positioned inside something `position: relative`. */
+.delete-badge {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--color-line-strong);
+  color: var(--color-ink);
+  box-shadow: var(--shadow-sm);
+}
