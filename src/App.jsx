@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import Gallery from './components/Gallery';
 import MealDetailModal from './components/MealDetailModal';
@@ -12,6 +12,7 @@ import PublicChefPage from './components/PublicChefPage';
 import BottomNav from './components/BottomNav';
 import SettingsPage from './components/SettingsPage';
 import ProfilePage from './components/ProfilePage';
+import Splash from './components/Splash';
 import { isSupabaseConfigured } from './lib/supabase';
 import { isCloudinaryConfigured } from './lib/cloudinary';
 import { fetchMeals, insertMeal, deleteMeal, updateMealSummary } from './lib/mealsApi';
@@ -61,6 +62,7 @@ export default function App() {
   return (
     <>
       <AdminApp />
+      <Splash />
       <Analytics />
     </>
   );
@@ -103,7 +105,9 @@ function AdminApp() {
   const [localImportCount, setLocalImportCount] = useState(0);
   const [localMealCount, setLocalMealCount] = useState(() => countLocalMeals());
 
-  useEffect(() => {
+  // Before the first paint, so the first frame (Splash) is already in
+  // the chef's theme rather than flashing the light one.
+  useLayoutEffect(() => {
     applyTheme(theme);
     saveTheme(theme);
   }, [theme]);

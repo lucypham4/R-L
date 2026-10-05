@@ -1,0 +1,90 @@
+/* The first frame: the wordmark alone on the page colour, over the app,
+   which has already rendered underneath and is what the frame dissolves
+   into. Above everything, sheets and the nav included. */
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  background: var(--color-bg);
+}
+
+.splash-leave {
+  opacity: 0;
+  pointer-events: none;
+  /* The symmetric curve, as for the dish name's dissolve: the moment
+     where the word and the app are both there is the cross-fade, so it
+     shouldn't flash past. */
+  transition: opacity var(--dur-dissolve) var(--ease-focus);
+}
+
+/* "Staj" in steel. Two layers clipped to the letters:
+
+   - the metal: lighter at the top, a darker line just under half-way
+     where a polished blade turns from the sky to the floor, and back up
+     a little towards the foot. It reads as metal standing still.
+   - the glint: one narrow streak with a soft halo, angled a little off
+     upright, as light runs along an edge when the knife turns. It rests
+     off the word's left, crosses once, and leaves off its right. */
+.splash-word {
+  font: 400 clamp(4.5rem, 24vw, 8.5rem) / 1 var(--font-serif);
+  letter-spacing: -0.02em;
+  /* Room for the descender-less word's side bearings, so the clip
+     doesn't shave the S or the j. */
+  padding: 0 0.06em 0.08em;
+  color: transparent;
+  background-image:
+    linear-gradient(
+      105deg,
+      transparent 44%,
+      var(--color-glint-halo) 48%,
+      var(--color-glint) 49.7%,
+      var(--color-glint) 50.3%,
+      var(--color-glint-halo) 52%,
+      transparent 56%
+    ),
+    linear-gradient(
+      180deg,
+      var(--color-steel-light) 0%,
+      var(--color-steel) 46%,
+      var(--color-steel-dark) 54%,
+      var(--color-steel) 100%
+    );
+  /* The glint's layer is three words wide, so at either end of its
+     travel the streak is clear of the letters. */
+  background-size: 300% 100%, 100% 100%;
+  background-position: 100% 0, 0 0;
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  opacity: 0;
+  transition: opacity var(--dur-color) var(--ease);
+}
+
+.splash-lit .splash-word {
+  opacity: 1;
+}
+
+.splash-shine .splash-word {
+  /* Starts once the word is in. */
+  animation: splash-glint var(--dur-sheen) var(--ease-focus) var(--dur-color) both;
+}
+
+@keyframes splash-glint {
+  from {
+    background-position: 100% 0, 0 0;
+  }
+  to {
+    background-position: 0% 0, 0 0;
+  }
+}
+
+/* Reduced motion: the steel without the streak running across it. The
+   frame still holds for as long, so the app doesn't arrive any sooner
+   or later, and it still dissolves (a fade carries no movement). */
+@media (prefers-reduced-motion: reduce) {
+  .splash-shine .splash-word {
+    animation: none;
+  }
+}
