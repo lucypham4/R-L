@@ -27,7 +27,22 @@ const ALLOWED = new Set(['localhost', '127.0.0.1', 'fonts.googleapis.com', 'font
 const BACKEND = /(^|\.)supabase\.co$|cloudinary\.com$/;
 
 export const test = base.extend({
-  page: async ({ page }, use) => {
+  // The app opens on a splash (Splash.jsx) that covers it for about two
+  // seconds, once a visit. A spec about something else starts past it, as
+  // a chef already in the app would be; splash.spec.js turns it back on.
+  splash: [false, { option: true }],
+
+  page: async ({ page, splash }, use) => {
+    if (!splash) {
+      await page.addInitScript(() => {
+        try {
+          sessionStorage.setItem('splash-seen', '1');
+        } catch {
+          // an opaque origin (about:blank) has no storage; nothing to skip there
+        }
+      });
+    }
+
     const escaped = [];
     // Registered first, so a spec's own stub route -- registered later --
     // still gets first refusal. Playwright runs handlers most-recent-first.
