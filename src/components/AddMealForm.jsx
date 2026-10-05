@@ -8,7 +8,7 @@ import BubbleSelect from './BubbleSelect';
 import IngredientBubbles from './IngredientBubbles';
 import { uploadImage, isCloudinaryConfigured } from '../lib/cloudinary';
 import { createSpeechRecognizer, isSpeechRecognitionSupported } from '../lib/speechToText';
-import { generateMealDetails, cleanDescription, isAiConfigured } from '../lib/aiFill';
+import { generateMealDetails, cleanDescription, isAiConfigured, isBusyFailure } from '../lib/aiFill';
 import { loadBubbleList, saveBubbleList } from '../lib/bubbleLists';
 import { DEFAULT_SERVES, SUMMARY_MAX } from '../lib/meal';
 import './AddMealForm.css';
@@ -95,9 +95,10 @@ export default function AddMealForm({ onSave, onCancel }) {
   const [aiFillStatus, setAiFillStatus] = useState('idle'); // idle | loading | retrying | done | error
   const [aiFillError, setAiFillError] = useState('');
   const [isRetryingAiFill, setIsRetryingAiFill] = useState(false);
-  // Set when "Try again" fails, to the card as it stood then; the "Still
-  // busy" line shows only while the card still matches it (see below).
-  const [retryFailedSignature, setRetryFailedSignature] = useState(null);
+  // Set when "Try again" fails: the card as it stood then, and whether the
+  // model was busy. The line under the button shows only while the card still
+  // matches that signature (see below).
+  const [retryFailure, setRetryFailure] = useState(null); // { signature, busy }
   const [cleanupStatus, setCleanupStatus] = useState('idle'); // idle | loading | done | error
   const [cleanupError, setCleanupError] = useState('');
   const fileInputRef = useRef(null);
@@ -141,9 +142,9 @@ export default function AddMealForm({ onSave, onCancel }) {
   const cardSignature = JSON.stringify([name, date, serves, description, summary, category, cuisine, ingredients, methodText, note]);
   const cardSignatureRef = useRef(cardSignature);
   cardSignatureRef.current = cardSignature;
-  // Any edit retires the "Still busy" line: it described the card as it was.
+  // Any edit retires the line under the button: it was about the card as it was.
   useEffect(() => {
-    setRetryFailedSignature((shown) => (shown !== null && shown !== cardSignature ? null : shown));
+    setRetryFailure((shown) => (shown !== null && shown.signature !== cardSignature ? null : shown));
   }, [cardSignature]);
 
   const photosRef = useRef(photos);
@@ -368,7 +369,7 @@ export default function AddMealForm({ onSave, onCancel }) {
   async function handleRetryAiFill() {
     const snapshot = failedFillSnapshotRef.current;
     if (!snapshot || isRetryingAiFill) return;
-    setRetryFailedSignature(null);
+    setRetryFailure(null);
     setIsRetryingAiFill(true);
     try {
       const details = await requestAiDetails();
@@ -383,7 +384,7 @@ export default function AddMealForm({ onSave, onCancel }) {
       setAiFillError(err.message || "Couldn't reach the AI just now.");
       // Read after the await, so something typed while it ran is already
       // part of the card this line is about.
-      setRetryFailedSignature(cardSignatureRef.current);
+      setRetryFailure({ signature: cardSignatureRef.current, busy: isBusyFailure(err) });
     } finally {
       setIsRetryingAiFill(false);
     }
@@ -677,8 +678,14 @@ export default function AddMealForm({ onSave, onCancel }) {
                     {isRetryingAiFill ? 'Trying again…' : 'Try again'}
                   </button>
                 </div>
-                {retryFailedSignature !== null && (
-                  <p className="add-meal-notice-retry-failed">Still busy. Try again in a minute.</p>
+                {retryFailure !== null && (
+                  <p className="add-meal-notice-retry-failed">
+                    {retryFailure.busy ? (
+                      'Still busy. Try again in a minute.'
+                    ) : (
+                      <>That didn&rsquo;t work. You can fill it in below.</>
+                    )}
+                  </p>
                 )}
                 <details className="add-meal-notice-details">
                   <summary>Details</summary>

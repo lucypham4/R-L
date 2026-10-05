@@ -45,6 +45,15 @@ function upstreamStatusOf(message) {
 const RETRYABLE_UPSTREAM_STATUSES = new Set([503, 429]);
 const RETRY_DELAY_MS = 2000;
 
+/**
+ * True when a failed generateMealDetails() was the model being busy (503,
+ * 429) rather than something a wait won't fix. The same two statuses it
+ * retries on, so what the chef is told matches what was tried.
+ */
+export function isBusyFailure(error) {
+  return RETRYABLE_UPSTREAM_STATUSES.has(error?.upstreamStatus);
+}
+
 async function invokeAiFill(body) {
   const { data, error } = await supabase.functions.invoke('ai-fill', { body });
   if (error) {

@@ -281,8 +281,9 @@
 }
 
 /* Shown under the button when "Try again" has failed too, until the chef
-   presses it again or edits the card. Plain text in the body's voice: it
-   adds to the notice, it isn't a second one. */
+   presses it again or edits the card: "Still busy" when the model was
+   overloaded, where waiting helps, otherwise that it didn't work. Plain text
+   in the body's voice: it adds to the notice, it isn't a second one. */
 .add-meal-notice-retry-failed {
   margin-top: var(--space-sm);
   font: 400 0.8125rem/1.5 var(--font-sans);

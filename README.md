@@ -223,8 +223,10 @@ this in", with a **Try again** button that re-runs the fill for the same
 photo and notes and fills only what the chef hasn't edited since. A 503
 or 429 from the model is retried once, after about two seconds, before the
 notice shows at all; nothing else is retried. If Try again fails too, a
-line under the button says "Still busy. Try again in a minute." until the
-chef presses it again or edits the card.
+line under the button says why it's worth another go or not: "Still busy.
+Try again in a minute." for a 503 or 429, "That didn't work. You can fill
+it in below." for anything else. It goes when the chef presses Try again
+again or edits the card.
 
 The Edge Function's own message is the one worth reading, so it isn't
 thrown away: it's logged with `console.error` and sits under the notice's
@@ -263,6 +265,10 @@ succeeding:
 | `2` (default) | The stub logs two 503s about 2 seconds apart (the Next button says "Trying again…" for the second). You land on step 3 with "The AI couldn't fill this in". Try again says "Trying again…", then fills the card and dismisses the notice. |
 | `1` | The automatic retry rescues it, so there is no notice. |
 | `99` | Every request fails. Try again returns to "Try again" with "Still busy. Try again in a minute." under it, and Details shows the raw 503 text. |
+
+To see the other line, "That didn't work. You can fill it in below.", reach
+step 3 with `FAIL=99`, then stop the stub and press Try again: nothing
+answers, which isn't the model being busy.
 
 To check that hand edits survive, change the meal name on step 3 before
 pressing Try again: it stays, and the empty fields fill in. The stub's log
