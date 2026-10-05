@@ -54,7 +54,7 @@ export default function PhotoCarousel({
                 <img src={photo.src} alt="" />
               </button>
               {onRemove && (
-                <DeleteBadge className="photo-carousel-remove" label={`Remove photo ${i + 1}`} onClick={() => onRemove(i)} />
+                <DeleteBadge small className="photo-carousel-remove" label={`Remove photo ${i + 1}`} onClick={() => onRemove(i)} />
               )}
             </div>
           ))}

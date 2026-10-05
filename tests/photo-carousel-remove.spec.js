@@ -46,12 +46,13 @@ test.describe('removing a photo from the carousel', () => {
       const badge = await wrap.getByRole('button', { name: `Remove photo ${i + 1}` }).boundingBox();
       const thumb = await wrap.locator('.photo-carousel-thumb').boundingBox();
 
-      // 26 round, 10px past the thumbnail's right edge and 8px above its top,
-      // the way the gallery's hangs off its photo.
-      expect(badge.width).toBe(26);
-      expect(badge.height).toBe(26);
-      expect(badge.x + badge.width - (thumb.x + thumb.width), `thumbnail ${i}, right`).toBeCloseTo(10, 0);
-      expect(thumb.y - badge.y, `thumbnail ${i}, top`).toBeCloseTo(8, 0);
+      // The gallery's badge at a size for a 52px thumbnail: 20 round, hung
+      // 8px past its right edge and 6px above its top, in the same
+      // proportion as the gallery's 26 on a photo.
+      expect(badge.width).toBe(20);
+      expect(badge.height).toBe(20);
+      expect(badge.x + badge.width - (thumb.x + thumb.width), `thumbnail ${i}, right`).toBeCloseTo(8, 0);
+      expect(thumb.y - badge.y, `thumbnail ${i}, top`).toBeCloseTo(6, 0);
 
       // All of it is inside the queue, so none of it is clipped.
       expect(badge.x, `thumbnail ${i}, badge left`).toBeGreaterThanOrEqual(queue.x);
