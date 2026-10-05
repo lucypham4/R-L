@@ -275,8 +275,29 @@
   color: var(--color-muted);
 }
 
-/* The server's own words, kept small: useful when it says something
-   actionable like "GEMINI_API_KEY is not configured on this project". */
+.add-meal-notice-actions {
+  display: flex;
+  margin-top: var(--space-md);
+}
+
+/* The server's own words, behind a toggle that starts closed: nothing a
+   chef mid-recipe needs, but useful to whoever runs the app when it says
+   something actionable like "GEMINI_API_KEY is not configured on this
+   project". The same text goes to the console. A native <details>, so
+   there's no state to keep and, per motion.md, nothing animating. */
+.add-meal-notice-details {
+  margin-top: var(--space-sm);
+}
+
+.add-meal-notice-details summary {
+  width: fit-content;
+  cursor: pointer;
+  font: 500 0.6875rem/1.5 var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
 .add-meal-notice-reason {
   margin-top: 6px;
   font: 400 0.6875rem/1.45 var(--font-mono);

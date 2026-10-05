@@ -218,14 +218,22 @@ nothing, so it's obvious what's missing.
 to strand a chef on step 2 with "Edge Function returned a non-2xx status
 code", which is what `supabase-js` reports for *any* non-2xx and says
 nothing about the cause. The wizard now moves to step 3 regardless,
-carries the notes over as the description, and shows the Edge Function's
-own message, which is the one worth reading:
+carries the notes over as the description, and says "The AI couldn't fill
+this in", with a **Try again** button that re-runs the fill for the same
+photo and notes and fills only what the chef hasn't edited since. A 503
+or 429 from the model is retried once, after about two seconds, before the
+notice shows at all; nothing else is retried.
 
-| What you see | What to do |
+The Edge Function's own message is the one worth reading, so it isn't
+thrown away: it's logged with `console.error` and sits under the notice's
+**Details** toggle, closed by default:
+
+| What it says | What to do |
 | --- | --- |
 | `GEMINI_API_KEY is not configured on this project.` | `supabase secrets set GEMINI_API_KEY=...` |
 | `AI request failed (404): ...` | The model in `GEMINI_MODEL` doesn't exist for your key; set it to one that does |
-| `AI request failed (429): ...` | Free-tier rate limit, wait and retry |
+| `AI request failed (429): ...` | Free-tier rate limit; it was already retried once, so wait a bit longer and press Try again |
+| `AI request failed (503): ...` | The model is overloaded ("high demand"); it was already retried once, so press Try again in a minute |
 | `Couldn't reach the AI just now.` | No response body from our handler, so the function isn't deployed or the request never reached it |
 
 ### Signing in (optional)
