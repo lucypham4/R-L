@@ -63,10 +63,9 @@ function session() {
 
 /**
  * Boots the app. `signedIn` restores a session from storage; `chef` is
- * the profile row, or null for an account that hasn't chosen a page yet;
- * `tour` leaves the welcome tour unseen.
+ * the profile row, or null for an account that hasn't chosen a page yet.
  */
-async function boot(page, { meals = MEALS, signedIn = false, chef = CHEF, tour = false, path = '/' } = {}) {
+async function boot(page, { meals = MEALS, signedIn = false, chef = CHEF, path = '/' } = {}) {
   await page.route('**stub.supabase.co/**', (route) => {
     const req = route.request();
     const url = new URL(req.url());
@@ -83,15 +82,11 @@ async function boot(page, { meals = MEALS, signedIn = false, chef = CHEF, tour =
     return json([]);
   });
   await page.addInitScript(
-    ({ meals, stored, tour }) => {
-      if (!tour) {
-        localStorage.setItem('onboarding-seen-local', '1');
-        localStorage.setItem('onboarding-seen-chef-1', '1');
-      }
+    ({ meals, stored }) => {
       localStorage.setItem('meal-diary-local-meals', JSON.stringify(meals));
       if (stored) localStorage.setItem('sb-stub-auth-token', JSON.stringify(stored));
     },
-    { meals, stored: signedIn ? session() : null, tour }
+    { meals, stored: signedIn ? session() : null }
   );
   await page.goto(path);
 }
@@ -208,6 +203,10 @@ test.describe('no square corners', () => {
     await page.getByRole('button', { name: 'My profile' }).click();
     await expect(page.getByRole('heading', { name: 'My profile' })).toBeVisible();
     await expectRounded(page, 'the profile, as a guest');
+    await page.getByRole('button', { name: 'Share your page' }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expectRounded(page, 'the sign-up prompt');
+    await page.getByRole('button', { name: 'Not now' }).click();
     await page.getByRole('button', { name: 'Edit' }).click();
     await expectRounded(page, 'editing the profile, as a guest');
   });
@@ -258,17 +257,6 @@ test.describe('no square corners', () => {
     await page.getByRole('button', { name: /create|continue|save/i }).first().click();
     await expect(page.getByRole('button', { name: /import/i }).first()).toBeVisible();
     await expectRounded(page, 'Local Import');
-  });
-
-  test('the welcome tour', async ({ page }) => {
-    await boot(page, { tour: true });
-    await expect(page.locator('.onboarding-card')).toBeVisible();
-    for (let i = 0; i < 4; i++) {
-      await expectRounded(page, `the tour, step ${i + 1}`);
-      const next = page.getByRole('button', { name: 'Next' });
-      if (!(await next.isVisible())) break;
-      await next.click();
-    }
   });
 
   test('a chef’s public page', async ({ page }) => {

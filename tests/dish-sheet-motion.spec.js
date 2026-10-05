@@ -61,7 +61,6 @@ async function openDish(page) {
     route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
   );
   await page.addInitScript((meals) => {
-    localStorage.setItem('onboarding-seen-local', '1');
     localStorage.setItem('meal-diary-local-meals', JSON.stringify(meals));
   }, MEALS);
   await page.goto('/');

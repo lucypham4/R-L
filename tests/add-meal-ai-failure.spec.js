@@ -36,7 +36,6 @@ async function openWizard(page, onAiFill) {
     }
     return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
   });
-  await page.addInitScript(() => localStorage.setItem('onboarding-seen-local', '1'));
   await page.goto('/');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
   await expect(page.locator('.add-meal-card')).toBeVisible();

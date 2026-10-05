@@ -72,8 +72,6 @@ async function boot(page, { signedIn = true, deletes = true } = {}) {
   });
   await page.addInitScript(
     ({ meals, stored }) => {
-      localStorage.setItem('onboarding-seen-local', '1');
-      localStorage.setItem('onboarding-seen-chef-1', '1');
       if (stored) localStorage.setItem('sb-stub-auth-token', JSON.stringify(stored));
       else localStorage.setItem('meal-diary-local-meals', JSON.stringify(meals));
     },

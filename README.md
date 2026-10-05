@@ -39,12 +39,15 @@ goes to your profile.
   a chef checks and edits everything: name, date, serves, description,
   summary, category, cuisine, ingredients, method and note.
 - **Profile**: your picture beside your name (as "Chef <name>"), your
-  page's link and icons for your Instagram, TikTok, YouTube and website;
-  then your short bio and your specialties, each in a card of its own,
-  the way clients see them. Three icons top right: the pencil edits all
-  of it (nothing is saved until Save), share hands your public page's
-  link to the phone's share sheet or copies it, and the gear opens
-  Settings. A guest has a picture but no name or bio until they sign in.
+  page's link, icons for your Instagram, TikTok, YouTube and website,
+  and a **View public page** button beside them; then your short bio and
+  your specialties, each in a card of its own, the way clients see them.
+  Three icons top right: the pencil edits all of it (nothing is saved
+  until Save or thrown away until Cancel, so there's no Back while
+  editing), share hands your public page's link to the phone's share
+  sheet or copies it, and the gear opens Settings. A guest has a picture
+  but no name, bio or page: where the bio would be, and behind share,
+  is the offer to sign up (see [First launch](#first-launch)).
 - **Settings**: Appearance (System, Light or Dark),
   Public page theme, account (sign in or out, change password, link to
   your public page) and, once there is an account, a retry for any local
@@ -100,6 +103,7 @@ The suite has a spec per area that is easy to break without noticing:
   `meal-delete`, `password-reset`, `settings-profile`
 - the two-tab nav's balance, and the no-straight-corners rule on every
   screen: `bottom-nav`, `corners`
+- a first launch landing on Home with no tour: `first-launch`
 
 They live in `tests/`.
 
@@ -275,31 +279,22 @@ A link that has expired (after an hour) or was already used, sometimes by
 a mail scanner opening it first, lands on the sign-in screen saying so,
 with both ways to ask for another email right below.
 
-### Onboarding
+### First launch
 
-A short, skippable welcome tour (`src/components/OnboardingTour.jsx`) runs
-once per browser (or once per account, if signed in). Each of its four
-steps has an art slot that takes an animated Rive artboard, a static
-image, or neither, in which case it falls back to a labelled placeholder
-showing the size that slot wants. The cover slot currently holds an
-animated Rive illustration; the other three are still placeholders.
+There's no welcome tour. A first launch lands straight on Home, whose
+empty state says what the app is for and offers **Add your first dish**,
+which opens Add.
 
-**Direction: photography, not illustration.** The remaining illustrations
-are on hold. The tour's art will be clean photographs of food instead,
-which is what the app is about, so the three placeholders will take static
-images rather than Rive art. The Rive support stays in for now.
+The one thing worth asking a guest is whether they want an account, and
+only at the moment it matters: when they try to share a page they don't
+have yet. Share on their profile then opens a sheet, "Sign up with your
+email to make your page live.", that leads into sign-up or sign-in and
+can be dismissed with Not now. The same offer sits on a guest's profile
+where a chef's bio would be. Nothing else in the app asks.
 
-Swapping art in is a one-entry change in
-`src/components/onboardingSteps.js`. See
-[`docs/design-system/illustration.md`](docs/design-system/illustration.md)
-for the details, including how to read artboard and state-machine names
-out of a `.riv` file and why the Rive WebAssembly is self-hosted rather
-than pulled from a CDN.
-
-The tour doesn't ask what a chef plans to use Staj for. A later version
-could ask once (for plating inspiration from other dishes, to see other
-restaurants' plating, or to show off dishes they've made) and shape the
-first screens around the answer. That is an idea, not built.
+The app doesn't ask what a chef plans to use Staj for. That is deferred
+until research shows the answer would change what they see. See
+[ADR 0004](docs/adr/0004-no-welcome-tour.md).
 
 ### Design system
 
@@ -311,8 +306,6 @@ worth reading before adding UI:
   motion tokens, the shared keyframes, and why a component written
   against the tokens is reduced-motion correct without its own media
   query.
-- [`docs/design-system/illustration.md`](docs/design-system/illustration.md)
-  — the art slots and the Rive setup.
 - [`docs/design-system/shape.md`](docs/design-system/shape.md) — the
   no-straight-corners rule, the four radius tokens that carry it, and why
   photos get a hairline outline rather than a shadow.

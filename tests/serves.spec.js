@@ -35,7 +35,6 @@ async function boot(page, meals = []) {
     return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
   });
   await page.addInitScript((m) => {
-    localStorage.setItem('onboarding-seen-local', '1');
     localStorage.setItem('meal-diary-local-meals', JSON.stringify(m));
   }, meals);
   await page.goto('/');

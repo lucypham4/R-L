@@ -43,7 +43,6 @@ test('the nav pill looks as roomy at its right end as at its left', async ({ pag
   await page.route('**stub.supabase.co/**', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
   );
-  await page.addInitScript(() => localStorage.setItem('onboarding-seen-local', '1'));
   await page.goto('/');
   await expect(page.locator('.bottom-nav')).toBeVisible();
   // The active tab's icon scales up on a transition; measure it settled.
@@ -57,7 +56,6 @@ test('the page fades out under the pill, from solid at the bottom edge to clear 
   await page.route('**stub.supabase.co/**', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
   );
-  await page.addInitScript(() => localStorage.setItem('onboarding-seen-local', '1'));
   await page.goto('/');
   const fade = page.locator('.bottom-nav-fade');
   await expect(fade).toBeVisible();

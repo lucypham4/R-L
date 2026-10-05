@@ -7,7 +7,6 @@ import SignInScreen from './components/SignInScreen';
 import NewPasswordScreen from './components/NewPasswordScreen';
 import ChooseUsername from './components/ChooseUsername';
 import LocalImportPrompt from './components/LocalImportPrompt';
-import OnboardingTour from './components/OnboardingTour';
 import PublicChefPage from './components/PublicChefPage';
 import BottomNav from './components/BottomNav';
 import SettingsPage from './components/SettingsPage';
@@ -27,22 +26,6 @@ import { loadTheme, saveTheme, nextTheme, applyTheme } from './lib/theme';
 import { importLocalMeals, countLocalMeals } from './lib/localImport';
 import { loadLocalAvatar, saveLocalAvatar, storeAvatar } from './lib/avatar';
 import './App.css';
-
-function hasSeenOnboarding(key) {
-  try {
-    return localStorage.getItem(`onboarding-seen-${key}`) === '1';
-  } catch {
-    return true; // storage blocked, don't force the tour on every load
-  }
-}
-
-function markOnboardingSeen(key) {
-  try {
-    localStorage.setItem(`onboarding-seen-${key}`, '1');
-  } catch {
-    // storage blocked, nothing to persist, tour just won't be remembered
-  }
-}
 
 export default function App() {
   // Every chef's public page lives at /<slug>; anything else is the
@@ -87,7 +70,6 @@ function AdminApp() {
   const [sessionChecked, setSessionChecked] = useState(!isSupabaseConfigured);
   const [chefProfile, setChefProfile] = useState(null);
   const [chefProfileChecked, setChefProfileChecked] = useState(!isSupabaseConfigured);
-  const [showOnboarding, setShowOnboarding] = useState(false);
   // The picture in the top right opens the chef's profile; Settings opens
   // from there, and its Back returns to it.
   const [showProfile, setShowProfile] = useState(false);
@@ -172,13 +154,6 @@ function AdminApp() {
       cancelled = true;
     };
   }, [userId]);
-
-  // First-time welcome tour, once per account if signed in, otherwise
-  // once per device/browser. Runs either way; no account required.
-  useEffect(() => {
-    if (userId && !chefProfile) return; // still setting up the account
-    if (!hasSeenOnboarding(userId ?? 'local')) setShowOnboarding(true);
-  }, [userId, chefProfile]);
 
   useEffect(() => {
     if (!isSupabaseConfigured || !userId) return;
@@ -296,8 +271,10 @@ function AdminApp() {
     setChefProfile(await updateChefProfile(userId, fields));
   }
 
-  function handleRequestSignIn() {
-    setSignInMode('signin');
+  // `mode` is 'signin' or 'signup': a guest asked to make their page live
+  // starts on the sign-up form.
+  function handleRequestSignIn(mode = 'signin') {
+    setSignInMode(mode);
     setSignInNotice('');
     setShowSignIn(true);
   }
@@ -384,18 +361,6 @@ function AdminApp() {
 
   const publicUrl = chefProfile ? `${window.location.origin}/${chefProfile.slug}` : null;
 
-  if (showOnboarding) {
-    return (
-      <OnboardingTour
-        publicUrl={publicUrl}
-        onDone={() => {
-          markOnboardingSeen(session ? session.user.id : 'local');
-          setShowOnboarding(false);
-        }}
-      />
-    );
-  }
-
   if (showSettings) {
     return (
       <SettingsPage
@@ -405,7 +370,7 @@ function AdminApp() {
         publicUrl={publicUrl}
         theme={theme}
         onToggleTheme={handleToggleTheme}
-        onSignIn={handleRequestSignIn}
+        onSignIn={() => handleRequestSignIn('signin')}
         onSignOut={signOut}
         chefProfile={chefProfile}
         onChangePageTheme={chefProfile ? handleChangePageTheme : undefined}
@@ -425,6 +390,8 @@ function AdminApp() {
         avatarUrl={avatarUrl}
         onChangeAvatar={handleChangeAvatar}
         onSaveProfile={handleSaveProfile}
+        // No Supabase, no accounts: nothing to sign up for.
+        onSignIn={isSupabaseConfigured ? handleRequestSignIn : undefined}
       />
     );
   }

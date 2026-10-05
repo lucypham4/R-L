@@ -42,8 +42,7 @@ uses each:
 - `rise-in` — the app's one entrance gesture: fade up over `--rise`.
 
 Component-specific keyframes stay in that component's stylesheet
-(`filter-sheet-rise`, `onboarding-slide`, `filter-dot-pop`,
-`dish-sheet-enter`).
+(`filter-sheet-rise`, `filter-dot-pop`, `dish-sheet-enter`).
 
 A keyframe used by two components belongs in `global.css`. `modal-rise`
 previously lived in `MealDetailModal.css` while `MealActionSheet.css` also
@@ -78,16 +77,15 @@ The practical consequence: **a component written against these tokens is
 reduced-motion correct for free**, with no per-component media query. Only
 reach for an explicit `@media (prefers-reduced-motion: reduce)` when a
 component needs to *substitute* one animation for another rather than
-flatten it — `OnboardingTour.css` swaps its sideways slide for a plain
-cross-fade, because a zero-duration slide would make the step change
-invisible.
+flatten it: for example, a sideways slide that would become invisible at
+zero duration should become a plain cross-fade instead.
 
 Motion driven from JavaScript can't read CSS tokens, so it asks
 `src/lib/motion.js` instead — `prefersReducedMotion()`,
 `onReducedMotionChange()`, `scrollToTop()` and `scrollElementTo()`, and
 `tokenMs()` for a timer or Web Animation that has to last as long as a
-token says. The Rive tour art uses it to hold its state machine on the
-first frame.
+token says. The public page's header uses it to jump between its rests
+instead of travelling.
 
 ## Patterns in use
 
@@ -103,10 +101,10 @@ cascade replays on every search keystroke, since filtering remounts the
 surviving cards. Delay is capped at `STAGGER_CAP` items so a 200-meal
 archive still finishes in about a second.
 
-**Step transitions** (onboarding, add-meal wizard). The incoming panel
+**Step transitions** (add-meal wizard). The incoming panel
 animates; there's no paired exit. A proper cross-fade needs both panels
-absolutely positioned and a fixed container height, which these flows
-don't have — their steps hold deliberately different amounts of copy.
+absolutely positioned and a fixed container height, which the wizard
+doesn't have — its steps hold deliberately different amounts of content.
 
 **Progress** (add-meal wizard). `scaleX` on a fixed-width track, not an
 animated `width`, so growth is composited instead of triggering layout.

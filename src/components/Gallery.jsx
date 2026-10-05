@@ -186,11 +186,14 @@ export default function Gallery({
       {filtered.length === 0 ? (
         meals.length === 0 ? (
           <div className="gallery-empty-state">
-            <h2 className="gallery-empty-title">Add your first dish</h2>
-            <p className="gallery-empty-body">Start with a photo.</p>
+            {/* The first thing a new chef sees, with no tour before it
+                (ADR 0004), so it says what the app is for and hands them
+                the one thing to do next. */}
+            <h2 className="gallery-empty-title">No dishes yet</h2>
+            <p className="gallery-empty-body">Snap a photo or sketch it, and it'll live here.</p>
             {onAddMeal && (
               <Button variant="primary" onClick={onAddMeal}>
-                + Add meal
+                Add your first dish
               </Button>
             )}
           </div>
