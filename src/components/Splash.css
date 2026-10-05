@@ -21,9 +21,9 @@
 
 /* "Staj" in steel. Two layers clipped to the letters:
 
-   - the metal: lighter at the top, a darker line just under half-way
-     where a polished blade turns from the sky to the floor, and back up
-     a little towards the foot. It reads as metal standing still.
+   - the metal: one smooth fall from light at the top to dark at the
+     foot, two stops and nothing between, as brushed steel catches the
+     light from above. It reads as metal standing still.
    - the glint: one narrow streak with a soft halo, angled a little off
      upright, as light runs along an edge when the knife turns. It rests
      off the word's left, crosses once, and leaves off its right. */
@@ -46,10 +46,8 @@
     ),
     linear-gradient(
       180deg,
-      var(--color-steel-light) 0%,
-      var(--color-steel) 46%,
-      var(--color-steel-dark) 54%,
-      var(--color-steel) 100%
+      var(--color-steel-light),
+      var(--color-steel-dark)
     );
   /* The glint's layer is three words wide, so at either end of its
      travel the streak is clear of the letters. */

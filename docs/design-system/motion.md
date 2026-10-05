@@ -292,8 +292,8 @@ mask carries the fade, so the same stops serve light and dark.
 
 **The first frame** (`Splash`). Opening the app, once a visit (a reload
 in the same tab skips it): "Staj" alone on the page colour, its letters in
-steel (`--color-steel-*`: a light top and a dark line just under half-way,
-where a polished blade turns), and one glint (`--color-glint`) run across
+steel (`--color-steel-light` to `--color-steel-dark`: one smooth fall from
+a light top to a dark foot, two stops and nothing between), and one glint (`--color-glint`) run across
 them over `--dur-sheen`, like light along a knife's edge as it turns. The
 streak is narrow, with a soft halo, angled a little off upright, and rests
 off the word at both ends, so it crosses once and is gone. Then the frame

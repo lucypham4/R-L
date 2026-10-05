@@ -16,11 +16,10 @@
   /* White, for a card that sits on --color-surface rather than on the
      page: the bio on the profile. */
   --color-raised: #ffffff;
-  /* The wordmark's steel on the first frame (Splash.css): a light top,
-     a dark line just under half-way where a polished blade turns, and
-     the glint that runs across it. */
+  /* The wordmark's steel on the first frame (Splash.css): a smooth fall
+     from light at the top to dark at the foot, and the glint that runs
+     across it. */
   --color-steel-light: #8a867e;
-  --color-steel: #4a4844;
   --color-steel-dark: #1f1e1c;
   --color-glint: #ffffff;
   --color-glint-halo: rgba(255, 255, 255, 0.4);
@@ -206,7 +205,6 @@
     --color-avatar: #3b3833;
     --color-avatar-figure: #68635a;
     --color-steel-light: #ece9e2;
-    --color-steel: #aaa59c;
     --color-steel-dark: #66625b;
     --color-glint: #ffffff;
     --color-glint-halo: rgba(255, 255, 255, 0.45);
@@ -236,7 +234,6 @@
   --color-avatar: #3b3833;
   --color-avatar-figure: #68635a;
   --color-steel-light: #ece9e2;
-  --color-steel: #aaa59c;
   --color-steel-dark: #66625b;
   --color-glint: #ffffff;
   --color-glint-halo: rgba(255, 255, 255, 0.45);
