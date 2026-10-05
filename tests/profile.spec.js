@@ -60,8 +60,6 @@ async function boot(page, { signedIn = false, auth = () => undefined, chef: init
     return json([]);
   });
   await page.addInitScript((stored) => {
-    localStorage.setItem('onboarding-seen-local', '1');
-    localStorage.setItem('onboarding-seen-chef-1', '1');
     if (stored) localStorage.setItem('sb-stub-auth-token', JSON.stringify(stored));
   }, signedIn ? session() : null);
   await page.goto(path);
@@ -130,12 +128,18 @@ test.describe('the profile', () => {
     await boot(page);
     await openProfile(page);
     await expect(page.locator('.profile-name')).toHaveText('Your kitchen');
-    await expect(page.getByRole('region', { name: 'Bio' })).toContainText('Sign in');
-    // No public page yet, so nothing to share.
-    await expect(page.getByRole('button', { name: 'Share your page' })).toHaveCount(0);
+    // No page yet: where the bio would be, the way to one.
+    await expect(page.getByRole('region', { name: 'Your public page' })).toContainText(
+      'Sign up with your email to make your page live.'
+    );
+    await expect(page.getByRole('region', { name: 'Bio' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'View public page' })).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Edit' }).click();
     await expect(page.getByLabel('Name')).toHaveCount(0);
+    // Leaving mid-edit would lose the edit, so the only ways out are
+    // Save and Cancel.
+    await expect(page.getByRole('button', { name: 'Back' })).toHaveCount(0);
     await choosePhoto(page);
     // Shown in the form, but not saved until Save.
     await expect(avatarImage(page, '.profile-photo')).toHaveAttribute('src', /^blob:/);
@@ -156,6 +160,59 @@ test.describe('the profile', () => {
     await expect(page.locator('.profile-hero .avatar-default')).toBeVisible();
     await page.getByRole('button', { name: 'Back' }).click();
     await expect(page.locator('.gallery-avatar .avatar-default')).toBeVisible();
+  });
+
+  test('a guest signs up or in from their profile, without going through Settings', async ({ page }) => {
+    await boot(page);
+    await openProfile(page);
+    const card = page.getByRole('region', { name: 'Your public page' });
+    await card.getByRole('button', { name: 'Sign up' }).click();
+    await expect(page.getByRole('heading', { name: 'Create your account' })).toBeVisible();
+    await page.getByRole('button', { name: 'Not now, continue without an account' }).click();
+    // Back where they asked from.
+    await expect(page.getByRole('heading', { name: 'My profile' })).toBeVisible();
+
+    await card.getByRole('button', { name: 'Sign in' }).click();
+    await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+  });
+
+  test('a guest who tries to share their page is asked to sign up, and can decline', async ({ page }) => {
+    await boot(page);
+    await openProfile(page);
+    const share = page.getByRole('button', { name: 'Share your page' });
+    const prompt = page.getByRole('dialog', { name: 'Sign up with your email to make your page live.' });
+
+    await share.click();
+    await expect(prompt).toBeVisible();
+    await expect(prompt.getByRole('button', { name: 'Sign up' })).toBeFocused();
+    await prompt.getByRole('button', { name: 'Not now' }).click();
+    await expect(prompt).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'My profile' })).toBeVisible();
+
+    await share.click();
+    await page.keyboard.press('Escape');
+    await expect(prompt).toHaveCount(0);
+
+    // Asking again isn't remembered against them: it's there every time.
+    await share.click();
+    await prompt.getByRole('button', { name: 'I already have an account' }).click();
+    await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+    await page.getByRole('button', { name: 'Not now, continue without an account' }).click();
+
+    await share.click();
+    await prompt.getByRole('button', { name: 'Sign up' }).click();
+    await expect(page.getByRole('heading', { name: 'Create your account' })).toBeVisible();
+  });
+
+  test('a chef’s page is a button beside their links', async ({ page }) => {
+    await boot(page, { signedIn: true, chef: { ...CHEF, links: { instagram: 'ana.cooks' } } });
+    await openProfile(page);
+    const row = page.locator('.profile-links-row');
+    await expect(row.getByRole('link', { name: /Instagram/ })).toBeVisible();
+    const view = row.getByRole('link', { name: 'View public page' });
+    await expect(view).toHaveAttribute('href', /\/ana$/);
+    await expect(view).toHaveAttribute('target', '_blank');
+    await expect(page.getByRole('region', { name: 'Your public page' })).toHaveCount(0);
   });
 
   test('Cancel leaves the picture as it was', async ({ page }) => {

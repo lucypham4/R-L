@@ -154,6 +154,22 @@
   }
 }
 
+/* The chef's links, then the way to their page, on one line while they
+   fit. The button is a pill like any other, at the height of the link
+   pills beside it rather than a full control: it belongs to that row. */
+.profile-links-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.profile-view-page {
+  height: auto;
+  padding: 8px 14px;
+  text-decoration: none;
+}
+
 /* Always in the page, so a screen reader hears "Link copied" when it
    changes; empty, it takes no room. */
 .profile-share-status {
@@ -185,6 +201,14 @@
 .profile-bio-empty {
   font: var(--text-caption);
   color: var(--color-muted);
+}
+
+/* A guest's card: why an account is worth having, and the way to one. */
+.profile-sign-up-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
 }
 
 .profile-specialties {

@@ -34,10 +34,6 @@ async function stub(page, auth = () => undefined) {
     if (url.pathname === '/rest/v1/chefs') return json(200, [CHEF]);
     return json(200, []);
   });
-  await page.addInitScript((id) => {
-    localStorage.setItem('onboarding-seen-local', '1');
-    localStorage.setItem(`onboarding-seen-${id}`, '1');
-  }, USER.id);
 }
 
 async function openSignIn(page) {
