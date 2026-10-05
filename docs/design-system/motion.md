@@ -30,6 +30,7 @@ duration, easing curve or travel distance in a component stylesheet.
 | `--blur-defocus` | `4px` | How soft out-of-focus content goes. |
 | `--opacity-defocus` | `0.55` | How dim it goes with it. |
 | `--dur-dissolve` | `500ms` | One cross-dissolve, start to finish. |
+| `--dur-sheen` | `1100ms` | The glint crossing the wordmark on the first frame. Not shortened under reduced motion: the frame holds as long, without the glint. |
 | `--dof-blur` / `--dof-scale` / `--dof-opacity` | `6px` / `0.985` / `0.6` | How far a surface recedes behind something in focus. |
 
 ## Shared keyframes
@@ -286,6 +287,23 @@ page does as it moves: a full-width veil of the page's own colour under
 the pill, translucent even at the bottom edge (70%) so the dishes still
 show through, thinning along an eased curve to clear above the pill. A
 mask carries the fade, so the same stops serve light and dark.
+
+**The first frame** (`Splash`). Opening the app, once a visit (a reload
+in the same tab skips it): "Staj" alone on the page colour, its letters in
+steel (`--color-steel-light` to `--color-steel-dark`: one smooth fall from
+a light top to a dark foot, two stops and nothing between), and one glint (`--color-glint`) run across
+them over `--dur-sheen`, like light along a knife's edge as it turns. The
+streak is narrow, with a soft halo, angled a little off upright, and rests
+off the word at both ends, so it crosses once and is gone. Then the frame
+dissolves into the app, which is already rendered underneath, over
+`--dur-dissolve` on `--ease-focus`, the dish name's cross-fade. A tap or a
+key skips straight to the dissolve; the tap is swallowed rather than
+landing on whatever is hidden under the frame. It waits up to 700ms for
+Tinos, so the glint doesn't cross Georgia and then watch it swap. This is
+the one piece of motion that is there for the brand rather than to
+explain something, which is why it is once a visit and under two seconds.
+Under reduced motion the steel holds without the glint for the same time,
+then fades.
 
 **Depth of field** (`.app-stage`). The gallery behind an open dish blurs,
 dims and scales back a hair. It does the work a heavy scrim would, without
