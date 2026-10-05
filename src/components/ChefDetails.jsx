@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { linksToShow } from '../lib/socialLinks';
 import { SPECIALTIES_MAX, SPECIALTY_MAX_LENGTH } from '../lib/chefsApi';
+import CloseIcon from './CloseIcon';
 import './ChefDetails.css';
 
 // Somewhere to start, for a chef who hasn't thought of how to put it.
@@ -141,8 +142,8 @@ export function SpecialtyPicker({ value, onChange, disabled }) {
                 aria-label={`Remove ${tag}`}
               >
                 {tag}
-                <span aria-hidden="true" className="chef-tag-x">
-                  ×
+                <span className="chef-tag-x">
+                  <CloseIcon size={14} />
                 </span>
               </button>
             </li>

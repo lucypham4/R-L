@@ -294,8 +294,8 @@ test.describe('the profile', () => {
     // Changed my mind about one.
     await page.getByRole('button', { name: 'Remove Seasonal' }).click();
     await expect(page.getByRole('list', { name: 'Your specialties' }).getByRole('listitem')).toHaveText([
-      'Pastry×',
-      'Vietnamese×',
+      'Pastry',
+      'Vietnamese',
     ]);
 
     // A handle, a pasted profile link, and a bare address.

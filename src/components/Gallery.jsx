@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Avatar from './Avatar';
 import Button from './Button';
+import CloseIcon from './CloseIcon';
 import FilterSheet from './FilterSheet';
 import MealCard from './MealCard';
 import MealActionSheet from './MealActionSheet';
@@ -168,7 +169,9 @@ export default function Gallery({
               {editError}
             </span>
           ) : (
-            <span>Tap × to delete a dish</span>
+            <span>
+              Tap <CloseIcon className="gallery-edit-hint-icon" size={14} label="the cross" /> to delete a dish
+            </span>
           )}
           <button
             type="button"

@@ -1,3 +1,4 @@
+import CloseIcon from './CloseIcon';
 import './FilterSelect.css';
 
 export default function FilterSelect({ label, value, options, onChange, onClear }) {
@@ -27,7 +28,7 @@ export default function FilterSelect({ label, value, options, onChange, onClear 
             onClear();
           }}
         >
-          ×
+          <CloseIcon size={14} />
         </button>
       ) : (
         <span className="filter-select-chevron" aria-hidden="true">

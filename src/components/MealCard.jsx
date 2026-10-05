@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { getSquareCropUrl } from '../lib/autoSquareCrop';
+import CloseIcon from './CloseIcon';
 import './MealCard.css';
 
 const dateFormatter = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -82,7 +83,7 @@ export default function MealCard({ meal, onOpen, onLongPress, editMode, onDelete
           aria-label={`Delete ${meal.name}`}
           onClick={() => onDelete(meal.id)}
         >
-          ×
+          <CloseIcon size={16} />
         </button>
       )}
     </div>

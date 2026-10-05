@@ -6,7 +6,8 @@ import { test, expect } from './support/network';
 //   - The header's rule goes. The edit bar's is the page's only one, so the
 //     controls and the grid are divided once, not twice in quick succession.
 //   - The × hangs off the photo's top-right corner instead of sitting in
-//     it, in a neutral fill rather than the danger red.
+//     it, in a neutral fill rather than the danger red. It's the app's
+//     close icon, as it is everywhere else, rather than a font's ×.
 
 const photo = (fill) =>
   'data:image/svg+xml;utf8,' +
@@ -53,6 +54,10 @@ async function enterEditMode(page) {
   await page.mouse.up();
   await page.getByRole('button', { name: 'Edit gallery' }).click();
   await expect(page.locator('.gallery-edit-bar')).toBeVisible();
+  // The pointer is left over a card, which lifts on hover; park it and let
+  // that finish, so what's measured next is the layout at rest.
+  await page.mouse.move(0, 0);
+  await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {}))));
 }
 
 const ruleUnderHeader = (page) =>
@@ -102,6 +107,14 @@ test.describe('edit mode', () => {
       // Hanging out never means hanging off the screen.
       expect(badge.x + badge.width, `card ${i}, inside the screen`).toBeLessThanOrEqual(viewport.width);
     }
+
+    // The × is the app's close icon, drawn, not a character in a font. The
+    // hint in the edit bar shows the same one.
+    const badge = page.locator('.meal-card-delete-badge').first();
+    await expect(badge.locator('svg')).toHaveCount(1);
+    await expect(badge).toHaveText('');
+    await expect(page.locator('.gallery-edit-bar svg')).toHaveCount(1);
+    await expect(page.locator('.gallery-edit-bar')).not.toContainText('×');
 
     // The fill is --color-line-strong in whichever theme is showing, not
     // the danger colour it used to be.

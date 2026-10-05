@@ -31,8 +31,7 @@
 }
 
 .chef-tag-x {
-  font-size: 0.9375rem;
-  line-height: 1;
+  display: flex;
   color: var(--color-muted);
 }
 

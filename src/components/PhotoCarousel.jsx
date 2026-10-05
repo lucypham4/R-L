@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import CloseIcon from './CloseIcon';
 import './PhotoCarousel.css';
 
 const SWIPE_THRESHOLD = 50;
@@ -59,7 +60,7 @@ export default function PhotoCarousel({
                   aria-label={`Remove photo ${i + 1}`}
                   onClick={() => onRemove(i)}
                 >
-                  ×
+                  <CloseIcon size={12} />
                 </span>
               )}
             </div>

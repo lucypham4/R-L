@@ -208,6 +208,12 @@
   color: var(--color-muted);
 }
 
+/* Sat on the line of text it's in, rather than on its baseline, where an
+   icon this size floats above the letters beside it. */
+.gallery-edit-hint-icon {
+  vertical-align: -2px;
+}
+
 .gallery-edit-error {
   color: var(--color-danger);
 }

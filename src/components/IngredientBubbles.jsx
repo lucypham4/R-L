@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import CloseIcon from './CloseIcon';
 import './Bubbles.css';
 
 export default function IngredientBubbles({ value, onChange }) {
@@ -27,7 +28,7 @@ export default function IngredientBubbles({ value, onChange }) {
             aria-label={`Remove ${item}`}
             onClick={() => removeIngredient(item)}
           >
-            ×
+            <CloseIcon size={12} />
           </span>
         </span>
       ))}
