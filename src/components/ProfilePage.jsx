@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import Avatar from './Avatar';
 import Button from './Button';
 import PhotoCropModal from './PhotoCropModal';
+import SignUpPrompt, { SIGN_UP_PITCH } from './SignUpPrompt';
 import { SpecialtyTags, SocialLinks, SpecialtyPicker, chefTitle } from './ChefDetails';
 import { Label, TextInput, TextArea, ErrorText, HelpText } from './TextField';
 import { AVATAR_SIZE } from '../lib/avatar';
@@ -247,7 +248,7 @@ function ProfileForm({ chefProfile, avatarUrl, onChangeAvatar, onSaveProfile, on
             </fieldset>
           </>
         ) : (
-          <p className="profile-note">Your picture stays on this device. Sign in from Settings to add a name and a bio.</p>
+          <p className="profile-note">Your picture stays on this device. Sign up to add a name and a bio.</p>
         )}
 
         {status === 'error' && <ErrorText>{error}</ErrorText>}
@@ -283,6 +284,10 @@ function ProfileForm({ chefProfile, avatarUrl, onChangeAvatar, onSaveProfile, on
  * goes: their picture beside their name, page link and links, then their
  * bio and specialties in cards of their own, as clients see them. Edit,
  * Share (the public page's link) and Settings sit in the header.
+ *
+ * A guest has no page yet, so Share and the card where the bio would be
+ * offer to sign up instead (ADR 0004). `onSignIn(mode)` is absent when
+ * there are no accounts to sign up for.
  */
 export default function ProfilePage({
   onBack,
@@ -292,8 +297,10 @@ export default function ProfilePage({
   avatarUrl,
   onChangeAvatar,
   onSaveProfile,
+  onSignIn,
 }) {
   const [editing, setEditing] = useState(false);
+  const [askingToSignUp, setAskingToSignUp] = useState(false);
   const [shareStatus, setShareStatus] = useState('idle'); // idle | shared | copied | failed
   const editRef = useRef(null);
   const wasEditing = useRef(false);
@@ -316,9 +323,13 @@ export default function ProfilePage({
     <div className="profile-page">
       <header className="profile-header">
         <div className="profile-header-title">
-          <button type="button" className="profile-back" onClick={onBack} aria-label="Back">
-            <BackIcon />
-          </button>
+          {/* Gone while the form is open: leaving would throw away what's
+              been typed, and Cancel already says so. */}
+          {!editing && (
+            <button type="button" className="profile-back" onClick={onBack} aria-label="Back">
+              <BackIcon />
+            </button>
+          )}
           <h1 className="profile-title">My profile</h1>
         </div>
         {/* Out of the way while the form is open: it has its own Save and
@@ -334,8 +345,13 @@ export default function ProfilePage({
             >
               <PencilIcon />
             </button>
-            {publicUrl && (
-              <button type="button" className="profile-icon-btn" onClick={handleShare} aria-label="Share your page">
+            {(publicUrl || onSignIn) && (
+              <button
+                type="button"
+                className="profile-icon-btn"
+                onClick={publicUrl ? handleShare : () => setAskingToSignUp(true)}
+                aria-label="Share your page"
+              >
                 <ShareIcon />
               </button>
             )}
@@ -365,7 +381,17 @@ export default function ProfilePage({
                   {pageAddress}
                 </a>
               )}
-              <SocialLinks links={chefProfile?.links} className="profile-links" />
+              {/* The address alone doesn't read as something to tap. */}
+              {chefProfile && (
+                <div className="profile-links-row">
+                  <SocialLinks links={chefProfile.links} className="profile-links" />
+                  {publicUrl && (
+                    <a className="btn btn-secondary profile-view-page" href={publicUrl} target="_blank" rel="noreferrer">
+                      View public page
+                    </a>
+                  )}
+                </div>
+              )}
             </div>
           </div>
           <p className="profile-share-status" role="status">
@@ -373,19 +399,31 @@ export default function ProfilePage({
             {shareStatus === 'failed' && `Couldn't copy it. Your page is at ${pageAddress}.`}
           </p>
 
-          <section className="profile-card profile-bio" aria-label="Bio">
-            {!chefProfile ? (
-              <p className="profile-bio-empty">
-                Sign in from Settings for a public page, with your name and a short bio on it.
-              </p>
-            ) : chefProfile.bio ? (
-              <p className="profile-bio-text">{chefProfile.bio}</p>
-            ) : (
-              <p className="profile-bio-empty">
-                No bio yet. A line or two about your cooking is the first thing people read on your page.
-              </p>
-            )}
-          </section>
+          {!chefProfile ? (
+            onSignIn && (
+              <section className="profile-card profile-sign-up" aria-label="Your public page">
+                <p className="profile-bio-empty">{SIGN_UP_PITCH}</p>
+                <div className="profile-sign-up-actions">
+                  <Button type="button" variant="primary" onClick={() => onSignIn('signup')}>
+                    Sign up
+                  </Button>
+                  <Button type="button" variant="ghost" onClick={() => onSignIn('signin')}>
+                    Sign in
+                  </Button>
+                </div>
+              </section>
+            )
+          ) : (
+            <section className="profile-card profile-bio" aria-label="Bio">
+              {chefProfile.bio ? (
+                <p className="profile-bio-text">{chefProfile.bio}</p>
+              ) : (
+                <p className="profile-bio-empty">
+                  No bio yet. A line or two about your cooking is the first thing people read on your page.
+                </p>
+              )}
+            </section>
+          )}
 
           {chefProfile?.specialties?.length > 0 && (
             <section className="profile-card profile-specialties" aria-labelledby="profile-specialties-title">
@@ -397,6 +435,8 @@ export default function ProfilePage({
           )}
         </>
       )}
+
+      {askingToSignUp && <SignUpPrompt onSignIn={onSignIn} onClose={() => setAskingToSignUp(false)} />}
     </div>
   );
 }

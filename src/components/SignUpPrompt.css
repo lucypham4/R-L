@@ -1,0 +1,10 @@
+/* The surface and scrim are the action sheet's (MealActionSheet.css);
+   only the buttons differ, since these are the app's own pills rather
+   than a list of rows. */
+.sign-up-prompt .btn {
+  width: 100%;
+}
+
+.sign-up-prompt .action-sheet-title {
+  margin-bottom: 0;
+}
