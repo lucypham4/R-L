@@ -48,7 +48,7 @@ async function attachPhotoAndContinue(page) {
   await page.getByRole('button', { name: 'Use photo' }).click();
   await expect(page.locator('.photo-crop-card')).toBeHidden();
   await page.locator('.add-meal-next').click();
-  await expect(page.locator('.add-meal-progress')).toHaveText(/STEP 2 OF 3/i);
+  await expect(page.locator('.add-meal-progress')).toHaveText(/Step 2 of 3/);
 }
 
 test.describe('add-meal wizard, ai-fill failure', () => {
@@ -67,7 +67,7 @@ test.describe('add-meal wizard, ai-fill failure', () => {
     await page.locator('.add-meal-next').click();
 
     // Not a dead end: the chef lands on the card they came to write.
-    await expect(page.locator('.add-meal-progress')).toHaveText(/STEP 3 OF 3/i);
+    await expect(page.locator('.add-meal-progress')).toHaveText(/Step 3 of 3/);
 
     const notice = page.locator('.add-meal-notice');
     await expect(notice).toBeVisible();
@@ -90,7 +90,7 @@ test.describe('add-meal wizard, ai-fill failure', () => {
     await page.locator('textarea').first().fill('Some notes about the dish.');
     await page.locator('.add-meal-next').click();
 
-    await expect(page.locator('.add-meal-progress')).toHaveText(/STEP 3 OF 3/i);
+    await expect(page.locator('.add-meal-progress')).toHaveText(/Step 3 of 3/);
     const notice = page.locator('.add-meal-notice');
     await expect(notice).toBeVisible();
     await expect(notice).toContainText(/couldn[’']t reach the ai/i);
@@ -118,11 +118,11 @@ test.describe('add-meal wizard, ai-fill failure', () => {
     await page.mouse.up();
 
     await page.locator('.add-meal-next').click();
-    await expect(page.locator('.add-meal-progress')).toHaveText(/STEP 2 OF 3/i);
+    await expect(page.locator('.add-meal-progress')).toHaveText(/Step 2 of 3/);
     await page.locator('textarea').first().fill('A sketched dish.');
     await page.locator('.add-meal-next').click();
 
-    await expect(page.locator('.add-meal-progress')).toHaveText(/STEP 3 OF 3/i);
+    await expect(page.locator('.add-meal-progress')).toHaveText(/Step 3 of 3/);
     // Step 3 opens before the AI has answered; the failure (and any error
     // from reading the sketch) only shows once it has.
     await expect(page.locator('.add-meal-notice')).toBeVisible();

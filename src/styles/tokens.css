@@ -64,20 +64,20 @@
      and never asks for them. */
   --font-button: -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
 
+  /* Sentence case, everywhere. Nothing is set in capitals and nothing is
+     tracked out to make capitals breathe: no text-transform, no
+     letter-spacing on the small mono labels. Acronyms (AI, PNG) are the one
+     exception, and the wordmark is written "Staj" (shape.md). */
   --text-h1: 400 3.25rem/1.1 var(--font-serif);
   --text-h1-ls: -0.015em;
   --text-h2: 400 2rem/1.25 var(--font-serif);
   --text-h2-ls: -0.01em;
   --text-h3: 700 1.25rem/1.4 var(--font-serif);
-  --text-h3-ls: 0.06em;
   --text-body: 400 1rem/1.65 var(--font-sans);
   --text-ui: 500 0.75rem/1 var(--font-mono);
-  --text-ui-ls: 0.08em;
   --text-label: 500 0.6875rem/1 var(--font-mono);
-  --text-label-ls: 0.1em;
   --text-caption: 400 0.8125rem/1.55 var(--font-sans);
   --text-meta: 400 0.6875rem/1.4 var(--font-mono);
-  --text-meta-ls: 0.14em;
 
   /* Action buttons: sentence case, no tracking (SF and Inter both carry
      their own spacing). -sm is for the small ones that sit inside a form

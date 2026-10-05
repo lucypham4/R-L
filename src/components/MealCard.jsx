@@ -6,7 +6,7 @@ const dateFormatter = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 
 const LONG_PRESS_MS = 500;
 
 export function formatMealDate(iso) {
-  return dateFormatter.format(new Date(iso)).replace(/ /g, ' ').toUpperCase();
+  return dateFormatter.format(new Date(iso)).replace(/ /g, ' ');
 }
 
 export default function MealCard({ meal, onOpen, onLongPress, editMode, onDelete, style }) {

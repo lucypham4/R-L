@@ -50,7 +50,7 @@ test.describe('how many a dish served', () => {
     await page.locator('.add-meal-next').click();
     await page.locator('textarea').first().fill('A dish for a long table.');
     await page.locator('.add-meal-next').click();
-    await expect(page.locator('.add-meal-progress')).toHaveText(/STEP 3 OF 3/i);
+    await expect(page.locator('.add-meal-progress')).toHaveText(/Step 3 of 3/);
 
     // Pre-filled with the value every meal used to claim silently. The
     // point of the field is that it is now visible and changeable.
@@ -95,7 +95,7 @@ test.describe('how many a dish served', () => {
     await page.getByRole('button', { name: /save/i }).click();
 
     // Still on the form, with the reason shown, rather than saved.
-    await expect(page.locator('.add-meal-progress')).toHaveText(/STEP 3 OF 3/i);
+    await expect(page.locator('.add-meal-progress')).toHaveText(/Step 3 of 3/);
     await expect(page.locator('#meal-serves').locator('xpath=../..')).toContainText(/between 1 and 99/i);
   });
 });

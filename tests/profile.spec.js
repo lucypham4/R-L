@@ -554,7 +554,12 @@ test.describe('the public page', () => {
   });
 
   test('a release between the two rests settles on the nearer one; further down scrolls freely', async ({ page }) => {
-    await boot(page, { path: '/ana', meals: MEALS });
+    // Plenty of dishes under the collapse. With eight the page left only
+    // just over 400px below it, a margin that a line of text wrapping or
+    // not wrapping (tracked capitals were wider than sentence case) could
+    // spend, and the point here is how the page snaps, not how long it is.
+    const many = [...MEALS, ...MEALS.map((m) => ({ ...m, id: `${m.id}b`, name: `${m.name} again` }))];
+    await boot(page, { path: '/ana', meals: many });
     await expect.poll(async () => Math.round((await box(page.locator('.public-chef-travel-avatar'))).w)).toBe(112);
     const D = await collapseAt(page);
     const settle = async (y) => {

@@ -1,11 +1,16 @@
 import { test, expect } from './support/network';
 import { fileURLToPath } from 'node:url';
 import { findSquareCorners, findSquareButtons } from './support/corners';
+import { findCapitals } from './support/caps';
 
 // No straight corners, anywhere. Every screen the app can show is visited
 // here and measured for a visible box with a square corner: a fill, a
 // border, a shadow or a photo. And every button on it is a pill. See
 // docs/design-system/shape.md.
+//
+// The same walk also checks that nothing on any screen is set in capitals
+// (tests/support/caps.js): the visit is what costs, so a second rule that
+// holds on every screen rides on it.
 
 const DISH_PHOTO = fileURLToPath(new URL('./fixtures/dish.png', import.meta.url));
 
@@ -105,6 +110,9 @@ async function expectRounded(page, screen) {
   // rounds like one.
   const buttons = await findSquareButtons(page, { except: ['.photo-carousel-thumb'] });
   expect(buttons, `buttons that aren't pills on ${screen}`).toEqual([]);
+  // Sentence case, everywhere: no style on any screen draws text in capitals.
+  const capitals = await findCapitals(page);
+  expect(capitals, `text set in capitals on ${screen}`).toEqual([]);
 }
 
 /** Settings is the gear on the chef's profile. */
@@ -189,12 +197,12 @@ test.describe('no square corners', () => {
     await expectRounded(page, 'add meal, step 1 with a photo');
 
     await page.locator('.add-meal-next').click();
-    await expect(page.locator('.add-meal-progress')).toHaveText(/STEP 2 OF 3/i);
+    await expect(page.locator('.add-meal-progress')).toHaveText(/Step 2 of 3/);
     await page.locator('textarea').first().fill('Leeks, charred.');
     await expectRounded(page, 'add meal, step 2');
 
     await page.locator('.add-meal-next').click();
-    await expect(page.locator('.add-meal-progress')).toHaveText(/STEP 3 OF 3/i);
+    await expect(page.locator('.add-meal-progress')).toHaveText(/Step 3 of 3/);
     await expectRounded(page, 'add meal, step 3');
   });
 

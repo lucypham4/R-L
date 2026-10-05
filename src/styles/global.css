@@ -72,20 +72,14 @@ img {
 
 .h3 {
   font: var(--text-h3);
-  letter-spacing: var(--text-h3-ls);
-  text-transform: uppercase;
 }
 
 .ui-label {
   font: var(--text-ui);
-  letter-spacing: var(--text-ui-ls);
-  text-transform: uppercase;
 }
 
 .label {
   font: var(--text-label);
-  letter-spacing: var(--text-label-ls);
-  text-transform: uppercase;
 }
 
 .caption {
@@ -95,8 +89,6 @@ img {
 
 .meta {
   font: var(--text-meta);
-  letter-spacing: var(--text-meta-ls);
-  text-transform: uppercase;
   color: var(--color-muted);
 }
 

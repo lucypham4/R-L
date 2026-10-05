@@ -226,7 +226,7 @@ test.describe('adding a meal', () => {
     await page.locator('.add-meal-next').click();
     await page.locator('textarea').first().fill('Leeks on the coals, brown butter, hazelnuts.');
     await page.locator('.add-meal-next').click();
-    await expect(page.locator('.add-meal-progress')).toHaveText(/STEP 3 OF 3/i);
+    await expect(page.locator('.add-meal-progress')).toHaveText(/Step 3 of 3/);
   }
 
   test('the AI fill writes the summary, the chef can change it, and the card shows it', async ({ page }) => {

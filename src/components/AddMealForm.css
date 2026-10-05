@@ -19,8 +19,6 @@
 
 .add-meal-progress {
   font: 500 0.6875rem/1.5 var(--font-mono);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--color-muted);
 }
 

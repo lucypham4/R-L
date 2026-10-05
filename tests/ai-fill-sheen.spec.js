@@ -55,7 +55,7 @@ async function openWizard(page, onAiFill) {
   await page.getByRole('button', { name: 'Use photo' }).click();
   await expect(page.locator('.photo-crop-card')).toBeHidden();
   await page.locator('.add-meal-next').click();
-  await expect(page.locator('.add-meal-progress')).toHaveText(/STEP 2 OF 3/i);
+  await expect(page.locator('.add-meal-progress')).toHaveText(/Step 2 of 3/);
   await page.locator('textarea').first().fill(NOTES);
 }
 
@@ -64,7 +64,7 @@ const answer = (body, status = 200) => (route) =>
 
 const nextToCard = async (page) => {
   await page.locator('.add-meal-next').click();
-  await expect(page.locator('.add-meal-progress')).toHaveText(/STEP 3 OF 3/i);
+  await expect(page.locator('.add-meal-progress')).toHaveText(/Step 3 of 3/);
 };
 
 /** Passes of the sheen running anywhere on the page right now. */
@@ -90,7 +90,7 @@ async function expectCardIsTheChefs(page) {
   await page.locator('#meal-name').fill('Mine');
   await expect(page.locator('#meal-name')).toHaveValue('Mine');
   await expect(page.getByRole('button', { name: 'Save meal' })).toBeEnabled();
-  await expect(page.locator('.add-meal-progress')).toHaveText(/STEP 3 OF 3/i);
+  await expect(page.locator('.add-meal-progress')).toHaveText(/Step 3 of 3/);
 }
 
 test.describe('while the AI fills in the card', () => {
@@ -205,7 +205,7 @@ test.describe('while the AI fills in the card', () => {
     });
     await nextToCard(page);
     await page.getByRole('button', { name: 'Back' }).click();
-    await expect(page.locator('.add-meal-progress')).toHaveText(/STEP 2 OF 3/i);
+    await expect(page.locator('.add-meal-progress')).toHaveText(/Step 2 of 3/);
     await expect(page.locator('.sheen-fill-active')).toHaveCount(0);
 
     await nextToCard(page);

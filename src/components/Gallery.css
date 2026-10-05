@@ -151,8 +151,6 @@
 
 .gallery-count {
   font: var(--text-meta);
-  letter-spacing: var(--text-meta-ls);
-  text-transform: uppercase;
   color: var(--color-muted);
 }
 

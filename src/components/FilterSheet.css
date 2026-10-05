@@ -93,8 +93,6 @@
 
 .filter-sheet-label {
   font: var(--text-label);
-  letter-spacing: var(--text-label-ls);
-  text-transform: uppercase;
   color: var(--color-muted);
 }
 

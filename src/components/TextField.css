@@ -3,8 +3,6 @@
   align-items: baseline;
   gap: 6px;
   font: 500 0.6875rem/1.5 var(--font-mono);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
   color: var(--color-muted);
   margin-bottom: 10px;
 }
@@ -14,6 +12,8 @@
   font-size: 0.8125rem;
 }
 
+/* "(optional)", in parentheses and lighter than the label, so it reads as
+   a side note rather than running on as part of it. */
 .field-optional {
   color: var(--color-disabled);
 }

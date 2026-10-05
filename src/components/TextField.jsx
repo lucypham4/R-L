@@ -18,7 +18,7 @@ export function Label({ htmlFor, required, optional, children }) {
           *
         </span>
       )}
-      {optional && <span className="field-optional">optional</span>}
+      {optional && <span className="field-optional">{' (optional)'}</span>}
       {required && <span className="visually-hidden"> required</span>}
     </label>
   );

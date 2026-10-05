@@ -44,14 +44,14 @@ async function toStep2(page) {
   await page.getByRole('button', { name: 'Use photo' }).click();
   await expect(page.locator('.photo-crop-card')).toBeHidden();
   await page.locator('.add-meal-next').click();
-  await expect(page.locator('.add-meal-progress')).toHaveText(/STEP 2 OF 3/i);
+  await expect(page.locator('.add-meal-progress')).toHaveText(/Step 2 of 3/);
 }
 
 async function toStep3(page) {
   await toStep2(page);
   await page.locator('textarea').first().fill('Leeks on the coals, brown butter, hazelnuts.');
   await page.locator('.add-meal-next').click();
-  await expect(page.locator('.add-meal-progress')).toHaveText(/STEP 3 OF 3/i);
+  await expect(page.locator('.add-meal-progress')).toHaveText(/Step 3 of 3/);
   await expect(page.locator('#meal-name')).toHaveValue(AI_FILL.name);
 }
 

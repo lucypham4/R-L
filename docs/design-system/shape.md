@@ -114,10 +114,45 @@ it reads the small stylesheet and stops. A new button takes `--text-button`
 (or `-sm`), never its own `font:`.
 
 Everything else is still Instrument Sans for reading and IBM Plex Mono for
-the small uppercase labels (a field's label, the step counter, the count of
-meals). Those sit beside buttons now in a different face and a different
-case. They haven't been moved: whether labels and body should follow the
-buttons into the system face is a separate call.
+the small labels (a field's label, the step counter, the count of meals).
+Those sit beside buttons in a different face. They haven't been moved:
+whether labels and body should follow the buttons into the system face is a
+separate call, and not one the case rule below depends on.
+
+## Sentence case
+
+Nothing in Staj is set in capitals. A label reads "Step 1 of 3", "0 of 0
+meals", "Date cooked", "Cuisine"; a date reads "26 Sept 2026"; a button reads
+"Save meal". The labels used to be small uppercase mono, tracked out so the
+capitals had room, and beside buttons that had gone to sentence case the two
+read as different voices.
+
+- **No `text-transform`, no `font-variant-caps`, no small caps.** If text needs
+  to be in a case, the string in the source is in that case. The date
+  formatter used to call `.toUpperCase()`; it doesn't now.
+- **No tracking added to space out capitals.** The small mono labels have no
+  `letter-spacing`: lowercase mono is already open, and tracking it makes the
+  text look loose. (Display type keeps its slight negative tracking.)
+- **Acronyms are the only exception**: "AI", "PNG". They are typed in
+  capitals because that is how they are written, and no style does it for them.
+- **The wordmark is "Staj"**, in the splash, the gallery title, the sign-in
+  eyebrow and the byline on the share image. Not "STAJ", and not "staj".
+- **A marker beside a label goes in parentheses and a lighter colour.**
+  "Summary (optional)": the `(optional)` is `--color-disabled`, the label
+  `--color-muted`, so it reads as a side note and doesn't run on as one phrase
+  with the label. It is written that way in the source, so a screen reader
+  hears it. A required field has no word at all, just a red `*` (with the word
+  "required" visually hidden for a screen reader).
+- **A chef's own words are theirs.** A dish called "BBQ ribs" is shown as
+  typed. The rule is about what the app does to text, never about what a chef
+  writes.
+
+`tests/support/caps.js` holds the rule: `corners.spec.js` already visits every
+screen the app can show, and on each it finds any text whose computed style
+draws capitals (`text-transform` of uppercase or capitalize, any
+`font-variant-caps` but normal). It reads style, never letters, so a chef's
+capitals can't fail it; and `tests/sentence-case.spec.js` pins the strings
+that matter, as rendered.
 
 ## Which corners count
 
