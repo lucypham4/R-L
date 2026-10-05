@@ -1,5 +1,13 @@
 # scripts
 
+## `ai-stub.mjs`
+
+A stand-in for Supabase that makes the AI fill fail with a 503 on demand,
+for trying the retry, the Try again button and the failure notice by hand.
+`FAIL=2 node scripts/ai-stub.mjs`, then point the dev server at it; the
+steps and what to expect are in the main README, under "Testing AI
+failures".
+
 ## `capture-preview.mjs`
 
 Records the app's motion as video, so a change to a transition can be
