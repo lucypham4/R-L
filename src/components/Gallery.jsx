@@ -108,7 +108,7 @@ export default function Gallery({
   return (
     <div className="gallery">
       {header ?? (
-        <header className="gallery-header">
+        <header className={`gallery-header ${editMode ? 'gallery-header-editing' : ''}`}>
           <h1 className="gallery-title">{title}</h1>
           {onOpenProfile && (
             <button type="button" className="gallery-avatar" onClick={onOpenProfile} aria-label="My profile">
