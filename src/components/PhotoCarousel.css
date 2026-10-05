@@ -11,6 +11,12 @@
   max-height: 340px;
   overflow-y: auto;
   flex-shrink: 0;
+  /* A scroller clips whatever hangs outside it: the delete badges off the
+     thumbnails' corners (6px above, 8px to the right) and the ring round
+     the chosen one (3px all round). So the queue is padded out to hold
+     them, and pulled back by the same amount, so nothing else moves. */
+  padding: 6px 8px 3px 3px;
+  margin: -6px -8px -3px -3px;
 }
 
 .photo-carousel-thumb-wrap {
@@ -51,20 +57,12 @@
   border-style: dashed;
 }
 
+/* The gallery's edit-mode badge (DeleteBadge), in its small size for a
+   52px thumbnail, hung off the top-right corner in the same proportion:
+   8px past its right edge, 6px above its top. */
 .photo-carousel-remove {
-  position: absolute;
   top: -6px;
-  right: -6px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--color-danger);
-  color: #ffffff;
-  font: 500 0.625rem/1 var(--font-sans);
-  cursor: pointer;
+  right: -8px;
 }
 
 .photo-carousel-main {
