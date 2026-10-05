@@ -7,6 +7,13 @@ import { SUMMARY_MAX } from './meal';
 // rather than calling a third-party API directly from the browser.
 export const isAiConfigured = isSupabaseConfigured;
 
+// How long the add-meal card waits for the fill before giving up. Without a
+// limit a function that never answers would leave the card's fields locked
+// under their skeletons, and Save disabled, until the chef thought to press
+// Back. Generous, since a photo through Gemini's free tier can take a while;
+// a chef who is tired of waiting can press Back sooner.
+export const AI_FILL_TIMEOUT_MS = 30_000;
+
 /**
  * Pulls the real reason out of a failed functions.invoke().
  *
@@ -60,9 +67,13 @@ export async function generateMealDetails({ notes, photoBlob, photoMediaType }) 
       notes,
       image: { data: imageData, mediaType: photoMediaType || 'image/png' },
     },
+    timeout: AI_FILL_TIMEOUT_MS,
   });
 
   if (error) {
+    // supabase-js aborts the request when the timeout passes and hands back
+    // the fetch's own AbortError as the error's context.
+    if (error.context?.name === 'AbortError') throw new Error('The AI took too long to answer.');
     throw new Error(
       await messageFromFunctionsError(error, "Couldn't reach the AI just now.")
     );

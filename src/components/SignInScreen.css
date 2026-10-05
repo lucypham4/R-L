@@ -16,7 +16,7 @@
   font: 500 0.6875rem/1 var(--font-mono);
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--color-accent);
+  color: var(--color-muted);
 }
 
 .signin-title {

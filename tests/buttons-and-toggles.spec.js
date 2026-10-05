@@ -247,6 +247,14 @@ test.describe('segmented toggles', () => {
   });
 });
 
+test('the crop modal puts Cancel first and Use photo second, as the wizard puts Cancel and Next', async ({ page }) => {
+  await openWizard(page);
+  await page.setInputFiles('#photo', DISH_PHOTO);
+  const footer = page.locator('.photo-crop-card .add-meal-footer');
+  await expect(footer).toBeVisible();
+  expect(await footer.getByRole('button').allInnerTexts()).toEqual(['Cancel', 'Use photo']);
+});
+
 test('the wizard reaches its last step with the buttons in place', async ({ page }) => {
   await openWizard(page);
   await toStep3(page);

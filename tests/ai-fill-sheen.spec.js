@@ -71,6 +71,28 @@ const nextToCard = async (page) => {
 const passes = (page) =>
   page.evaluate(() => document.getAnimations().filter((a) => a.animationName === 'sheen-pass').length);
 
+/**
+ * What the card must look like once the AI has given up, whatever the
+ * reason: no skeletons, nothing locked, the chef's own words where the
+ * description goes and every other AI field empty and theirs to fill, and
+ * Save back. The failure notice itself is the caller's to assert.
+ */
+async function expectCardIsTheChefs(page) {
+  await expect(page.locator('.sheen-fill-active')).toHaveCount(0);
+  await expect(page.locator('.sheen-fill[inert]')).toHaveCount(0);
+  expect(await passes(page)).toBe(0);
+  await expect(page.locator('#meal-description')).toHaveValue(NOTES);
+  for (const id of ['#meal-name', '#meal-summary', '#meal-date', '#meal-method', '.add-meal-note-input']) {
+    await expect(page.locator(id)).toHaveValue('');
+    await expect(page.locator(id)).toBeEditable();
+  }
+  // Editable for real: a name typed now sticks, and the card can be saved.
+  await page.locator('#meal-name').fill('Mine');
+  await expect(page.locator('#meal-name')).toHaveValue('Mine');
+  await expect(page.getByRole('button', { name: 'Save meal' })).toBeEnabled();
+  await expect(page.locator('.add-meal-progress')).toHaveText(/STEP 3 OF 3/i);
+}
+
 test.describe('while the AI fills in the card', () => {
   test('the fields it writes shimmer, hold still, and let go as the answer lands', async ({ page }) => {
     const held = gate();
@@ -152,9 +174,22 @@ test.describe('while the AI fills in the card', () => {
     held.open();
 
     await expect(page.locator('.add-meal-notice')).toContainText('GEMINI_API_KEY is not configured');
-    await expect(page.locator('.sheen-fill-active')).toHaveCount(0);
-    await expect(page.locator('#meal-description')).toHaveValue(NOTES);
-    await expect(page.getByRole('button', { name: 'Save meal' })).toBeEnabled();
+    await expectCardIsTheChefs(page);
+  });
+
+  test('when the request never gets through, the shimmer stops and the card is the chef’s', async ({ page }) => {
+    const held = gate();
+    await openWizard(page, async (route) => {
+      await held.opened;
+      return route.abort('failed');
+    });
+    await nextToCard(page);
+    await expect(page.locator('.sheen-fill-active')).toHaveCount(FIELDS);
+
+    held.open();
+
+    await expect(page.locator('.add-meal-notice')).toContainText(/couldn[’']t reach the ai/i);
+    await expectCardIsTheChefs(page);
   });
 
   test('going Back drops the answer that was on its way', async ({ page }) => {
@@ -180,5 +215,59 @@ test.describe('while the AI fills in the card', () => {
     first.open();
     await page.waitForTimeout(300);
     await expect(page.locator('#meal-name')).toHaveValue('From the second ask');
+  });
+
+  // aiFill.js gives the request AI_FILL_TIMEOUT_MS (30s). The test can't
+  // import it (the module reads import.meta.env), so the clock is moved by
+  // the same figure and a little over. Playwright's clock stands in for the
+  // wait; nothing here sleeps.
+  const TIMEOUT_MS = 30_000;
+
+  test('an answer that never comes ends the wait: skeletons clear, card editable, Save back, notice shown', async ({ page }) => {
+    await page.clock.install();
+    const held = gate();
+    await openWizard(page, async (route) => {
+      await held.opened;
+      return answer(AI_FILL)(route);
+    });
+    await nextToCard(page);
+    await expect(page.locator('.sheen-fill-active')).toHaveCount(FIELDS);
+    await expect(page.getByRole('button', { name: 'Save meal' })).toBeDisabled();
+
+    // Still waiting a little before the limit: nothing has changed.
+    await page.clock.fastForward(TIMEOUT_MS - 5_000);
+    await expect(page.locator('.sheen-fill-active')).toHaveCount(FIELDS);
+
+    await page.clock.fastForward(6_000);
+
+    // The same notice as any other failure, with the reason in it.
+    await expect(page.locator('.add-meal-notice')).toBeVisible();
+    await expect(page.locator('.add-meal-notice')).toContainText('The AI couldn’t fill in the details');
+    await expect(page.locator('.add-meal-notice-reason')).toHaveText('The AI took too long to answer.');
+    await expectCardIsTheChefs(page);
+
+    // The function waking up late changes nothing on a card the chef now has.
+    held.open();
+    await page.waitForTimeout(300);
+    await expect(page.locator('#meal-name')).toHaveValue('Mine');
+  });
+
+  test('a slow answer that beats the limit still fills the card', async ({ page }) => {
+    await page.clock.install();
+    const held = gate();
+    await openWizard(page, async (route) => {
+      await held.opened;
+      return answer(AI_FILL)(route);
+    });
+    await nextToCard(page);
+    await page.clock.fastForward(TIMEOUT_MS - 5_000);
+    await expect(page.locator('.sheen-fill-active')).toHaveCount(FIELDS);
+
+    held.open();
+
+    await expect(page.locator('#meal-name')).toHaveValue(AI_FILL.name);
+    await expect(page.locator('.sheen-fill-active')).toHaveCount(0);
+    await expect(page.locator('.add-meal-notice')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Save meal' })).toBeEnabled();
   });
 });

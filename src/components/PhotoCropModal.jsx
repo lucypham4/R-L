@@ -159,11 +159,11 @@ export default function PhotoCropModal({ file, onCancel, onCrop, round = false, 
         )}
 
         <div className="add-meal-footer">
-          <Button type="button" variant="primary" onClick={handleConfirm} disabled={!img}>
-            Use photo
-          </Button>
           <Button type="button" variant="secondary" onClick={onCancel}>
             Cancel
+          </Button>
+          <Button type="button" variant="primary" onClick={handleConfirm} disabled={!img}>
+            Use photo
           </Button>
         </div>
       </div>

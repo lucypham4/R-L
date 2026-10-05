@@ -94,7 +94,10 @@
   display: block;
   margin-bottom: var(--space-md);
   font: 400 0.875rem/1.5 var(--font-sans);
-  color: var(--color-accent);
+  /* A link, so it keeps something to say so now that it isn't red. */
+  color: var(--color-ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .settings-row-error {

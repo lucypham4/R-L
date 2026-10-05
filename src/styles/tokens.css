@@ -6,9 +6,10 @@
   --color-ink: #1f1e1c;
   --color-muted: #6e6a63;
   --color-disabled: #b0aba2;
-  /* Red. Reserved for one button: the one that finishes adding a meal
-     (.btn-final). Everything else that wants emphasis -- primary buttons,
-     the nav's active tab, a focus ring -- is ink (shape.md). */
+  /* Red. Reserved for one button, the one that finishes adding a meal
+     (.btn-final), and the * that marks a field required. Everything else
+     that wants emphasis -- primary buttons, the nav's active tab, a focus
+     ring -- is ink (shape.md). Errors are --color-danger. */
   --color-accent: #bb2027;
   --color-accent-hover: #8f171c;
   --color-accent-wash: rgba(187, 32, 39, 0.08);

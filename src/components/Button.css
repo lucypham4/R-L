@@ -38,7 +38,7 @@
 }
 
 /* Final: the one red button in the app, the one that finishes adding a
-   meal. Nothing else is red (shape.md); don't reach for this to make
+   meal. No other button is red (shape.md); don't reach for this to make
    something stand out. */
 .btn-final {
   background: var(--color-accent);

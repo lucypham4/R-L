@@ -60,10 +60,10 @@ A button's colour says what it is, and there are three:
 | Secondary (`.btn-secondary`) | gray outline (`--color-line-strong`), ink label | the way out or back: Cancel, Back, and the Settings buttons |
 | Final (`.btn-final`) | filled `--color-accent`, the app's only red | the button that finishes adding a meal: **Save meal**, the last step of the add-meal wizard |
 
-`--color-accent` is that one button's colour and nothing else's. It used
-to be the general primary colour, and a screen with three red things on it
-has no way to say which one matters. Now when something is red it is the
-end of the wizard.
+`--color-accent` is that one button's colour, and the required-field `*`'s,
+and nothing else's. It used to be the general primary colour, and a screen
+with three red things on it has no way to say which one matters. Now when a
+control is red it is the end of the wizard.
 
 "Ink" is the theme-aware token, so a primary is black in the light theme
 and off-white in the dark one, with the label flipping to match. A literal
@@ -82,8 +82,12 @@ What the rule rules out:
   under it; the small × badges that delete a meal, an ingredient or a photo
   are ink circles. What says "this can't be undone" is the sentence above
   the button, not its colour.
-- `--color-danger` stays for errors: the message under a field, the invalid
-  field's border, a failed save. It is text, not a button.
+- Text that isn't a warning isn't red: the sign-in eyebrow is gray, the link
+  to your public page in Settings is ink and underlined, the address on your
+  profile goes to ink on hover, and the AI notice's rule is gray.
+- Red is kept for what has to be noticed: `--color-danger` for errors (the
+  message under a field, the invalid field's border, a failed save), and
+  `--color-accent` for the `*` that marks a field required.
 
 A button that isn't one of the three roles is a text link (Adjust crop,
 Change photo, Clear, Forgot password?) and takes the type below and no fill.
