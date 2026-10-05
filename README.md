@@ -218,15 +218,64 @@ nothing, so it's obvious what's missing.
 to strand a chef on step 2 with "Edge Function returned a non-2xx status
 code", which is what `supabase-js` reports for *any* non-2xx and says
 nothing about the cause. The wizard now moves to step 3 regardless,
-carries the notes over as the description, and shows the Edge Function's
-own message, which is the one worth reading:
+carries the notes over as the description, and says "The AI couldn't fill
+this in", with a **Try again** button that re-runs the fill for the same
+photo and notes and fills only what the chef hasn't edited since. A 503
+or 429 from the model is retried once, after about two seconds, before the
+notice shows at all; nothing else is retried. If Try again fails too, a
+line under the button says why it's worth another go or not: "Still busy.
+Try again in a minute." for a 503 or 429, "That didn't work. You can fill
+it in below." for anything else. It goes when the chef presses Try again
+again or edits the card.
 
-| What you see | What to do |
+The Edge Function's own message is the one worth reading, so it isn't
+thrown away: it's logged with `console.error` and sits under the notice's
+**Details** toggle, closed by default:
+
+| What it says | What to do |
 | --- | --- |
 | `GEMINI_API_KEY is not configured on this project.` | `supabase secrets set GEMINI_API_KEY=...` |
 | `AI request failed (404): ...` | The model in `GEMINI_MODEL` doesn't exist for your key; set it to one that does |
-| `AI request failed (429): ...` | Free-tier rate limit, wait and retry |
+| `AI request failed (429): ...` | Free-tier rate limit; it was already retried once, so wait a bit longer and press Try again |
+| `AI request failed (503): ...` | The model is overloaded ("high demand"); it was already retried once, so press Try again in a minute |
 | `Couldn't reach the AI just now.` | No response body from our handler, so the function isn't deployed or the request never reached it |
+
+### Testing AI failures
+
+To see the automatic retry, the Try again button and the notice without
+waiting for the model to really be busy, `scripts/ai-stub.mjs` stands in
+for Supabase and answers `ai-fill` the way the real Edge Function does when
+Gemini is overloaded: HTTP 502 with `AI request failed (503): ...` in the
+body. Two terminals:
+
+```bash
+# 1: the stub
+FAIL=2 node scripts/ai-stub.mjs
+
+# 2: the app, pointed at it
+VITE_SUPABASE_URL=http://localhost:54321 VITE_SUPABASE_ANON_KEY=stub npm run dev
+```
+
+Open the app, tap Add, add a photo, write some notes and press Next.
+`FAIL` is how many `ai-fill` requests fail before the stub starts
+succeeding:
+
+| `FAIL` | What you should see |
+| --- | --- |
+| `2` (default) | The stub logs two 503s about 2 seconds apart (the Next button says "Trying again…" for the second). You land on step 3 with "The AI couldn't fill this in". Try again says "Trying again…", then fills the card and dismisses the notice. |
+| `1` | The automatic retry rescues it, so there is no notice. |
+| `99` | Every request fails. Try again returns to "Try again" with "Still busy. Try again in a minute." under it, and Details shows the raw 503 text. |
+
+To see the other line, "That didn't work. You can fill it in below.", reach
+step 3 with `FAIL=99`, then stop the stub and press Try again: nothing
+answers, which isn't the model being busy.
+
+To check that hand edits survive, change the meal name on step 3 before
+pressing Try again: it stays, and the empty fields fill in. The stub's log
+timestamps each request, and `FAIL` counts requests since it started, so
+restart it between runs. If `supabase start` already has port 54321, set
+`PORT` on the stub and in `VITE_SUPABASE_URL`. The Playwright suite doesn't
+use the stub: it intercepts the network itself, per test.
 
 ### Signing in (optional)
 

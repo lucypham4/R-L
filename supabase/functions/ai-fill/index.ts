@@ -142,6 +142,9 @@ Deno.serve(async (req) => {
 
     if (!response.ok) {
       const errText = await response.text();
+      // Keep the "AI request failed (<status>)" prefix as it is: the browser
+      // (src/lib/aiFill.js) reads Gemini's status out of it to decide whether
+      // a 503 or 429 is worth one more try.
       return jsonResponse({ error: `AI request failed (${response.status}): ${errText}` }, 502);
     }
 
