@@ -39,8 +39,8 @@
 }
 
 .field-input:focus-visible {
-  border-color: var(--color-accent);
-  outline: 2px solid var(--color-accent-ring);
+  border-color: var(--color-ink);
+  outline: 2px solid var(--color-ink-ring);
   outline-offset: 1px;
 }
 

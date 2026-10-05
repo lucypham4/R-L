@@ -19,7 +19,7 @@
   border-radius: 999px;
   background: var(--color-card);
   color: var(--color-ink);
-  font: 400 0.8125rem/1.4 var(--font-sans);
+  font: 400 0.8125rem/1.4 var(--font-button);
   white-space: nowrap;
   transition: background var(--dur-color) var(--ease), color var(--dur-color) var(--ease);
 }
@@ -53,8 +53,8 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: var(--color-danger);
-  color: #ffffff;
+  background: var(--color-ink);
+  color: var(--color-bg);
   font-size: 0.75rem;
   line-height: 1;
 }

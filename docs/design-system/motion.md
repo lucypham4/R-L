@@ -30,7 +30,9 @@ duration, easing curve or travel distance in a component stylesheet.
 | `--blur-defocus` | `4px` | How soft out-of-focus content goes. |
 | `--opacity-defocus` | `0.55` | How dim it goes with it. |
 | `--dur-dissolve` | `500ms` | One cross-dissolve, start to finish. |
-| `--dur-sheen` | `1100ms` | The glint crossing the wordmark on the first frame. Not shortened under reduced motion: the frame holds as long, without the glint. |
+| `--dur-sheen` | `1100ms` | One pass of the glint: across the wordmark on the first frame, and across each field the AI is filling in. Not shortened under reduced motion: the frame holds as long, without the glint. |
+| `--sheen-streak` | a gradient | The glint's shape: a narrow streak with a soft halo, angled off upright. Painted at 300% of its box. |
+| `--sheen-strength` | `1` light, `0.4` dark | How much of the streak a field takes. A white streak on the dark theme's dark skeleton is a far bigger jump than on the light theme's beige. |
 | `--dof-blur` / `--dof-scale` / `--dof-opacity` | `6px` / `0.985` / `0.6` | How far a surface recedes behind something in focus. |
 
 ## Shared keyframes
@@ -41,6 +43,13 @@ uses each:
 - `modal-fade` — opacity only, for scrims and overlays.
 - `modal-rise` — the modal/sheet entrance.
 - `rise-in` — the app's one entrance gesture: fade up over `--rise`.
+- `sheen-pass` — one pass of the glint (`--sheen-streak`) across a box, from
+  clear of its left to clear of its right. The first frame and `.sheen-fill`
+  both run it; see below.
+
+Two shared classes live there too, for the same reason: `.slide-track`, the
+pill that slides under a toggle's labels, and `.sheen-fill`, the skeleton
+and sheen over a field the AI is writing.
 
 Component-specific keyframes stay in that component's stylesheet
 (`filter-sheet-rise`, `filter-dot-pop`, `dish-sheet-enter`).
@@ -106,6 +115,51 @@ archive still finishes in about a second.
 animates; there's no paired exit. A proper cross-fade needs both panels
 absolutely positioned and a fixed container height, which the wizard
 doesn't have — its steps hold deliberately different amounts of content.
+
+**Toggles** (`SegmentedToggle`, the bottom nav; `.slide-track` in
+`global.css`). Choosing one of a few — photo or sketch, 1:1 or 4:5, home or
+add — slides one pill under the labels instead of filling each where it
+stands, so the eye follows where the choice went. The container says how many
+segments there are and which is chosen (`--slide-count`, `--slide-index`),
+how it is spaced (`--slide-gap`, `--slide-inset`), and the pill is its
+`::before`, `translateX`'d over `--dur-move` on `--ease`. Segments are all one
+width, which is what lets the pill be pure CSS: no measuring, nothing to
+redo when a web font swaps in. The labels only change colour, over
+`--dur-color`.
+
+- *`--ease`, not `--ease-spring`.* The spring's overshoot would carry the pill
+  past the end of its container.
+- *Reduced motion needs nothing.* `--dur-move` is 0, so the pill jumps; the
+  labels still fade, so the change is legible and nothing travels.
+- *Which toggles slide.* One-of-N choices: the add-meal form's Photo / Sketch,
+  the crop modal's 1:1 / 4:5, and the nav. The rest are independent on-or-off
+  or pick-several (the filter chips and bubbles, the dictation button, the
+  filter button, a carousel thumbnail), so there is nothing for a pill to
+  travel between; they cross-fade their fill over `--dur-color`, which is the
+  same timing the sliding toggles give their labels.
+
+**Filling in** (`.sheen-fill`, add-meal step 3). After the chef writes about
+the dish, step 3 opens straight away and the fields the AI writes —
+description, summary, name, date, category, cuisine, ingredients, method,
+note — wait where they can be seen: a skeleton in `--color-line` with the
+first frame's glint, `--sheen-streak` and `sheen-pass`, running across it. It
+is the same effect as the wordmark's, not a second one, which is why the
+streak and the keyframe are shared.
+
+- *It loops* (the answer takes as long as it takes), and each pass spends
+  about a third of its time off the box, so it pulses without a pause being
+  written in. `--sheen-i` offsets the sweeps down the form by
+  `--stagger-step` so a column of fields doesn't flash in lockstep.
+- *Each field stops as its own content arrives.* The form keeps the set of
+  fields still waiting and takes each out as it is filled, and a field fades
+  its skeleton out over `--dur-color`. The Edge Function returns one answer,
+  so today they all land together; a field the AI left blank stops too.
+- *They take no input while they wait*, since the answer would overwrite it
+  (`inert`), and Save waits for it. Back drops the answer that was on its way
+  rather than let it land on whatever the chef does next.
+- *Reduced motion keeps the skeleton and drops the streak*, as the first frame
+  keeps its steel without the glint. `--dur-sheen` is not a movement token, so
+  this is an explicit media query, the one case the tokens don't cover.
 
 **Progress** (add-meal wizard). `scaleX` on a fixed-width track, not an
 animated `width`, so growth is composited instead of triggering layout.
@@ -291,8 +345,9 @@ mask carries the fade, so the same stops serve light and dark.
 **The first frame** (`Splash`). Opening the app, once a visit (a reload
 in the same tab skips it): "Staj" alone on the page colour, its letters in
 steel (`--color-steel-light` to `--color-steel-dark`: one smooth fall from
-a light top to a dark foot, two stops and nothing between), and one glint (`--color-glint`) run across
+a light top to a dark foot, two stops and nothing between), and one glint (`--sheen-streak`, in `--color-glint`) run across
 them over `--dur-sheen`, like light along a knife's edge as it turns. The
+same glint runs across the fields the AI is filling in (Filling in, above). The
 streak is narrow, with a soft halo, angled a little off upright, and rests
 off the word at both ends, so it crosses once and is gone. Then the frame
 dissolves into the app, which is already rendered underneath, over

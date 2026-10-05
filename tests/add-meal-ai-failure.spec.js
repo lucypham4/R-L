@@ -123,6 +123,9 @@ test.describe('add-meal wizard, ai-fill failure', () => {
     await page.locator('.add-meal-next').click();
 
     await expect(page.locator('.add-meal-progress')).toHaveText(/STEP 3 OF 3/i);
+    // Step 3 opens before the AI has answered; the failure (and any error
+    // from reading the sketch) only shows once it has.
+    await expect(page.locator('.add-meal-notice')).toBeVisible();
     await expect(page.locator('.add-meal-notice')).not.toContainText(/getBlob/);
     expect(pageErrors.join(' | ')).not.toMatch(/getBlob/);
   });

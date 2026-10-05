@@ -52,7 +52,7 @@
   border: 1px solid var(--color-line);
   background: var(--color-card);
   color: var(--color-ink);
-  font: 500 0.8125rem/1 var(--font-sans);
+  font: var(--text-button-sm);
 }
 
 .action-sheet-btn:hover:not(:disabled) {
@@ -63,7 +63,21 @@
   color: var(--color-disabled);
 }
 
-.action-sheet-btn-danger {
-  border-color: var(--color-danger);
-  color: var(--color-danger);
+/* The step that can't be taken back. Delete used to be red; red is one
+   button's now (shape.md), so the confirm is the sheet's one filled button,
+   which keeps it apart from the Cancel under it. */
+.action-sheet-btn-confirm {
+  background: var(--color-ink);
+  border-color: var(--color-ink);
+  color: var(--color-bg);
+}
+
+.action-sheet-btn-confirm:hover:not(:disabled) {
+  background: var(--color-ink-hover);
+}
+
+.action-sheet-btn-confirm:disabled {
+  background: var(--color-line);
+  border-color: var(--color-line);
+  color: var(--color-disabled);
 }

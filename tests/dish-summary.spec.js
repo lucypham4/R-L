@@ -247,6 +247,10 @@ test.describe('adding a meal', () => {
       aiFill: { ...AI_FILL, summary: 'Leeks charred over coals, peeled to the sweet centre and finished with butter.' },
     });
     await toStep3(page);
+    // Step 3 opens at once and fills in behind the sheen; wait for the
+    // answer to land (the name is the proof) before asserting the summary
+    // was left out, or this passes before the AI has said anything.
+    await expect(page.getByLabel('Meal name')).toHaveValue(AI_FILL.name);
     await expect(page.getByLabel('Summary')).toHaveValue('');
   });
 });

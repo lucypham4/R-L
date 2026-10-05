@@ -305,10 +305,11 @@ worth reading before adding UI:
 - [`docs/design-system/motion.md`](docs/design-system/motion.md) — the
   motion tokens, the shared keyframes, and why a component written
   against the tokens is reduced-motion correct without its own media
-  query.
+  query; the sliding toggles and the sheen on fields the AI is filling in.
 - [`docs/design-system/shape.md`](docs/design-system/shape.md) — the
   no-straight-corners rule, the four radius tokens that carry it, and why
-  photos get a hairline outline rather than a shadow.
+  photos get a hairline outline rather than a shadow; what the three
+  button colours mean (red is one button) and how buttons are set in type.
 
 Theme follows the operating system by default. The Appearance control in
 Settings cycles System → Light → Dark and remembers the choice.

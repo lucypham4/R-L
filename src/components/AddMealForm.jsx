@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import Button from './Button';
+import SegmentedToggle from './SegmentedToggle';
 import { Label, TextInput, TextArea, ErrorText } from './TextField';
 import SketchCanvas from './SketchCanvas';
 import PhotoCropModal from './PhotoCropModal';
@@ -37,6 +38,33 @@ function newPhotoId() {
   return typeof crypto !== 'undefined' && crypto.randomUUID
     ? crypto.randomUUID()
     : `photo-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+// The fields the AI fill writes, in the order they sit on the card. Serves
+// isn't one: the AI is never asked. While an answer is on its way each of
+// these shows the sheen (Filling, below), and each stops as its own content
+// arrives.
+const AI_FIELDS = ['description', 'summary', 'name', 'date', 'category', 'cuisine', 'ingredients', 'method', 'note'];
+
+/**
+ * A control waiting on the AI. While `field` is pending the Staj sheen runs
+ * across a skeleton over it (.sheen-fill, global.css) and it takes no input,
+ * since the answer would overwrite whatever was typed; the moment it
+ * leaves `pending` the skeleton fades away.
+ */
+function Filling({ field, pending, children }) {
+  const active = pending.has(field);
+  return (
+    <div
+      className={`sheen-fill${active ? ' sheen-fill-active' : ''}`}
+      style={{ '--sheen-i': AI_FIELDS.indexOf(field) }}
+      aria-busy={active || undefined}
+      // React 18 only passes `inert` through as a string attribute.
+      {...(active ? { inert: '' } : {})}
+    >
+      {children}
+    </div>
+  );
 }
 
 const STEP_TITLES = {
@@ -93,6 +121,12 @@ export default function AddMealForm({ onSave, onCancel }) {
   const [methodSpeechError, setMethodSpeechError] = useState('');
   const [aiFillStatus, setAiFillStatus] = useState('idle'); // idle | loading | done | error
   const [aiFillError, setAiFillError] = useState('');
+  // Which of AI_FIELDS are still waiting on the answer. A field leaves the
+  // set when its content arrives, so the sheen stops field by field.
+  const [aiPending, setAiPending] = useState(() => new Set());
+  // Bumped whenever a fill starts or is abandoned (Back), so an answer that
+  // arrives for an earlier run is dropped instead of overwriting the chef.
+  const aiRunRef = useRef(0);
   const [cleanupStatus, setCleanupStatus] = useState('idle'); // idle | loading | done | error
   const [cleanupError, setCleanupError] = useState('');
   const fileInputRef = useRef(null);
@@ -275,8 +309,22 @@ export default function AddMealForm({ onSave, onCancel }) {
       return;
     }
 
+    // On to the card at once: its fields wait for the AI where the chef can
+    // see them (Filling), instead of the Next button holding them on this
+    // step until the answer is in.
+    const run = ++aiRunRef.current;
+    const isCurrent = () => aiRunRef.current === run;
+    const arrived = (field) =>
+      setAiPending((pending) => {
+        const next = new Set(pending);
+        next.delete(field);
+        return next;
+      });
+
     setAiFillError('');
     setAiFillStatus('loading');
+    setAiPending(new Set(AI_FIELDS));
+    setStep(3);
     try {
       const photoBlob = photoMode === 'sketch' ? await getSketchBlob() : photos[0]?.file;
       if (!photoBlob) throw new Error('Add a photo or sketch first.');
@@ -287,20 +335,29 @@ export default function AddMealForm({ onSave, onCancel }) {
         photoBlob,
         photoMediaType,
       });
+      if (!isCurrent()) return;
 
-      if (details.name) setName(details.name);
-      if (details.date) setDate(details.date);
-      setDescription((details.description || notes.trim()).slice(0, DESCRIPTION_MAX));
-      if (details.summary) setSummary(details.summary);
-      if (details.category) applyBubbleValue('category', details.category, setCategory);
-      if (details.cuisine) applyBubbleValue('cuisine', details.cuisine, setCuisine);
-      if (details.ingredients.length) setIngredients(details.ingredients);
-      if (details.method.length) setMethodText(details.method.join('\n'));
-      if (details.note) setNote(details.note.slice(0, NOTE_MAX));
-
+      const fills = {
+        description: () => setDescription((details.description || notes.trim()).slice(0, DESCRIPTION_MAX)),
+        summary: () => details.summary && setSummary(details.summary),
+        name: () => details.name && setName(details.name),
+        date: () => details.date && setDate(details.date),
+        category: () => details.category && applyBubbleValue('category', details.category, setCategory),
+        cuisine: () => details.cuisine && applyBubbleValue('cuisine', details.cuisine, setCuisine),
+        ingredients: () => details.ingredients.length && setIngredients(details.ingredients),
+        method: () => details.method.length && setMethodText(details.method.join('\n')),
+        note: () => details.note && setNote(details.note.slice(0, NOTE_MAX)),
+      };
+      // One answer carries every field, so they all land together; clearing
+      // each as it is applied is what lets a field stop on its own if the
+      // answer ever arrives in pieces.
+      for (const field of AI_FIELDS) {
+        fills[field]();
+        arrived(field);
+      }
       setAiFillStatus('done');
-      setStep(3);
     } catch (err) {
+      if (!isCurrent()) return;
       // AI fill is an enrichment, never a gate. It used to leave the chef
       // stuck on step 2 with a status-code string and no way forward, which
       // meant a failing Edge Function blocked saving a meal at all. Carry
@@ -310,8 +367,17 @@ export default function AddMealForm({ onSave, onCancel }) {
       setAiFillStatus('error');
       setAiFillError(err.message || "Couldn't reach the AI just now.");
       setDescription((current) => current || notes.trim().slice(0, DESCRIPTION_MAX));
-      setStep(3);
+      setAiPending(new Set());
     }
+  }
+
+  // Back from the card while the AI is still answering: abandon that
+  // answer, so it can't land on top of whatever the chef does next.
+  function handleBackToNotes() {
+    aiRunRef.current += 1;
+    setAiPending(new Set());
+    setAiFillStatus('idle');
+    setStep(2);
   }
 
   async function handleCleanDescription() {
@@ -348,6 +414,7 @@ export default function AddMealForm({ onSave, onCancel }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
+    if (aiPending.size > 0) return;
     setTouched((t) => ({ ...t, name: true, date: true, description: true, serves: true }));
     if (errors.name || errors.date || errors.description || errors.serves) return;
 
@@ -412,32 +479,19 @@ export default function AddMealForm({ onSave, onCancel }) {
               <Label htmlFor="photo" required>
                 Photo
               </Label>
-              <div className="add-meal-mode-toggle" role="tablist" aria-label="Photo source">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={photoMode === 'upload'}
-                  className={`add-meal-mode-btn ${photoMode === 'upload' ? 'add-meal-mode-btn-active' : ''}`}
-                  onClick={() => {
-                    setPhotoMode('upload');
-                    markTouched('photo');
-                  }}
-                >
-                  Photo
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={photoMode === 'sketch'}
-                  className={`add-meal-mode-btn ${photoMode === 'sketch' ? 'add-meal-mode-btn-active' : ''}`}
-                  onClick={() => {
-                    setPhotoMode('sketch');
-                    markTouched('photo');
-                  }}
-                >
-                  Sketch
-                </button>
-              </div>
+              <SegmentedToggle
+                className="add-meal-mode-toggle"
+                label="Photo source"
+                options={[
+                  { value: 'upload', label: 'Photo' },
+                  { value: 'sketch', label: 'Sketch' },
+                ]}
+                value={photoMode}
+                onChange={(mode) => {
+                  setPhotoMode(mode);
+                  markTouched('photo');
+                }}
+              />
               {photoMode === 'upload' ? (
                 <>
                   {photos.length === 0 ? (
@@ -559,20 +613,8 @@ export default function AddMealForm({ onSave, onCancel }) {
               <Button type="button" variant="secondary" onClick={() => setStep(1)}>
                 <ArrowIcon direction="back" /> Back
               </Button>
-              <Button
-                type="button"
-                variant="primary"
-                className="add-meal-next"
-                onClick={handleAdvanceStep2}
-                disabled={aiFillStatus === 'loading'}
-              >
-                {aiFillStatus === 'loading' ? (
-                  'Filling in…'
-                ) : (
-                  <>
-                    Next <ArrowIcon />
-                  </>
-                )}
+              <Button type="button" variant="primary" className="add-meal-next" onClick={handleAdvanceStep2}>
+                Next <ArrowIcon />
               </Button>
             </div>
           </div>
@@ -583,6 +625,11 @@ export default function AddMealForm({ onSave, onCancel }) {
             {/* Shown only when AI fill failed on the way here. It explains
                 why the card arrived empty without standing between the chef
                 and saving the meal. */}
+            {/* The Next button used to read "Filling in…" while it waited;
+                the card isn't a button, so say it here for a screen reader. */}
+            <p className="visually-hidden" role="status">
+              {aiPending.size > 0 ? 'Filling in the details…' : ''}
+            </p>
             {aiFillStatus === 'error' && (
               <div className="add-meal-notice" role="status">
                 <p className="add-meal-notice-title">Filled this in yourself?</p>
@@ -614,16 +661,18 @@ export default function AddMealForm({ onSave, onCancel }) {
                   </div>
                 )}
               </div>
-              <TextArea
-                id="meal-description"
-                rows={3}
-                maxLength={DESCRIPTION_MAX}
-                placeholder="What is this dish?"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                onBlur={() => markTouched('description')}
-                error={touched.description && errors.description}
-              />
+              <Filling field="description" pending={aiPending}>
+                <TextArea
+                  id="meal-description"
+                  rows={3}
+                  maxLength={DESCRIPTION_MAX}
+                  placeholder="What is this dish?"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  onBlur={() => markTouched('description')}
+                  error={touched.description && errors.description}
+                />
+              </Filling>
               <div className="add-meal-counter">
                 {description.length} / {DESCRIPTION_MAX}
               </div>
@@ -635,14 +684,16 @@ export default function AddMealForm({ onSave, onCancel }) {
               <Label htmlFor="meal-summary" optional>
                 Summary
               </Label>
-              <TextInput
-                id="meal-summary"
-                maxLength={SUMMARY_MAX}
-                placeholder="One sentence for the dish's card"
-                value={summary}
-                onChange={(e) => setSummary(e.target.value)}
-                aria-describedby="meal-summary-help"
-              />
+              <Filling field="summary" pending={aiPending}>
+                <TextInput
+                  id="meal-summary"
+                  maxLength={SUMMARY_MAX}
+                  placeholder="One sentence for the dish's card"
+                  value={summary}
+                  onChange={(e) => setSummary(e.target.value)}
+                  aria-describedby="meal-summary-help"
+                />
+              </Filling>
               <div className="add-meal-counter">
                 {summary.length} / {SUMMARY_MAX}
               </div>
@@ -655,14 +706,16 @@ export default function AddMealForm({ onSave, onCancel }) {
               <Label htmlFor="meal-name" required>
                 Meal name
               </Label>
-              <TextInput
-                id="meal-name"
-                placeholder="Meal name (required)"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                onBlur={() => markTouched('name')}
-                error={touched.name && errors.name}
-              />
+              <Filling field="name" pending={aiPending}>
+                <TextInput
+                  id="meal-name"
+                  placeholder="Meal name (required)"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  onBlur={() => markTouched('name')}
+                  error={touched.name && errors.name}
+                />
+              </Filling>
               {touched.name && <ErrorText>{errors.name}</ErrorText>}
             </div>
 
@@ -671,14 +724,16 @@ export default function AddMealForm({ onSave, onCancel }) {
                 <Label htmlFor="meal-date" required>
                   Date cooked
                 </Label>
-                <TextInput
-                  id="meal-date"
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  onBlur={() => markTouched('date')}
-                  error={touched.date && errors.date}
-                />
+                <Filling field="date" pending={aiPending}>
+                  <TextInput
+                    id="meal-date"
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    onBlur={() => markTouched('date')}
+                    error={touched.date && errors.date}
+                  />
+                </Filling>
                 {touched.date && <ErrorText>{errors.date}</ErrorText>}
               </div>
               <div className="add-meal-serves">
@@ -701,17 +756,23 @@ export default function AddMealForm({ onSave, onCancel }) {
 
             <div>
               <Label optional>Category</Label>
-              <BubbleSelect key={category} kind="category" value={category} onChange={setCategory} />
+              <Filling field="category" pending={aiPending}>
+                <BubbleSelect key={category} kind="category" value={category} onChange={setCategory} />
+              </Filling>
             </div>
 
             <div>
               <Label optional>Cuisine</Label>
-              <BubbleSelect key={cuisine} kind="cuisine" value={cuisine} onChange={setCuisine} />
+              <Filling field="cuisine" pending={aiPending}>
+                <BubbleSelect key={cuisine} kind="cuisine" value={cuisine} onChange={setCuisine} />
+              </Filling>
             </div>
 
             <div>
               <Label optional>Ingredients</Label>
-              <IngredientBubbles value={ingredients} onChange={setIngredients} />
+              <Filling field="ingredients" pending={aiPending}>
+                <IngredientBubbles value={ingredients} onChange={setIngredients} />
+              </Filling>
             </div>
 
             <div>
@@ -735,13 +796,15 @@ export default function AddMealForm({ onSave, onCancel }) {
                   </button>
                 )}
               </div>
-              <TextArea
-                id="meal-method"
-                rows={3}
-                placeholder="One step per line, numbered automatically"
-                value={methodText}
-                onChange={(e) => setMethodText(e.target.value)}
-              />
+              <Filling field="method" pending={aiPending}>
+                <TextArea
+                  id="meal-method"
+                  rows={3}
+                  placeholder="One step per line, numbered automatically"
+                  value={methodText}
+                  onChange={(e) => setMethodText(e.target.value)}
+                />
+              </Filling>
               {methodSpeechError && <ErrorText>{methodSpeechError}</ErrorText>}
             </div>
 
@@ -749,23 +812,28 @@ export default function AddMealForm({ onSave, onCancel }) {
               <Label htmlFor="meal-note" optional>
                 Note
               </Label>
-              <TextInput
-                id="meal-note"
-                className="add-meal-note-input"
-                maxLength={NOTE_MAX}
-                placeholder="optional note you'd tell future chefs"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-              />
+              <Filling field="note" pending={aiPending}>
+                <TextInput
+                  id="meal-note"
+                  className="add-meal-note-input"
+                  maxLength={NOTE_MAX}
+                  placeholder="optional note you'd tell future chefs"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                />
+              </Filling>
             </div>
 
             {submitError && <ErrorText>{submitError}</ErrorText>}
 
             <div className="add-meal-footer">
-              <Button type="button" variant="secondary" onClick={() => setStep(2)} disabled={isSaving}>
+              <Button type="button" variant="secondary" onClick={handleBackToNotes} disabled={isSaving}>
                 <ArrowIcon direction="back" /> Back
               </Button>
-              <Button type="submit" variant="primary" disabled={isSaving}>
+              {/* The one red button in the app: it finishes adding the meal.
+                  Held until the AI has answered, so a late fill can't land
+                  on a card that has already been saved. */}
+              <Button type="submit" variant="final" disabled={isSaving || aiPending.size > 0}>
                 {saveLabel}
               </Button>
             </div>

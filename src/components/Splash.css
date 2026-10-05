@@ -24,9 +24,11 @@
    - the metal: one smooth fall from light at the top to dark at the
      foot, two stops and nothing between, as brushed steel catches the
      light from above. It reads as metal standing still.
-   - the glint: one narrow streak with a soft halo, angled a little off
-     upright, as light runs along an edge when the knife turns. It rests
-     off the word's left, crosses once, and leaves off its right. */
+   - the glint: --sheen-streak, one narrow streak with a soft halo, angled
+     a little off upright, as light runs along an edge when the knife
+     turns. It rests off the word's left, crosses once (the shared
+     `sheen-pass` keyframe), and leaves off its right. The same streak
+     crosses a field the AI is filling in (.sheen-fill, global.css). */
 .splash-word {
   font: 400 clamp(4.5rem, 24vw, 8.5rem) / 1 var(--font-serif);
   letter-spacing: -0.02em;
@@ -35,15 +37,7 @@
   padding: 0 0.06em 0.08em;
   color: transparent;
   background-image:
-    linear-gradient(
-      105deg,
-      transparent 44%,
-      var(--color-glint-halo) 48%,
-      var(--color-glint) 49.7%,
-      var(--color-glint) 50.3%,
-      var(--color-glint-halo) 52%,
-      transparent 56%
-    ),
+    var(--sheen-streak),
     linear-gradient(
       180deg,
       var(--color-steel-light),
@@ -66,16 +60,7 @@
 
 .splash-shine .splash-word {
   /* Starts once the word is in. */
-  animation: splash-glint var(--dur-sheen) var(--ease-focus) var(--dur-color) both;
-}
-
-@keyframes splash-glint {
-  from {
-    background-position: 100% 0, 0 0;
-  }
-  to {
-    background-position: 0% 0, 0 0;
-  }
+  animation: sheen-pass var(--dur-sheen) var(--ease-focus) var(--dur-color) both;
 }
 
 /* Reduced motion: the steel without the streak running across it. The

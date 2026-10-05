@@ -61,9 +61,9 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: var(--color-danger);
-  color: #ffffff;
-  font: 500 0.625rem/1 var(--font-sans);
+  background: var(--color-ink);
+  color: var(--color-bg);
+  font: 500 0.625rem/1 var(--font-button);
   cursor: pointer;
 }
 

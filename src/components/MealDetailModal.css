@@ -404,9 +404,7 @@
   margin-right: var(--space-sm);
   padding: 6px 10px;
   border: var(--divider);
-  font: 400 0.625rem/1 var(--font-mono);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  font: var(--text-button-sm);
   color: var(--color-muted);
   transition: color var(--dur-color) var(--ease), border-color var(--dur-color) var(--ease);
 }

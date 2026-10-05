@@ -53,32 +53,9 @@
   }
 }
 
-/* A segmented toggle, built like the nav pill: the chosen option is a
-   pill of its own inside a pill, rather than a fill butting up against a
-   divider, where it would meet it with a square corner. Shared with the
-   crop modal's aspect toggle. */
+/* Placement only: the photo/sketch choice is a SegmentedToggle. */
 .add-meal-mode-toggle {
-  display: inline-flex;
-  gap: 2px;
   margin-bottom: 8px;
-  padding: 2px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-pill);
-  background: var(--color-card);
-}
-
-.add-meal-mode-btn {
-  padding: 5px 13px;
-  border-radius: var(--radius-pill);
-  color: var(--color-muted);
-  font: 400 0.6875rem/1.5 var(--font-mono);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.add-meal-mode-btn-active {
-  background: var(--color-ink);
-  color: var(--color-bg);
 }
 
 .add-meal-dropzone {
@@ -104,9 +81,7 @@
 .add-meal-adjust-crop {
   display: block;
   margin-top: 8px;
-  font: 400 0.6875rem/1.5 var(--font-mono);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font: var(--text-button-sm);
   color: var(--color-muted);
   text-decoration: underline;
 }
@@ -162,9 +137,7 @@
   background: var(--color-card);
   color: var(--color-muted);
   border: 1px solid var(--color-line);
-  font: 500 0.6875rem/1.5 var(--font-mono);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font: var(--text-button-sm);
 }
 
 .add-meal-inline-btn svg {
@@ -173,8 +146,8 @@
 }
 
 .add-meal-inline-btn-active {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
+  background: var(--color-ink);
+  border-color: var(--color-ink);
   color: var(--color-bg);
 }
 
@@ -228,7 +201,7 @@
 .add-meal-progress-fill {
   display: block;
   height: 100%;
-  background: var(--color-accent);
+  background: var(--color-ink);
   transform-origin: left center;
   transition: transform var(--dur-move) var(--ease-out);
 }
@@ -240,14 +213,12 @@
 }
 
 .add-meal-inline-btn,
-.add-meal-mode-toggle button,
 .add-meal-adjust-crop {
   transition: background var(--dur-color) var(--ease), color var(--dur-color) var(--ease),
     transform var(--dur-move) var(--ease-spring);
 }
 
 .add-meal-inline-btn:active:not(:disabled),
-.add-meal-mode-toggle button:active:not(:disabled),
 .add-meal-adjust-crop:active:not(:disabled) {
   transform: scale(var(--press-scale));
   transition-duration: var(--dur-press);

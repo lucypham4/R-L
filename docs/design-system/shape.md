@@ -50,6 +50,71 @@ lone `border-top` curls down at both ends.
 `tests/corners.spec.js` checks this too: on every screen, each button
 that draws a box has corners of at least half its height.
 
+## Button colour: red is one button
+
+A button's colour says what it is, and there are three:
+
+| Role | Look | Used for |
+| --- | --- | --- |
+| Primary (`.btn-primary`) | filled `--color-ink`, label in `--color-bg` | the forward action: Next, Sign in, Save changes, Use photo |
+| Secondary (`.btn-secondary`) | gray outline (`--color-line-strong`), ink label | the way out or back: Cancel, Back, and the Settings buttons |
+| Final (`.btn-final`) | filled `--color-accent`, the app's only red | the button that finishes adding a meal: **Save meal**, the last step of the add-meal wizard |
+
+`--color-accent` is that one button's colour and nothing else's. It used
+to be the general primary colour, and a screen with three red things on it
+has no way to say which one matters. Now when something is red it is the
+end of the wizard.
+
+"Ink" is the theme-aware token, so a primary is black in the light theme
+and off-white in the dark one, with the label flipping to match. A literal
+black fill would disappear on the dark page.
+
+What the rule rules out:
+
+- Active and pressed states are ink, not red: the nav's active tab, the
+  dictation button while it's listening, the dot on the filter button, the
+  wizard's progress bar, the zoom slider.
+- So is the keyboard focus ring (`--focus-ring`, and a field's focus border
+  and `--color-ink-ring`). Otherwise every focused button flashes red.
+- Destructive buttons aren't red either. The action sheet's Delete is plain
+  until you're asked to confirm, and the confirm is the sheet's one filled
+  button (`.action-sheet-btn-confirm`), which keeps it apart from the Cancel
+  under it; the small × badges that delete a meal, an ingredient or a photo
+  are ink circles. What says "this can't be undone" is the sentence above
+  the button, not its colour.
+- `--color-danger` stays for errors: the message under a field, the invalid
+  field's border, a failed save. It is text, not a button.
+
+A button that isn't one of the three roles is a text link (Adjust crop,
+Change photo, Clear, Forgot password?) and takes the type below and no fill.
+
+## Button type
+
+Buttons are set in sentence case, in the system face:
+
+```
+--font-button: -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
+--text-button:    500 0.875rem/1 var(--font-button);   /* .btn */
+--text-button-sm: 500 0.8125rem/1 var(--font-button);  /* inline and small */
+```
+
+San Francisco on iOS and Mac (`-apple-system` in Safari and Firefox,
+`BlinkMacSystemFont` in Chrome), Inter everywhere else. No `text-transform`
+and no `letter-spacing`: both faces space themselves, and a button that says
+"Save meal" shouldn't be shouting it.
+
+Inter is a web font, requested with the rest in `index.html`. A browser only
+fetches a web font's files when it renders something with it, so an Apple
+device, which resolves the stack at its first name, never downloads Inter;
+it reads the small stylesheet and stops. A new button takes `--text-button`
+(or `-sm`), never its own `font:`.
+
+Everything else is still Instrument Sans for reading and IBM Plex Mono for
+the small uppercase labels (a field's label, the step counter, the count of
+meals). Those sit beside buttons now in a different face and a different
+case. They haven't been moved: whether labels and body should follow the
+buttons into the system face is a separate call.
+
 ## Which corners count
 
 A corner counts if you can see it: both its edges are drawn, by a fill
@@ -81,7 +146,9 @@ Where a fill would meet a divider, there's no divider. The segmented
 toggles (photo or sketch, 1:1 or 4:5) used to be boxes split by rules,
 with the chosen side filled in: that fill met the rule in two square
 corners. Now they're built like the nav pill — the chosen option is a pill
-of its own, inset inside the toggle's pill.
+of its own, inset inside the toggle's pill, and it slides between options
+(`motion.md`). Segments are all one width, as on an iOS segmented control,
+so the pill's travel is just its own width and the gap.
 
 ## The dish sheet
 
