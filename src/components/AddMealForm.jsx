@@ -91,9 +91,13 @@ export default function AddMealForm({ onSave, onCancel }) {
   const [speechError, setSpeechError] = useState('');
   const [isListeningMethod, setIsListeningMethod] = useState(false);
   const [methodSpeechError, setMethodSpeechError] = useState('');
-  const [aiFillStatus, setAiFillStatus] = useState('idle'); // idle | loading | done | error
+  // `retrying` is the automatic second try on step 2, after a 503 or 429.
+  const [aiFillStatus, setAiFillStatus] = useState('idle'); // idle | loading | retrying | done | error
   const [aiFillError, setAiFillError] = useState('');
   const [isRetryingAiFill, setIsRetryingAiFill] = useState(false);
+  // Set when "Try again" fails, to the card as it stood then; the "Still
+  // busy" line shows only while the card still matches it (see below).
+  const [retryFailedSignature, setRetryFailedSignature] = useState(null);
   const [cleanupStatus, setCleanupStatus] = useState('idle'); // idle | loading | done | error
   const [cleanupError, setCleanupError] = useState('');
   const fileInputRef = useRef(null);
@@ -130,6 +134,17 @@ export default function AddMealForm({ onSave, onCancel }) {
   // notes carried over as the description). A field still equal to its entry
   // here is one the chef hasn't touched since.
   const failedFillSnapshotRef = useRef(null);
+
+  // Every field on step 3 as one comparable string, so "has the chef changed
+  // anything?" is a single check, whichever input or bubble they used and
+  // however (typing, dictation, picking a bubble).
+  const cardSignature = JSON.stringify([name, date, serves, description, summary, category, cuisine, ingredients, methodText, note]);
+  const cardSignatureRef = useRef(cardSignature);
+  cardSignatureRef.current = cardSignature;
+  // Any edit retires the "Still busy" line: it described the card as it was.
+  useEffect(() => {
+    setRetryFailedSignature((shown) => (shown !== null && shown !== cardSignature ? null : shown));
+  }, [cardSignature]);
 
   const photosRef = useRef(photos);
   photosRef.current = photos;
@@ -290,7 +305,7 @@ export default function AddMealForm({ onSave, onCancel }) {
     setAiFillError('');
     setAiFillStatus('loading');
     try {
-      const details = await requestAiDetails();
+      const details = await requestAiDetails({ onRetry: () => setAiFillStatus('retrying') });
       applyAiDetails(details);
 
       setAiFillStatus('done');
@@ -316,7 +331,7 @@ export default function AddMealForm({ onSave, onCancel }) {
     }
   }
 
-  async function requestAiDetails() {
+  async function requestAiDetails({ onRetry } = {}) {
     const photoBlob = photoMode === 'sketch' ? await getSketchBlob() : photos[0]?.file;
     if (!photoBlob) throw new Error('Add a photo or sketch first.');
     const photoMediaType = photoMode === 'sketch' ? 'image/png' : 'image/jpeg';
@@ -325,6 +340,7 @@ export default function AddMealForm({ onSave, onCancel }) {
       notes: notes.trim(),
       photoBlob,
       photoMediaType,
+      onRetry,
     });
   }
 
@@ -352,6 +368,7 @@ export default function AddMealForm({ onSave, onCancel }) {
   async function handleRetryAiFill() {
     const snapshot = failedFillSnapshotRef.current;
     if (!snapshot || isRetryingAiFill) return;
+    setRetryFailedSignature(null);
     setIsRetryingAiFill(true);
     try {
       const details = await requestAiDetails();
@@ -364,6 +381,9 @@ export default function AddMealForm({ onSave, onCancel }) {
     } catch (err) {
       console.error('AI fill retry failed:', err);
       setAiFillError(err.message || "Couldn't reach the AI just now.");
+      // Read after the await, so something typed while it ran is already
+      // part of the card this line is about.
+      setRetryFailedSignature(cardSignatureRef.current);
     } finally {
       setIsRetryingAiFill(false);
     }
@@ -381,6 +401,8 @@ export default function AddMealForm({ onSave, onCancel }) {
       setCleanupError(err.message || 'Could not clean up the description.');
     }
   }
+
+  const isFillingIn = aiFillStatus === 'loading' || aiFillStatus === 'retrying';
 
   const canCleanDescription = isAiConfigured && description.trim().length > 0 && cleanupStatus !== 'loading';
 
@@ -619,10 +641,10 @@ export default function AddMealForm({ onSave, onCancel }) {
                 variant="primary"
                 className="add-meal-next"
                 onClick={handleAdvanceStep2}
-                disabled={aiFillStatus === 'loading'}
+                disabled={isFillingIn}
               >
-                {aiFillStatus === 'loading' ? (
-                  'Filling in…'
+                {isFillingIn ? (
+                  aiFillStatus === 'retrying' ? 'Trying again…' : 'Filling in…'
                 ) : (
                   <>
                     Next <ArrowIcon />
@@ -655,6 +677,9 @@ export default function AddMealForm({ onSave, onCancel }) {
                     {isRetryingAiFill ? 'Trying again…' : 'Try again'}
                   </button>
                 </div>
+                {retryFailedSignature !== null && (
+                  <p className="add-meal-notice-retry-failed">Still busy. Try again in a minute.</p>
+                )}
                 <details className="add-meal-notice-details">
                   <summary>Details</summary>
                   <p className="add-meal-notice-reason">{aiFillError}</p>

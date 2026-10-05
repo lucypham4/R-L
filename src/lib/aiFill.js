@@ -75,8 +75,10 @@ function blobToBase64(blob) {
  *
  * An overloaded or rate-limited model (503, 429) is tried once more after a
  * short wait before this gives up; any other failure throws straight away.
+ * `onRetry`, if given, is called as that wait begins, so a caller can tell
+ * the chef it's trying again rather than still on the first go.
  */
-export async function generateMealDetails({ notes, photoBlob, photoMediaType }) {
+export async function generateMealDetails({ notes, photoBlob, photoMediaType, onRetry }) {
   if (!isAiConfigured) {
     throw new Error('This needs Supabase configured first.');
   }
@@ -95,6 +97,7 @@ export async function generateMealDetails({ notes, photoBlob, photoMediaType }) 
     data = await invokeAiFill(body);
   } catch (failure) {
     if (!RETRYABLE_UPSTREAM_STATUSES.has(failure.upstreamStatus)) throw failure;
+    onRetry?.();
     await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
     data = await invokeAiFill(body);
   }

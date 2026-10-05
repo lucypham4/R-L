@@ -280,6 +280,15 @@
   margin-top: var(--space-md);
 }
 
+/* Shown under the button when "Try again" has failed too, until the chef
+   presses it again or edits the card. Plain text in the body's voice: it
+   adds to the notice, it isn't a second one. */
+.add-meal-notice-retry-failed {
+  margin-top: var(--space-sm);
+  font: 400 0.8125rem/1.5 var(--font-sans);
+  color: var(--color-muted);
+}
+
 /* The server's own words, behind a toggle that starts closed: nothing a
    chef mid-recipe needs, but useful to whoever runs the app when it says
    something actionable like "GEMINI_API_KEY is not configured on this

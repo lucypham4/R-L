@@ -302,13 +302,95 @@ test.describe('add-meal wizard, ai-fill failure', () => {
       });
     });
 
+    const notice = page.locator('.add-meal-notice');
+    const stillBusy = notice.getByText('Still busy. Try again in a minute.');
+    // Not before it has been tried: the notice alone says it failed once.
+    await expect(stillBusy).toHaveCount(0);
+
     await page.getByRole('button', { name: 'Try again' }).click();
 
-    const notice = page.locator('.add-meal-notice');
     await expect(page.getByRole('button', { name: 'Try again' })).toBeEnabled();
     await expect(notice).toBeVisible();
+    await expect(stillBusy).toBeVisible();
     await expect(notice.locator('.add-meal-notice-reason')).toHaveText('second failure');
     expect(logged.join('\n')).toContain('second failure');
+    expect(calls).toBe(2);
+  });
+
+  test('the "Still busy" line goes when Try again is pressed again, and comes back if that fails too', async ({ page }) => {
+    const gate = deferred();
+    let calls = 0;
+    await reachFailedStep3(page, async (route) => {
+      calls += 1;
+      if (calls === 3) await gate.promise;
+      return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: `failure ${calls}` }) });
+    });
+
+    const notice = page.locator('.add-meal-notice');
+    const stillBusy = notice.getByText('Still busy. Try again in a minute.');
+
+    await page.getByRole('button', { name: 'Try again' }).click();
+    await expect(stillBusy).toBeVisible();
+
+    // Pressed again: the line described the last attempt, not this one.
+    await page.getByRole('button', { name: 'Try again' }).click();
+    await expect(page.getByRole('button', { name: 'Trying again…' })).toBeDisabled();
+    await expect(stillBusy).toHaveCount(0);
+
+    gate.release();
+    await expect(stillBusy).toBeVisible();
+    expect(calls).toBe(3);
+  });
+
+  test('the "Still busy" line goes as soon as the chef edits any field', async ({ page }) => {
+    await reachFailedStep3(page, (route) =>
+      route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'boom' }) }),
+    );
+
+    const stillBusy = page.locator('.add-meal-notice').getByText('Still busy. Try again in a minute.');
+    // Each field in turn, a fresh failure before each, so one edit can't
+    // be mistaken for another.
+    const edits = [
+      () => page.locator('#meal-description').fill('Something else entirely.'),
+      () => page.locator('#meal-name').fill('Sunday chicken'),
+      () => page.locator('#meal-serves').fill('6'),
+      () => page.locator('#meal-note').fill('Salt the skin.'),
+    ];
+    for (const edit of edits) {
+      await page.getByRole('button', { name: 'Try again' }).click();
+      await expect(stillBusy).toBeVisible();
+      await edit();
+      await expect(stillBusy).toHaveCount(0);
+    }
+  });
+
+  test('step 2 says "Filling in…" on the first go and "Trying again…" while the automatic retry runs', async ({ page }) => {
+    const firstCall = deferred();
+    const secondCall = deferred();
+    let calls = 0;
+    await openWizard(page, async (route) => {
+      calls += 1;
+      if (calls === 1) {
+        await firstCall.promise;
+        return upstreamFailure(route, 503);
+      }
+      await secondCall.promise;
+      return aiSuccess(route);
+    });
+    await attachPhotoAndContinue(page);
+    await submitNotes(page, 'Chicken thigh sous vide then torched.');
+
+    // Nothing has been tried twice yet, so it doesn't say so.
+    const next = page.locator('.add-meal-next');
+    await expect(next).toHaveText('Filling in…');
+    await expect(next).toBeDisabled();
+
+    firstCall.release();
+    await expect(next).toHaveText('Trying again…');
+    await expect(next).toBeDisabled();
+
+    secondCall.release();
+    await expect(page.locator('.add-meal-progress')).toHaveText(/STEP 3 OF 3/i);
     expect(calls).toBe(2);
   });
 
