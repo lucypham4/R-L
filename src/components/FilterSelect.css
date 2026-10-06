@@ -55,7 +55,8 @@
   right: 12px;
   top: 50%;
   transform: translateY(-50%);
+  /* A flex box, so no line-box strut makes the button taller than the
+     icon in it. */
+  display: flex;
   color: var(--color-bg);
-  font: 500 0.875rem/1 var(--font-sans);
-  line-height: 1;
 }

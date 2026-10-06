@@ -9,7 +9,7 @@ import BubbleSelect from './BubbleSelect';
 import IngredientBubbles from './IngredientBubbles';
 import { uploadImage, isCloudinaryConfigured } from '../lib/cloudinary';
 import { createSpeechRecognizer, isSpeechRecognitionSupported } from '../lib/speechToText';
-import { generateMealDetails, cleanDescription, isAiConfigured } from '../lib/aiFill';
+import { generateMealDetails, cleanDescription, isAiConfigured, isBusyFailure } from '../lib/aiFill';
 import { loadBubbleList, saveBubbleList } from '../lib/bubbleLists';
 import { DEFAULT_SERVES, SUMMARY_MAX } from '../lib/meal';
 import './AddMealForm.css';
@@ -119,7 +119,8 @@ export default function AddMealForm({ onSave, onCancel }) {
   const [speechError, setSpeechError] = useState('');
   const [isListeningMethod, setIsListeningMethod] = useState(false);
   const [methodSpeechError, setMethodSpeechError] = useState('');
-  const [aiFillStatus, setAiFillStatus] = useState('idle'); // idle | loading | done | error
+  // `retrying` is the automatic second try on step 2, after a 503 or 429.
+  const [aiFillStatus, setAiFillStatus] = useState('idle'); // idle | loading | retrying | done | error
   const [aiFillError, setAiFillError] = useState('');
   // Which of AI_FIELDS are still waiting on the answer. A field leaves the
   // set when its content arrives, so the sheen stops field by field.
@@ -127,6 +128,11 @@ export default function AddMealForm({ onSave, onCancel }) {
   // Bumped whenever a fill starts or is abandoned (Back), so an answer that
   // arrives for an earlier run is dropped instead of overwriting the chef.
   const aiRunRef = useRef(0);
+  const [isRetryingAiFill, setIsRetryingAiFill] = useState(false);
+  // Set when "Try again" fails: the card as it stood then, and whether the
+  // model was busy. The line under the button shows only while the card still
+  // matches that signature (see below).
+  const [retryFailure, setRetryFailure] = useState(null); // { signature, busy }
   const [cleanupStatus, setCleanupStatus] = useState('idle'); // idle | loading | done | error
   const [cleanupError, setCleanupError] = useState('');
   const fileInputRef = useRef(null);
@@ -152,6 +158,28 @@ export default function AddMealForm({ onSave, onCancel }) {
     recognizerRef.current?.stop();
     methodRecognizerRef.current?.stop();
   }, []);
+
+  // What the AI fill writes, as the form holds it right now. A retry lands
+  // seconds after it was asked for, so it reads this when it arrives rather
+  // than the values its click handler closed over, which the chef may have
+  // typed over since.
+  const filledFieldsRef = useRef({});
+  filledFieldsRef.current = { name, date, description, summary, category, cuisine, ingredients, method: methodText, note };
+  // The same fields as they stood when the AI fill last failed (with the
+  // notes carried over as the description). A field still equal to its entry
+  // here is one the chef hasn't touched since.
+  const failedFillSnapshotRef = useRef(null);
+
+  // Every field on step 3 as one comparable string, so "has the chef changed
+  // anything?" is a single check, whichever input or bubble they used and
+  // however (typing, dictation, picking a bubble).
+  const cardSignature = JSON.stringify([name, date, serves, description, summary, category, cuisine, ingredients, methodText, note]);
+  const cardSignatureRef = useRef(cardSignature);
+  cardSignatureRef.current = cardSignature;
+  // Any edit retires the line under the button: it was about the card as it was.
+  useEffect(() => {
+    setRetryFailure((shown) => (shown !== null && shown.signature !== cardSignature ? null : shown));
+  }, [cardSignature]);
 
   const photosRef = useRef(photos);
   photosRef.current = photos;
@@ -326,35 +354,17 @@ export default function AddMealForm({ onSave, onCancel }) {
     setAiPending(new Set(AI_FIELDS));
     setStep(3);
     try {
-      const photoBlob = photoMode === 'sketch' ? await getSketchBlob() : photos[0]?.file;
-      if (!photoBlob) throw new Error('Add a photo or sketch first.');
-      const photoMediaType = photoMode === 'sketch' ? 'image/png' : 'image/jpeg';
-
-      const details = await generateMealDetails({
-        notes: notes.trim(),
-        photoBlob,
-        photoMediaType,
+      const details = await requestAiDetails({
+        // Still on step 3 and still shimmering; the status line says why it's
+        // taking a moment longer.
+        onRetry: () => isCurrent() && setAiFillStatus('retrying'),
       });
       if (!isCurrent()) return;
 
-      const fills = {
-        description: () => setDescription((details.description || notes.trim()).slice(0, DESCRIPTION_MAX)),
-        summary: () => details.summary && setSummary(details.summary),
-        name: () => details.name && setName(details.name),
-        date: () => details.date && setDate(details.date),
-        category: () => details.category && applyBubbleValue('category', details.category, setCategory),
-        cuisine: () => details.cuisine && applyBubbleValue('cuisine', details.cuisine, setCuisine),
-        ingredients: () => details.ingredients.length && setIngredients(details.ingredients),
-        method: () => details.method.length && setMethodText(details.method.join('\n')),
-        note: () => details.note && setNote(details.note.slice(0, NOTE_MAX)),
-      };
-      // One answer carries every field, so they all land together; clearing
-      // each as it is applied is what lets a field stop on its own if the
-      // answer ever arrives in pieces.
-      for (const field of AI_FIELDS) {
-        fills[field]();
-        arrived(field);
-      }
+      // One answer carries every field, so they all land together; each is
+      // taken out of `pending` as it is applied, which is what lets a field
+      // stop on its own if the answer ever arrives in pieces.
+      applyAiDetails(details, undefined, arrived);
       setAiFillStatus('done');
     } catch (err) {
       if (!isCurrent()) return;
@@ -362,11 +372,18 @@ export default function AddMealForm({ onSave, onCancel }) {
       // stuck on step 2 with a status-code string and no way forward, which
       // meant a failing Edge Function blocked saving a meal at all. Carry
       // the notes across as the description (exactly what the no-AI path
-      // does) and let them finish the card by hand; the reason travels with
-      // them to step 3 as a notice rather than a dead end.
+      // does) and let them finish the card by hand; a notice on step 3 says
+      // so, and offers another go, rather than leaving a dead end.
+      //
+      // The reason stays out of the notice's body (a status-code and a blob
+      // of JSON help nobody mid-recipe): it goes to the console, and sits
+      // behind the notice's Details for anyone who wants it.
+      console.error('AI fill failed:', err);
+      const carriedDescription = filledFieldsRef.current.description || notes.trim().slice(0, DESCRIPTION_MAX);
+      failedFillSnapshotRef.current = { ...filledFieldsRef.current, description: carriedDescription };
       setAiFillStatus('error');
       setAiFillError(err.message || "Couldn't reach the AI just now.");
-      setDescription((current) => current || notes.trim().slice(0, DESCRIPTION_MAX));
+      setDescription(carriedDescription);
       setAiPending(new Set());
     }
   }
@@ -378,6 +395,75 @@ export default function AddMealForm({ onSave, onCancel }) {
     setAiPending(new Set());
     setAiFillStatus('idle');
     setStep(2);
+  }
+
+  async function requestAiDetails({ onRetry } = {}) {
+    const photoBlob = photoMode === 'sketch' ? await getSketchBlob() : photos[0]?.file;
+    if (!photoBlob) throw new Error('Add a photo or sketch first.');
+    const photoMediaType = photoMode === 'sketch' ? 'image/png' : 'image/jpeg';
+
+    return generateMealDetails({
+      notes: notes.trim(),
+      photoBlob,
+      photoMediaType,
+      onRetry,
+    });
+  }
+
+  // Writes the AI's answer into the form, field by field in the order they
+  // sit on the card. `isFree` says whether a field may be overwritten (the
+  // first fill passes nothing, so every field is); `onApplied` is told as each
+  // field has been dealt with, which is how the card stops that field's sheen.
+  function applyAiDetails(details, isFree = () => true, onApplied) {
+    const fills = {
+      description: () => isFree('description') && setDescription((details.description || notes.trim()).slice(0, DESCRIPTION_MAX)),
+      summary: () => details.summary && isFree('summary') && setSummary(details.summary),
+      name: () => details.name && isFree('name') && setName(details.name),
+      date: () => details.date && isFree('date') && setDate(details.date),
+      category: () => details.category && isFree('category') && applyBubbleValue('category', details.category, setCategory),
+      cuisine: () => details.cuisine && isFree('cuisine') && applyBubbleValue('cuisine', details.cuisine, setCuisine),
+      ingredients: () => details.ingredients.length && isFree('ingredients') && setIngredients(details.ingredients),
+      method: () => details.method.length && isFree('method') && setMethodText(details.method.join('\n')),
+      note: () => details.note && isFree('note') && setNote(details.note.slice(0, NOTE_MAX)),
+    };
+    for (const field of AI_FIELDS) {
+      fills[field]();
+      onApplied?.(field);
+    }
+  }
+
+  // "Try again" on the failure notice: the same photo and notes as before
+  // (neither can change from step 3), filling only what the chef hasn't
+  // written themselves since it failed. Fields are compared with the failure
+  // snapshot after the answer arrives, so something typed while it was
+  // thinking counts too. Equal-by-value on purpose: ingredients, category and
+  // cuisine change through child components, and dictation sets text with no
+  // onChange to hook, so a per-field "edited" flag would miss some of them.
+  //
+  // Unlike the first fill this doesn't lock the card or shimmer: the chef is
+  // already holding a card they can finish by hand, and may be doing it.
+  async function handleRetryAiFill() {
+    const snapshot = failedFillSnapshotRef.current;
+    if (!snapshot || isRetryingAiFill) return;
+    setRetryFailure(null);
+    setIsRetryingAiFill(true);
+    try {
+      const details = await requestAiDetails();
+      const current = filledFieldsRef.current;
+      applyAiDetails(details, (field) => JSON.stringify(current[field]) === JSON.stringify(snapshot[field]));
+
+      failedFillSnapshotRef.current = null;
+      setAiFillError('');
+      setAiFillStatus('done');
+    } catch (err) {
+      console.error('AI fill retry failed:', err);
+      setAiFillError(err.message || "Couldn't reach the AI just now.");
+      // Read after the await, so something typed while it ran is already
+      // part of the card this line is about.
+      setRetryFailure({ signature: cardSignatureRef.current, busy: isBusyFailure(err) });
+    } finally {
+      setIsRetryingAiFill(false);
+    }
   }
 
   async function handleCleanDescription() {
@@ -628,16 +714,38 @@ export default function AddMealForm({ onSave, onCancel }) {
             {/* The Next button used to read "Filling in…" while it waited;
                 the card isn't a button, so say it here for a screen reader. */}
             <p className="visually-hidden" role="status">
-              {aiPending.size > 0 ? 'Filling in the details…' : ''}
+              {aiPending.size > 0 ? (aiFillStatus === 'retrying' ? 'Trying again…' : 'Filling in the details…') : ''}
             </p>
             {aiFillStatus === 'error' && (
               <div className="add-meal-notice" role="status">
-                <p className="add-meal-notice-title">Filled this in yourself?</p>
+                <p className="add-meal-notice-title">The AI couldn&rsquo;t fill this in</p>
                 <p className="add-meal-notice-body">
                   The AI couldn&rsquo;t fill in the details, so your notes were carried over as the
                   description. Everything below is yours to edit, and the meal saves normally.
                 </p>
-                <p className="add-meal-notice-reason">{aiFillError}</p>
+                <div className="add-meal-notice-actions">
+                  <button
+                    type="button"
+                    className="add-meal-inline-btn"
+                    onClick={handleRetryAiFill}
+                    disabled={isRetryingAiFill}
+                  >
+                    {isRetryingAiFill ? 'Trying again…' : 'Try again'}
+                  </button>
+                </div>
+                {retryFailure !== null && (
+                  <p className="add-meal-notice-retry-failed">
+                    {retryFailure.busy ? (
+                      'Still busy. Try again in a minute.'
+                    ) : (
+                      <>That didn&rsquo;t work. You can fill it in below.</>
+                    )}
+                  </p>
+                )}
+                <details className="add-meal-notice-details">
+                  <summary>Details</summary>
+                  <p className="add-meal-notice-reason">{aiFillError}</p>
+                </details>
               </div>
             )}
             <div>

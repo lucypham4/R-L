@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import CloseIcon from './CloseIcon';
 import FilterSelect from './FilterSelect';
 import './Bubbles.css';
 import './FilterSheet.css';
@@ -44,7 +45,7 @@ export default function FilterSheet({
               </button>
             )}
             <button ref={closeRef} type="button" className="filter-sheet-close" onClick={onClose} aria-label="Close">
-              ×
+              <CloseIcon size={16} />
             </button>
           </div>
         </div>

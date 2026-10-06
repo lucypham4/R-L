@@ -80,8 +80,9 @@ What the rule rules out:
   until you're asked to confirm, and the confirm is the sheet's one filled
   button (`.action-sheet-btn-confirm`), which keeps it apart from the Cancel
   under it; the small × badges that delete a meal, an ingredient or a photo
-  are ink circles. What says "this can't be undone" is the sentence above
-  the button, not its colour.
+  are neutral gray circles with an ink × (`DeleteBadge.css`, and
+  `.bubble-delete` to match). What says "this can't be undone" is the
+  sentence above the button, not its colour.
 - Text that isn't a warning isn't red: the sign-in eyebrow is gray, the link
   to your public page in Settings is ink and underlined, the address on your
   profile goes to ink on hover, and the AI notice's rule is gray.

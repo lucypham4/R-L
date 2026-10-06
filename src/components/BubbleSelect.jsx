@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { loadBubbleList, saveBubbleList } from '../lib/bubbleLists';
+import CloseIcon from './CloseIcon';
 import './Bubbles.css';
 
 const LONG_PRESS_MS = 500;
@@ -86,7 +87,7 @@ export default function BubbleSelect({ kind, value, onChange }) {
                 handleDelete(option);
               }}
             >
-              ×
+              <CloseIcon size={12} />
             </span>
           )}
         </button>

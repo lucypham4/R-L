@@ -33,6 +33,14 @@
   padding-bottom: var(--space-xl);
   margin-bottom: var(--space-xl);
   border-bottom: var(--divider);
+  transition: border-color var(--dur-color) var(--ease);
+}
+
+/* Edit mode keeps the page to one rule: the edit bar's, which now divides
+   the controls from the grid. The header's goes quiet rather than leaving,
+   so its 1px stays and nothing below it shifts when edit mode toggles. */
+.gallery-header-editing {
+  border-bottom-color: transparent;
 }
 
 /* Level with the wordmark: centred on its line, which puts it within a
@@ -196,6 +204,12 @@
   border-bottom: var(--divider);
   font: 400 0.8125rem/1.5 var(--font-sans);
   color: var(--color-muted);
+}
+
+/* Sat on the line of text it's in, rather than on its baseline, where an
+   icon this size floats above the letters beside it. */
+.gallery-edit-hint-icon {
+  vertical-align: -2px;
 }
 
 .gallery-edit-error {

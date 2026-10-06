@@ -57,8 +57,8 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: var(--color-ink);
-  color: var(--color-bg);
-  font-size: 0.75rem;
-  line-height: 1;
+  /* The same neutral badge as the gallery's and the carousel's (DeleteBadge.css):
+     gray with an ink ×, not red. */
+  background: var(--color-line-strong);
+  color: var(--color-ink);
 }
