@@ -57,9 +57,7 @@
 }
 
 .filter-sheet-clear-all {
-  font: 400 0.75rem/1 var(--font-mono);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font: var(--text-button-sm);
   color: var(--color-muted);
 }
 
@@ -94,8 +92,6 @@
 
 .filter-sheet-label {
   font: var(--text-label);
-  letter-spacing: var(--text-label-ls);
-  text-transform: uppercase;
   color: var(--color-muted);
 }
 

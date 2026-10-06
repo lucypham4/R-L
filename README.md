@@ -160,28 +160,45 @@ public page or multi-device access needs it configured.
 Note: every chef on a given deployment shares the same Cloudinary account
 and upload quota, there's no per-chef Cloudinary isolation yet.
 
-### Photo → speak → AI fill
+### Photo → notes → AI fill
 
 Filling in a meal by hand is the biggest source of friction in "Add a
 meal", so the form leads with the two low-effort inputs and lets AI do the
-rest:
+rest. Adding a meal is three steps:
 
-1. Add a photo (or sketch) and speak or type a one-sentence description.
-   The **Speak** button next to Description uses the browser's own Web
-   Speech API, no account or key needed, it just won't appear in browsers
-   that don't support it.
-2. **Clean up** tidies that description up: fixes grammar/punctuation,
-   drops filler words ("um", "like"), keeps the chef's own words and every
-   detail they gave.
-3. **Fill in details** sends the photo and description to Gemini and fills
-   in the name, cuisine, category, ingredients, method, and note fields it
-   can infer, without overwriting anything already typed. Everything it
-   fills in stays editable, it's a starting point, not a final answer.
+1. **Add a photo** (or a sketch).
+2. **Tell us about it.** Write as much as you like about the dish, with no
+   limit: its name, when you cooked it, the cuisine, what went in. The
+   **Speak** button next to the box uses the browser's own Web Speech API,
+   no account or key needed; it just won't appear in browsers that don't
+   support it.
+3. **Your recipe card.** **Next** on step 2 goes straight here, and the card
+   fills itself in: the photo and your notes go to Gemini, which writes the
+   description, summary, name, date, category, cuisine, ingredients, method
+   and note it can infer. (How many the dish served is yours; the AI is
+   never asked.) While it works, each of those fields shows a shimmer (the
+   same glint that crosses "Staj" on the first screen), takes no typing, and
+   **Save meal** waits. A field stops shimmering as its content arrives, and
+   everything it writes is yours to edit, since it's a starting point, not a
+   final answer. **Back** during the wait drops the answer and returns you to
+   your notes.
 
-Both AI buttons only appear once Supabase is configured (above), since
-they need a place to run a server-side call that keeps the API key off the
-client. They call Google's Gemini API rather than a paid provider so they
-run on the free tier of [Google AI Studio](https://aistudio.google.com/apikey)
+**Clean up**, beside Description on step 3, tidies the description:
+fixes grammar and punctuation, drops filler words ("um", "like"), keeps your
+own words and every detail you gave.
+
+The fill is an enrichment, never a gate. If it fails (the function isn't
+deployed, the key is missing, the network drops) or takes longer than 30
+seconds (`AI_FILL_TIMEOUT_MS` in `src/lib/aiFill.js`), the shimmers stop and a
+notice on step 3 says why. Your notes are carried across as the description
+and every other field is left empty, so you can finish the card by hand and
+save it normally. Without Supabase configured at all there is no fill: step 3
+opens with your notes as the description.
+
+The fill and **Clean up** only run once Supabase is configured (above),
+since they need a place to run a server-side call that keeps the API key off
+the client. They call Google's Gemini API rather than a paid provider so
+they run on the free tier of [Google AI Studio](https://aistudio.google.com/apikey)
 with no billing required:
 
 1. `supabase functions deploy ai-fill`,
@@ -193,8 +210,8 @@ with no billing required:
    key from [Google AI Studio](https://aistudio.google.com/apikey), shared
    by both functions; an optional `GEMINI_MODEL` secret overrides the
    default model, currently `gemini-3.6-flash`).
-3. Reload the app, **Clean up** and **Fill in details** show up under
-   Description once there's a photo and a description to work from.
+3. Reload the app. **Next** on step 2 now fills the card, and **Clean up**
+   shows under Description once there is a description to work from.
 
 **The line on a dish's card** is a one-sentence summary written to fit
 two lines, never the description cut off. The AI fill writes one for each
@@ -210,23 +227,24 @@ The free tier has per-minute/per-day rate limits, comfortably enough for
 one app's personal use, but worth knowing about if it starts erroring
 under heavier use.
 
-Without that function deployed, the button still shows (Supabase is
-configured) but errors clearly on click rather than silently doing
-nothing, so it's obvious what's missing.
+Without the `ai-fill` function deployed, the fill fails like any other
+failure: the notice on step 3 says what's missing rather than the card
+silently staying empty.
 
 **If AI fill fails, the wizard carries on.** A failing Edge Function used
 to strand a chef on step 2 with "Edge Function returned a non-2xx status
 code", which is what `supabase-js` reports for *any* non-2xx and says
-nothing about the cause. The wizard now moves to step 3 regardless,
-carries the notes over as the description, and says "The AI couldn't fill
-this in", with a **Try again** button that re-runs the fill for the same
-photo and notes and fills only what the chef hasn't edited since. A 503
-or 429 from the model is retried once, after about two seconds, before the
-notice shows at all; nothing else is retried. If Try again fails too, a
-line under the button says why it's worth another go or not: "Still busy.
-Try again in a minute." for a 503 or 429, "That didn't work. You can fill
-it in below." for anything else. It goes when the chef presses Try again
-again or edits the card.
+nothing about the cause. The wizard now opens step 3 straight away and,
+when the fill fails, stops the shimmer, carries the notes over as the
+description, and says "The AI couldn't fill this in", with a **Try again**
+button that re-runs the fill for the same photo and notes and fills only
+what the chef hasn't edited since. A 503 or 429 from the model is retried
+once, after about two seconds, before the notice shows at all; nothing else
+is retried (the card keeps shimmering through that retry). If Try again
+fails too, a line under the button says why it's worth another go or not:
+"Still busy. Try again in a minute." for a 503 or 429, "That didn't work.
+You can fill it in below." for anything else. It goes when the chef presses
+Try again again or edits the card.
 
 The Edge Function's own message is the one worth reading, so it isn't
 thrown away: it's logged with `console.error` and sits under the notice's
@@ -239,6 +257,7 @@ thrown away: it's logged with `console.error` and sits under the notice's
 | `AI request failed (429): ...` | Free-tier rate limit; it was already retried once, so wait a bit longer and press Try again |
 | `AI request failed (503): ...` | The model is overloaded ("high demand"); it was already retried once, so press Try again in a minute |
 | `Couldn't reach the AI just now.` | No response body from our handler, so the function isn't deployed or the request never reached it |
+| `The AI took too long to answer.` | Nothing came back within 30 seconds; try again, or check the function's logs |
 
 ### Testing AI failures
 
@@ -262,7 +281,7 @@ succeeding:
 
 | `FAIL` | What you should see |
 | --- | --- |
-| `2` (default) | The stub logs two 503s about 2 seconds apart (the Next button says "Trying again…" for the second). You land on step 3 with "The AI couldn't fill this in". Try again says "Trying again…", then fills the card and dismisses the notice. |
+| `2` (default) | You land on step 3 as soon as you press Next, its fields shimmering. The stub logs two 503s about 2 seconds apart (the shimmer carries on through the second try; a screen reader is told "Trying again…"), then the shimmer stops and the card says "The AI couldn't fill this in". Try again says "Trying again…", then fills the card and dismisses the notice. |
 | `1` | The automatic retry rescues it, so there is no notice. |
 | `99` | Every request fails. Try again returns to "Try again" with "Still busy. Try again in a minute." under it, and Details shows the raw 503 text. |
 
@@ -354,10 +373,11 @@ worth reading before adding UI:
 - [`docs/design-system/motion.md`](docs/design-system/motion.md) — the
   motion tokens, the shared keyframes, and why a component written
   against the tokens is reduced-motion correct without its own media
-  query.
+  query; the sliding toggles and the sheen on fields the AI is filling in.
 - [`docs/design-system/shape.md`](docs/design-system/shape.md) — the
   no-straight-corners rule, the four radius tokens that carry it, and why
-  photos get a hairline outline rather than a shadow.
+  photos get a hairline outline rather than a shadow; what the three
+  button colours mean (red is one button) and how buttons are set in type.
 
 Theme follows the operating system by default. The Appearance control in
 Settings cycles System → Light → Dark and remembers the choice.

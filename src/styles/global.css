@@ -72,20 +72,14 @@ img {
 
 .h3 {
   font: var(--text-h3);
-  letter-spacing: var(--text-h3-ls);
-  text-transform: uppercase;
 }
 
 .ui-label {
   font: var(--text-ui);
-  letter-spacing: var(--text-ui-ls);
-  text-transform: uppercase;
 }
 
 .label {
   font: var(--text-label);
-  letter-spacing: var(--text-label-ls);
-  text-transform: uppercase;
 }
 
 .caption {
@@ -95,8 +89,6 @@ img {
 
 .meta {
   font: var(--text-meta);
-  letter-spacing: var(--text-meta-ls);
-  text-transform: uppercase;
   color: var(--color-muted);
 }
 
@@ -143,6 +135,117 @@ img {
     opacity: 0;
     transform: translateY(var(--rise));
   }
+}
+
+/* The glint: one pass of --sheen-streak across a box painted with two
+   background layers, the streak over whatever it crosses. Shared by the
+   wordmark on the first frame (Splash.css) and by .sheen-fill below. At
+   100% the streak is clear of the box's left, at 0% clear of its right. */
+@keyframes sheen-pass {
+  from {
+    background-position: 100% 0, 0 0;
+  }
+  to {
+    background-position: 0% 0, 0 0;
+  }
+}
+
+/* A field waiting on the AI. A wrapper around the control: while
+   .sheen-fill-active is on, a skeleton lies over it -- --color-line, the
+   one fill that shows on the card in both themes, with the Staj sheen
+   running across -- and when the class comes off it fades out over
+   --dur-color, revealing what arrived. The streak loops (the answer takes
+   as long as it takes); each pass leaves about a third of its time off the
+   box, so it pulses without a pause being written in. --sheen-i staggers
+   the sweeps down a form by --stagger-step, so a column of fields doesn't
+   flash in lockstep.
+
+   Reduced motion keeps the skeleton and drops the streak, as the first
+   frame keeps its steel without the glint. */
+.sheen-fill {
+  position: relative;
+}
+
+/* An input is inline by default and sits on the baseline, which would leave
+   the wrapper a few pixels taller than the control and the skeleton
+   overhanging it. */
+.sheen-fill > .field-input {
+  display: block;
+}
+
+.sheen-fill::before,
+.sheen-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-color) var(--ease);
+}
+
+/* The skeleton, and over it the streak, as two layers so the streak can be
+   as strong as the theme will bear (--sheen-strength) without dimming the
+   skeleton under it. */
+.sheen-fill::before {
+  background: var(--color-line);
+}
+
+.sheen-fill::after {
+  background-image: var(--sheen-streak);
+  background-size: 300% 100%;
+  background-position: 100% 0;
+  background-repeat: no-repeat;
+}
+
+.sheen-fill-active::before {
+  opacity: 1;
+}
+
+.sheen-fill-active::after {
+  opacity: var(--sheen-strength);
+  animation: sheen-pass var(--dur-sheen) var(--ease-focus) calc(var(--sheen-i, 0) * var(--stagger-step)) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheen-fill-active::after {
+    animation: none;
+  }
+}
+
+/* A segmented toggle: one pill that slides under whichever label is
+   chosen, rather than each label filling in where it stands. The container
+   says how many segments it has, which is chosen and how it is spaced:
+
+     --slide-count   how many segments, all the same width
+     --slide-index   which one is chosen, from 0
+     --slide-gap     the space between segments
+     --slide-inset   the container's padding, and the pill's margin to it
+
+   The pill is the container's ::before, behind the labels, so the labels
+   only change colour. It travels over --dur-move on --ease: not
+   --ease-spring, whose overshoot would push it past the container's edge.
+   --dur-move is 0 under reduced motion, which turns the slide into a jump
+   while the label colour (--dur-color) still fades. Used by
+   SegmentedToggle and the bottom nav. */
+.slide-track {
+  /* The container has to be positioned for the pill to sit in it: the nav
+     is fixed and .segmented is relative, so neither is set here. */
+  isolation: isolate;
+}
+
+.slide-track::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: var(--slide-inset);
+  bottom: var(--slide-inset);
+  left: var(--slide-inset);
+  width: calc((100% - 2 * var(--slide-inset) - (var(--slide-count) - 1) * var(--slide-gap)) / var(--slide-count));
+  border-radius: var(--radius-pill);
+  background: var(--color-ink);
+  transform: translateX(calc(var(--slide-index) * (100% + var(--slide-gap))));
+  transition: transform var(--dur-move) var(--ease);
 }
 
 .visually-hidden {

@@ -48,7 +48,7 @@ async function attachPhotoAndContinue(page) {
   await page.getByRole('button', { name: 'Use photo' }).click();
   await expect(page.locator('.photo-crop-card')).toBeHidden();
   await page.locator('.add-meal-next').click();
-  await expect(page.locator('.add-meal-progress')).toHaveText(/STEP 2 OF 3/i);
+  await expect(page.locator('.add-meal-progress')).toHaveText(/Step 2 of 3/);
 }
 
 /** What the Edge Function answers when Gemini itself fails: 502, with Gemini's status in the message. */
@@ -93,7 +93,7 @@ async function reachFailedStep3(page, onAiFill, notes = 'Chicken thigh sous vide
   await openWizard(page, onAiFill);
   await attachPhotoAndContinue(page);
   await submitNotes(page, notes);
-  await expect(page.locator('.add-meal-progress')).toHaveText(/STEP 3 OF 3/i);
+  await expect(page.locator('.add-meal-progress')).toHaveText(/Step 3 of 3/);
   await expect(page.locator('.add-meal-notice')).toBeVisible();
   return notes;
 }
@@ -173,7 +173,7 @@ test.describe('add-meal wizard, ai-fill failure', () => {
       await submitNotes(page, 'Chicken thigh sous vide then torched.');
 
       // The retry worked, so the chef never sees a failure at all.
-      await expect(page.locator('.add-meal-progress')).toHaveText(/STEP 3 OF 3/i);
+      await expect(page.locator('.add-meal-progress')).toHaveText(/Step 3 of 3/);
       await expect(page.locator('.add-meal-notice')).toHaveCount(0);
       await expect(page.locator('#meal-name')).toHaveValue(AI_DETAILS.name);
       expect(calls).toBe(2);
@@ -190,7 +190,7 @@ test.describe('add-meal wizard, ai-fill failure', () => {
     await attachPhotoAndContinue(page);
     await submitNotes(page, 'Some notes about the dish.');
 
-    await expect(page.locator('.add-meal-progress')).toHaveText(/STEP 3 OF 3/i);
+    await expect(page.locator('.add-meal-progress')).toHaveText(/Step 3 of 3/);
     await expect(page.locator('.add-meal-notice')).toBeVisible();
     expect(calls).toBe(2);
   });
@@ -204,7 +204,7 @@ test.describe('add-meal wizard, ai-fill failure', () => {
     await attachPhotoAndContinue(page);
     await submitNotes(page, 'Some notes about the dish.');
 
-    await expect(page.locator('.add-meal-progress')).toHaveText(/STEP 3 OF 3/i);
+    await expect(page.locator('.add-meal-progress')).toHaveText(/Step 3 of 3/);
     await expect(page.locator('.add-meal-notice')).toBeVisible();
     // Give a wrongly-scheduled retry time to show itself.
     await page.waitForTimeout(2600);
@@ -344,8 +344,8 @@ test.describe('add-meal wizard, ai-fill failure', () => {
   }
 
   test('the line follows the latest failure, not the first', async ({ page }) => {
-    // Calls 1-2 are step 2 and its automatic retry, 3-4 the first Try again
-    // and its own, 5 the second Try again.
+    // Calls 1-2 are the card's first fill and its automatic retry, 3-4 the
+    // first Try again and its own, 5 the second Try again.
     let calls = 0;
     await reachFailedStep3(page, (route) => {
       calls += 1;
@@ -407,7 +407,11 @@ test.describe('add-meal wizard, ai-fill failure', () => {
     }
   });
 
-  test('step 2 says "Filling in…" on the first go and "Trying again…" while the automatic retry runs', async ({ page }) => {
+  test('the card says "Filling in the details…" on the first go and "Trying again…" while the automatic retry runs', async ({ page }) => {
+    // The Next button used to carry this ("Filling in…", then "Trying again…")
+    // while it held the chef on step 2. Step 3 opens at once now, its fields
+    // shimmering, and the same two things are said by its status line (for a
+    // screen reader; the shimmer is what a sighted chef sees).
     const firstCall = deferred();
     const secondCall = deferred();
     let calls = 0;
@@ -423,17 +427,21 @@ test.describe('add-meal wizard, ai-fill failure', () => {
     await attachPhotoAndContinue(page);
     await submitNotes(page, 'Chicken thigh sous vide then torched.');
 
-    // Nothing has been tried twice yet, so it doesn't say so.
-    const next = page.locator('.add-meal-next');
-    await expect(next).toHaveText('Filling in…');
-    await expect(next).toBeDisabled();
+    // On the card at once, waiting. Nothing has been tried twice yet, so it
+    // doesn't say so.
+    await expect(page.locator('.add-meal-progress')).toHaveText(/Step 3 of 3/);
+    const status = page.getByRole('status').filter({ hasText: /…$/ });
+    await expect(status).toHaveText('Filling in the details…');
+    await expect(page.locator('.sheen-fill-active')).toHaveCount(9);
+    await expect(page.getByRole('button', { name: 'Save meal' })).toBeDisabled();
 
     firstCall.release();
-    await expect(next).toHaveText('Trying again…');
-    await expect(next).toBeDisabled();
+    await expect(status).toHaveText('Trying again…');
+    await expect(page.locator('.sheen-fill-active')).toHaveCount(9);
 
     secondCall.release();
-    await expect(page.locator('.add-meal-progress')).toHaveText(/STEP 3 OF 3/i);
+    await expect(page.locator('#meal-name')).toHaveValue(AI_DETAILS.name);
+    await expect(page.locator('.sheen-fill-active')).toHaveCount(0);
     expect(calls).toBe(2);
   });
 
@@ -457,11 +465,14 @@ test.describe('add-meal wizard, ai-fill failure', () => {
     await page.mouse.up();
 
     await page.locator('.add-meal-next').click();
-    await expect(page.locator('.add-meal-progress')).toHaveText(/STEP 2 OF 3/i);
+    await expect(page.locator('.add-meal-progress')).toHaveText(/Step 2 of 3/);
     await page.locator('textarea').first().fill('A sketched dish.');
     await page.locator('.add-meal-next').click();
 
-    await expect(page.locator('.add-meal-progress')).toHaveText(/STEP 3 OF 3/i);
+    await expect(page.locator('.add-meal-progress')).toHaveText(/Step 3 of 3/);
+    // Step 3 opens before the AI has answered; the failure (and any error
+    // from reading the sketch) only shows once it has.
+    await expect(page.locator('.add-meal-notice')).toBeVisible();
     await expect(page.locator('.add-meal-notice')).not.toContainText(/getBlob/);
     expect(pageErrors.join(' | ')).not.toMatch(/getBlob/);
   });

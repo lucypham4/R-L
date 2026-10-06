@@ -3,8 +3,6 @@
   align-items: baseline;
   gap: 6px;
   font: 500 0.6875rem/1.5 var(--font-mono);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
   color: var(--color-muted);
   margin-bottom: 10px;
 }
@@ -14,8 +12,14 @@
   font-size: 0.8125rem;
 }
 
+/* "(optional)", in parentheses and at regular weight against the label's
+   medium, so it reads as a side note rather than running on as part of it.
+   The same muted text colour as the label: --color-disabled, which it used
+   to take, is 2.2:1 on the card, and this is text a chef has to read.
+   --color-muted is 5.1:1 on the light card and 6.4:1 on the dark one. */
 .field-optional {
-  color: var(--color-disabled);
+  color: var(--color-muted);
+  font-weight: 400;
 }
 
 .field-input {
@@ -39,8 +43,8 @@
 }
 
 .field-input:focus-visible {
-  border-color: var(--color-accent);
-  outline: 2px solid var(--color-accent-ring);
+  border-color: var(--color-ink);
+  outline: 2px solid var(--color-ink-ring);
   outline-offset: 1px;
 }
 

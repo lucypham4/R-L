@@ -60,19 +60,13 @@
   margin-top: var(--space-lg);
   border-radius: var(--radius-pill);
   /* The browser's own blue otherwise. */
-  accent-color: var(--color-accent);
+  accent-color: var(--color-ink);
 }
 
-/* Looks like .add-meal-mode-toggle, whose buttons it uses. */
+/* Placement only: the toggle itself is SegmentedToggle. */
 .photo-crop-aspect-toggle {
-  display: inline-flex;
   align-self: flex-start;
-  gap: 2px;
   margin-top: var(--space-md);
-  padding: 2px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-pill);
-  background: var(--color-card);
 }
 
 .photo-crop-card .add-meal-footer {

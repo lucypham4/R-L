@@ -799,7 +799,7 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep, p
 
             {meal.note && <p className="modal-note share-card-note">{meal.note}</p>}
           </div>
-          <div className="share-card-footer">staj</div>
+          <div className="share-card-footer">Staj</div>
         </div>
       </div>
     </div>

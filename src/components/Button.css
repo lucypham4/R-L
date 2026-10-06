@@ -7,9 +7,9 @@
   padding: 0 23px;
   border: 1px solid transparent;
   border-radius: var(--radius-pill);
-  font: 500 0.75rem/1 var(--font-mono);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  /* Sentence case in the system face (San Francisco on iOS and Mac, Inter
+     elsewhere): see "Buttons" in shape.md. */
+  font: var(--text-button);
   white-space: nowrap;
   transition: background var(--dur-color) var(--ease), border-color var(--dur-color) var(--ease),
     color var(--dur-color) var(--ease), transform var(--dur-move) var(--ease-spring);
@@ -25,25 +25,43 @@
   transition-duration: var(--dur-press);
 }
 
+/* Primary: the forward action. Filled ink. */
 .btn-primary {
+  background: var(--color-ink);
+  border-color: var(--color-ink);
+  color: var(--color-bg);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-ink-hover);
+  border-color: var(--color-ink-hover);
+}
+
+/* Final: the one red button in the app, the one that finishes adding a
+   meal. No other button is red (shape.md); don't reach for this to make
+   something stand out. */
+.btn-final {
   background: var(--color-accent);
   border-color: var(--color-accent);
   color: var(--color-bg);
 }
 
-.btn-primary:hover:not(:disabled) {
+.btn-final:hover:not(:disabled) {
   background: var(--color-accent-hover);
   border-color: var(--color-accent-hover);
 }
 
+/* Secondary: Cancel, Back, and anything else that isn't the forward
+   action. A gray outline. */
 .btn-secondary {
   background: transparent;
-  border-color: var(--color-ink);
+  border-color: var(--color-line-strong);
   color: var(--color-ink);
 }
 
 .btn-secondary:hover:not(:disabled) {
   background: var(--color-surface);
+  border-color: var(--color-muted);
 }
 
 .btn-ghost {
@@ -62,6 +80,7 @@
 }
 
 .btn-primary:disabled,
+.btn-final:disabled,
 .btn-secondary:disabled {
   background: var(--color-line);
   border-color: var(--color-line);

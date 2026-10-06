@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import Button from './Button';
+import SegmentedToggle from './SegmentedToggle';
 import './PhotoCropModal.css';
 
 const DEFAULT_VIEWPORT_WIDTH = 320;
@@ -148,28 +149,21 @@ export default function PhotoCropModal({ file, onCancel, onCrop, round = false, 
         />
 
         {!round && (
-          <div className="photo-crop-aspect-toggle" role="tablist" aria-label="Crop aspect ratio">
-            {Object.entries(ASPECTS).map(([key, a]) => (
-              <button
-                key={key}
-                type="button"
-                role="tab"
-                aria-selected={aspect === key}
-                className={`add-meal-mode-btn ${aspect === key ? 'add-meal-mode-btn-active' : ''}`}
-                onClick={() => selectAspect(key)}
-              >
-                {a.label}
-              </button>
-            ))}
-          </div>
+          <SegmentedToggle
+            className="photo-crop-aspect-toggle"
+            label="Crop aspect ratio"
+            options={Object.entries(ASPECTS).map(([key, a]) => ({ value: key, label: a.label }))}
+            value={aspect}
+            onChange={selectAspect}
+          />
         )}
 
         <div className="add-meal-footer">
-          <Button type="button" variant="primary" onClick={handleConfirm} disabled={!img}>
-            Use photo
-          </Button>
           <Button type="button" variant="secondary" onClick={onCancel}>
             Cancel
+          </Button>
+          <Button type="button" variant="primary" onClick={handleConfirm} disabled={!img}>
+            Use photo
           </Button>
         </div>
       </div>

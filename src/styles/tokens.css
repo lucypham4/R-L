@@ -6,10 +6,15 @@
   --color-ink: #1f1e1c;
   --color-muted: #6e6a63;
   --color-disabled: #b0aba2;
+  /* Red. Reserved for one button, the one that finishes adding a meal
+     (.btn-final), and the * that marks a field required. Everything else
+     that wants emphasis -- primary buttons, the nav's active tab, a focus
+     ring -- is ink (shape.md). Errors are --color-danger. */
   --color-accent: #bb2027;
   --color-accent-hover: #8f171c;
   --color-accent-wash: rgba(187, 32, 39, 0.08);
-  --color-accent-ring: rgba(187, 32, 39, 0.38);
+  --color-ink-hover: #3b3935;
+  --color-ink-ring: rgba(31, 30, 28, 0.28);
   --color-danger: #a3392b;
   --color-note-ink: #4a5a6a;
   --color-card: #faf9f6;
@@ -52,21 +57,33 @@
   --font-serif: 'Tinos', Georgia, serif;
   --font-sans: 'Instrument Sans', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  /* Buttons. San Francisco on iOS and Mac (-apple-system in Safari and
+     Firefox, BlinkMacSystemFont in Chrome), Inter everywhere else. Inter
+     is a web font, so its files are fetched only where something actually
+     renders with it: an Apple device resolves the stack at its first name
+     and never asks for them. */
+  --font-button: -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
 
+  /* Sentence case, everywhere. Nothing is set in capitals and nothing is
+     tracked out to make capitals breathe: no text-transform, no
+     letter-spacing on the small mono labels. Acronyms (AI, PNG) are the one
+     exception, and the wordmark is written "Staj" (shape.md). */
   --text-h1: 400 3.25rem/1.1 var(--font-serif);
   --text-h1-ls: -0.015em;
   --text-h2: 400 2rem/1.25 var(--font-serif);
   --text-h2-ls: -0.01em;
   --text-h3: 700 1.25rem/1.4 var(--font-serif);
-  --text-h3-ls: 0.06em;
   --text-body: 400 1rem/1.65 var(--font-sans);
   --text-ui: 500 0.75rem/1 var(--font-mono);
-  --text-ui-ls: 0.08em;
   --text-label: 500 0.6875rem/1 var(--font-mono);
-  --text-label-ls: 0.1em;
   --text-caption: 400 0.8125rem/1.55 var(--font-sans);
   --text-meta: 400 0.6875rem/1.4 var(--font-mono);
-  --text-meta-ls: 0.14em;
+
+  /* Action buttons: sentence case, no tracking (SF and Inter both carry
+     their own spacing). -sm is for the small ones that sit inside a form
+     row or on a photo. */
+  --text-button: 500 0.875rem/1 var(--font-button);
+  --text-button-sm: 500 0.8125rem/1 var(--font-button);
 
   /* The dish name, which is the one piece of type in the app that has to
      carry a whole surface on its own. Light and mixed-case rather than
@@ -167,11 +184,32 @@
      becoming another. Used on a paragraph it just looks like a bug. */
   --dur-dissolve: 500ms;
 
-  /* The glint crossing the wordmark on the first frame, once. Long
-     enough to read as light moving along an edge rather than a flash;
-     the frame holds this long under reduced motion too, without the
-     glint, so the app arrives at the same moment either way. */
+  /* One pass of the glint: across the wordmark on the first frame, once,
+     and across a field the AI is filling in, over and over until the
+     answer lands. Long enough to read as light moving along an edge
+     rather than a flash; the first frame holds this long under reduced
+     motion too, without the glint, so the app arrives at the same moment
+     either way. */
   --dur-sheen: 1100ms;
+
+  /* The glint itself: one narrow streak with a soft halo, angled a little
+     off upright. Sized at 300% of whatever it is painted on, so at either
+     end of its travel it is clear of the box. The wordmark on the first
+     frame (Splash.css) and every field waiting for the AI (.sheen-fill in
+     global.css) paint this one gradient and run the one `sheen-pass`
+     keyframe; neither has a streak of its own. --sheen-strength is how
+     much of it a field takes: a white streak on the dark theme's dark
+     skeleton is a far bigger jump than on the light theme's beige one. */
+  --sheen-strength: 1;
+  --sheen-streak: linear-gradient(
+    105deg,
+    transparent 44%,
+    var(--color-glint-halo) 48%,
+    var(--color-glint) 49.7%,
+    var(--color-glint) 50.3%,
+    var(--color-glint-halo) 52%,
+    transparent 56%
+  );
 
   /* Depth of field. How far a surface recedes when something in front of
      it takes focus -- the gallery behind an open dish, for instance.
@@ -181,7 +219,7 @@
   --dof-opacity: 0.6;
 
   --divider: 1px solid var(--color-line);
-  --focus-ring: 2px solid var(--color-accent);
+  --focus-ring: 2px solid var(--color-ink);
   --focus-offset: 3px;
 }
 
@@ -197,7 +235,8 @@
     --color-accent: #f26d62;
     --color-accent-hover: #ff9086;
     --color-accent-wash: rgba(242, 109, 98, 0.14);
-  --color-accent-ring: rgba(242, 109, 98, 0.42);
+    --color-ink-hover: #d9d6cf;
+    --color-ink-ring: rgba(243, 241, 235, 0.32);
     --color-danger: #f08072;
     --color-note-ink: #8fa6bc;
     --color-card: #211f1c;
@@ -208,6 +247,7 @@
     --color-steel-dark: #66625b;
     --color-glint: #ffffff;
     --color-glint-halo: rgba(255, 255, 255, 0.45);
+    --sheen-strength: 0.4;
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
     --shadow-md: 0 10px 24px rgba(0, 0, 0, 0.5);
     --shadow-lg: 0 28px 70px rgba(0, 0, 0, 0.65);
@@ -226,7 +266,8 @@
   --color-accent: #f26d62;
   --color-accent-hover: #ff9086;
   --color-accent-wash: rgba(242, 109, 98, 0.14);
-  --color-accent-ring: rgba(242, 109, 98, 0.42);
+  --color-ink-hover: #d9d6cf;
+  --color-ink-ring: rgba(243, 241, 235, 0.32);
   --color-danger: #f08072;
   --color-note-ink: #8fa6bc;
   --color-card: #211f1c;
@@ -237,6 +278,7 @@
   --color-steel-dark: #66625b;
   --color-glint: #ffffff;
   --color-glint-halo: rgba(255, 255, 255, 0.45);
+  --sheen-strength: 0.4;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 10px 24px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 28px 70px rgba(0, 0, 0, 0.65);

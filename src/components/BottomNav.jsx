@@ -51,7 +51,11 @@ export default function BottomNav({ onHome, onAdd, active = 'home' }) {
       {/* The page fading out under the pill, so a dish scrolling down
           behind it goes soft rather than running into it. */}
       <div className="bottom-nav-fade" aria-hidden="true" />
-      <nav className="bottom-nav" aria-label="Primary">
+      <nav
+        className="bottom-nav slide-track"
+        aria-label="Primary"
+        style={{ '--slide-count': TABS.length, '--slide-index': Math.max(0, TABS.findIndex((tab) => tab.id === active)) }}
+      >
         {/* The tab labels are icon-only now, so tab.label reaches screen
             readers through aria-label instead of visible text. Without it
             this nav is two unlabelled buttons. */}

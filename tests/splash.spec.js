@@ -27,11 +27,11 @@ test('the app opens on the wordmark, a glint crosses it once, and it dissolves i
   const animations = await page
     .locator('.splash-word')
     .evaluate((el) => el.getAnimations().map((a) => a.animationName));
-  expect(animations).toContain('splash-glint');
+  expect(animations).toContain('sheen-pass');
 
   // Off the left before it starts, across, and off the right at the end.
   const positions = await page.locator('.splash-word').evaluate((el) => {
-    const a = el.getAnimations().find((x) => x.animationName === 'splash-glint');
+    const a = el.getAnimations().find((x) => x.animationName === 'sheen-pass');
     a.pause();
     const { delay, duration } = a.effect.getTiming();
     return [0, 0.5, 1].map((f) => {
@@ -92,7 +92,7 @@ test.describe('with reduced motion', () => {
     const animations = await page
       .locator('.splash-word')
       .evaluate((el) => el.getAnimations().map((a) => a.animationName).filter(Boolean));
-    expect(animations).not.toContain('splash-glint');
+    expect(animations).not.toContain('sheen-pass');
     expect(await glintAt(page)).toBeCloseTo(100, 0);
     await expect(splash).toHaveCount(0, { timeout: 4000 });
   });

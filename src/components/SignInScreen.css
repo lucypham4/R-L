@@ -14,9 +14,7 @@
 
 .signin-eyebrow {
   font: 500 0.6875rem/1 var(--font-mono);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--color-accent);
+  color: var(--color-muted);
 }
 
 .signin-title {
@@ -44,7 +42,7 @@
   display: block;
   margin: 4px 0 0 auto;
   padding: 4px 0;
-  font: 400 0.8125rem/1.5 var(--font-sans);
+  font: 400 0.8125rem/1.5 var(--font-button);
   color: var(--color-muted);
 }
 
@@ -66,7 +64,7 @@
   padding-top: var(--space-lg);
   width: 100%;
   text-align: center;
-  font: 400 0.8125rem/1.5 var(--font-sans);
+  font: 400 0.8125rem/1.5 var(--font-button);
   color: var(--color-muted);
 }
 
@@ -89,8 +87,7 @@
 }
 
 .signin-resend-link {
-  font: 400 0.75rem/1.5 var(--font-mono);
-  letter-spacing: 0.02em;
+  font: 400 0.75rem/1.5 var(--font-button);
   color: var(--color-disabled);
 }
 
@@ -107,7 +104,7 @@
   margin-top: var(--space-lg);
   width: 100%;
   text-align: center;
-  font: 400 0.8125rem/1.5 var(--font-sans);
+  font: 400 0.8125rem/1.5 var(--font-button);
   color: var(--color-muted);
   text-decoration: underline;
   text-underline-offset: 2px;

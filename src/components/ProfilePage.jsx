@@ -218,13 +218,13 @@ function ProfileForm({ chefProfile, avatarUrl, onChangeAvatar, onSaveProfile, on
             </div>
             <fieldset className="profile-fieldset">
               <legend className="field-label">
-                Specialties <span className="field-optional">optional</span>
+                Specialties <span className="field-optional">(optional)</span>
               </legend>
               <SpecialtyPicker value={specialties} onChange={setSpecialties} disabled={saving} />
             </fieldset>
             <fieldset className="profile-fieldset profile-links-fields">
               <legend className="field-label">
-                Links <span className="field-optional">optional</span>
+                Links <span className="field-optional">(optional)</span>
               </legend>
               {PLATFORMS.map((platform) => (
                 <div key={platform.key} className="profile-link-field">

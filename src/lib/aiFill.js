@@ -7,6 +7,13 @@ import { SUMMARY_MAX } from './meal';
 // rather than calling a third-party API directly from the browser.
 export const isAiConfigured = isSupabaseConfigured;
 
+// How long the add-meal card waits for the fill before giving up. Without a
+// limit a function that never answers would leave the card's fields locked
+// under their skeletons, and Save disabled, until the chef thought to press
+// Back. Generous, since a photo through Gemini's free tier can take a while;
+// a chef who is tired of waiting can press Back sooner.
+export const AI_FILL_TIMEOUT_MS = 30_000;
+
 /**
  * Pulls the real reason out of a failed functions.invoke().
  *
@@ -54,9 +61,13 @@ export function isBusyFailure(error) {
   return RETRYABLE_UPSTREAM_STATUSES.has(error?.upstreamStatus);
 }
 
-async function invokeAiFill(body) {
-  const { data, error } = await supabase.functions.invoke('ai-fill', { body });
+async function invokeAiFill(body, timeout) {
+  const { data, error } = await supabase.functions.invoke('ai-fill', { body, timeout });
   if (error) {
+    // supabase-js aborts the request when the timeout passes and hands back
+    // the fetch's own AbortError as the error's context. Not a Gemini status,
+    // so it carries no upstreamStatus and is never retried.
+    if (error.context?.name === 'AbortError') throw new Error('The AI took too long to answer.');
     const failure = new Error(
       await messageFromFunctionsError(error, "Couldn't reach the AI just now.")
     );
@@ -85,7 +96,8 @@ function blobToBase64(blob) {
  * An overloaded or rate-limited model (503, 429) is tried once more after a
  * short wait before this gives up; any other failure throws straight away.
  * `onRetry`, if given, is called as that wait begins, so a caller can tell
- * the chef it's trying again rather than still on the first go.
+ * the chef it's trying again rather than still on the first go. The whole
+ * fill, retry included, gives up after AI_FILL_TIMEOUT_MS.
  */
 export async function generateMealDetails({ notes, photoBlob, photoMediaType, onRetry }) {
   if (!isAiConfigured) {
@@ -101,14 +113,19 @@ export async function generateMealDetails({ notes, photoBlob, photoMediaType, on
     image: { data: imageData, mediaType: photoMediaType || 'image/png' },
   };
 
+  // The limit is for the whole fill, retry included, so a retry gets what the
+  // first try left over rather than a fresh 30 seconds.
+  const deadline = Date.now() + AI_FILL_TIMEOUT_MS;
   let data;
   try {
-    data = await invokeAiFill(body);
+    data = await invokeAiFill(body, AI_FILL_TIMEOUT_MS);
   } catch (failure) {
     if (!RETRYABLE_UPSTREAM_STATUSES.has(failure.upstreamStatus)) throw failure;
+    const remaining = deadline - Date.now() - RETRY_DELAY_MS;
+    if (remaining <= 0) throw failure;
     onRetry?.();
     await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
-    data = await invokeAiFill(body);
+    data = await invokeAiFill(body, remaining);
   }
   if (!data || typeof data !== 'object') throw new Error('Got an unexpected response.');
 

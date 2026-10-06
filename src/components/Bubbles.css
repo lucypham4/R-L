@@ -19,7 +19,7 @@
   border-radius: 999px;
   background: var(--color-card);
   color: var(--color-ink);
-  font: 400 0.8125rem/1.4 var(--font-sans);
+  font: 400 0.8125rem/1.4 var(--font-button);
   white-space: nowrap;
   transition: background var(--dur-color) var(--ease), color var(--dur-color) var(--ease);
 }
@@ -37,7 +37,11 @@
 
 .bubble-add-input {
   flex: 0 0 auto;
-  width: 120px;
+  /* In em, so it grows with the text, and wide enough for its placeholder
+     ("Add ingredient") with room over: at 120px it was cut to "Add
+     ingredien". max-width keeps it inside a very narrow row. */
+  width: 12em;
+  max-width: 100%;
   padding: 6px 14px;
   border: 1px solid var(--color-line-strong);
   border-radius: 999px;
@@ -53,6 +57,8 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: var(--color-danger);
-  color: #ffffff;
+  /* The same neutral badge as the gallery's and the carousel's (DeleteBadge.css):
+     gray with an ink ×, not red. */
+  background: var(--color-line-strong);
+  color: var(--color-ink);
 }

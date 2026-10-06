@@ -40,7 +40,7 @@ export default function MealActionSheet({ meal, onClose, onDelete, onEditGallery
             {status === 'error' && <p className="action-sheet-error">{error}</p>}
             <button
               type="button"
-              className="action-sheet-btn action-sheet-btn-danger"
+              className="action-sheet-btn action-sheet-btn-confirm"
               onClick={handleConfirmDelete}
               disabled={status === 'deleting'}
             >
@@ -52,7 +52,7 @@ export default function MealActionSheet({ meal, onClose, onDelete, onEditGallery
           </>
         ) : (
           <>
-            <button type="button" className="action-sheet-btn action-sheet-btn-danger" onClick={() => setConfirming(true)}>
+            <button type="button" className="action-sheet-btn" onClick={() => setConfirming(true)}>
               Delete dish
             </button>
             <button type="button" className="action-sheet-btn" onClick={onEditGallery}>
