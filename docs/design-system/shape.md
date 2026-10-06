@@ -136,17 +136,27 @@ read as different voices.
 - **Acronyms are the only exception**: "AI", "PNG". They are typed in
   capitals because that is how they are written, and no style does it for them.
 - **The wordmark is "Staj"**, in the splash, the gallery title, the sign-in
-  eyebrow and the byline on the share image. Not "STAJ", and not "staj".
-- **A marker beside a label goes in parentheses and a lighter colour.**
-  "Summary (optional)": the `(optional)` is `--color-disabled`, the label
-  `--color-muted`, so it reads as a side note and doesn't run on as one phrase
-  with the label. It is written that way in the source, so a screen reader
-  hears it. A required field has no word at all, just a red `*` (with the word
+  eyebrow and the byline on the share image. Not "STAJ", and not "staj". Where
+  it is the mark of the thing rather than a label, as at the foot of the
+  share image, it is set in the face it has on the first frame: Tinos, regular
+  weight, tightened by `-0.02em`, at 28px: a mark, not fine print.
+- **A marker beside a label goes in parentheses, at regular weight.**
+  "Summary (optional)": the `(optional)` is 400 where the label is 500, so it
+  reads as a side note and doesn't run on as one phrase with the label. It is
+  written that way in the source, so a screen reader hears it. It is
+  `--color-muted`, the label's own colour: text a chef has to read must clear
+  4.5:1, and `--color-muted` does (5.1:1 on the light card, 6.4:1 on the dark;
+  4.6:1 on the light profile page's surface), where `--color-disabled`, which
+  it used to take, is 2.2:1. A lighter text colour would clear 4.5:1 on the
+  dark card but not on the light profile page, so there is no one lighter token
+  to take. `--color-disabled` is for what isn't meant to be read as text.
+  A required field has no word at all, just a red `*` (with the word
   "required" visually hidden for a screen reader).
 - **A chef's own words are theirs.** A dish called "BBQ ribs" is shown as
   typed. The rule is about what the app does to text, never about what a chef
   writes.
 
+`tests/sentence-case.spec.js` measures the "(optional)" contrast in both themes.
 `tests/support/caps.js` holds the rule: `corners.spec.js` already visits every
 screen the app can show, and on each it finds any text whose computed style
 draws capitals (`text-transform` of uppercase or capitalize, any

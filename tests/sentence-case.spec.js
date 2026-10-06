@@ -75,52 +75,123 @@ test.describe('sentence case', () => {
     expect(await text(page.locator('.dish-peek-meta'))).toBe('French · Main');
     const facts = await page.locator('.dish-peek-facts .meta').allInnerTexts();
     expect(facts.map((f) => f.trim())).toEqual([expect.stringMatching(/^\d{1,2} [A-Z][a-z]+ 2026$/), 'Serves 2']);
-    // The exported image is drawn off-screen; its byline is the wordmark.
-    expect(await text(page.locator('.share-card-footer'))).toBe('Staj');
+    // The exported image is drawn off-screen; its byline is the wordmark,
+    // in the serif it has on the first frame and big enough to be a mark.
+    const byline = page.locator('.share-card-footer');
+    expect(await text(byline)).toBe('Staj');
+    const face = await byline.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return { family: cs.fontFamily, size: parseFloat(cs.fontSize), weight: cs.fontWeight };
+    });
+    expect(face.family).toMatch(/^Tinos\b/);
+    expect(face.weight).toBe('400');
+    expect(face.size).toBeGreaterThanOrEqual(24);
     expect(await text(page.locator('.share-card-sub'))).toMatch(/^French · \d{1,2} [A-Z][a-z]+ 2026 · Serves 2$/);
   });
 
-  test('add a meal: the step counter, a label and its “(optional)”', async ({ page }) => {
-    await boot(page);
+  /** Photo, notes, then the card (the stubbed AI answers with nothing). */
+  async function toStep3(page) {
     await page.getByRole('button', { name: 'Add', exact: true }).click();
-    expect(await text(page.locator('.add-meal-progress'))).toBe('Step 1 of 3');
-
     await page.setInputFiles('#photo', DISH_PHOTO);
     await page.getByRole('button', { name: 'Use photo' }).click();
     await page.locator('.add-meal-next').click();
     await page.locator('textarea').first().fill('Leeks, charred.');
     await page.locator('.add-meal-next').click();
     await expect(page.locator('.add-meal-progress')).toHaveText(/Step 3 of 3/);
+  }
+
+  test('add a meal: the step counter, a label and its “(optional)”', async ({ page }) => {
+    await boot(page);
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    expect(await text(page.locator('.add-meal-progress'))).toBe('Step 1 of 3');
+    await page.keyboard.press('Escape');
+    await toStep3(page);
     expect(await text(page.locator('.add-meal-progress'))).toBe('Step 3 of 3');
 
-    // The label, then "(optional)" in parentheses and lighter, so it reads
-    // as a side note rather than as part of the label.
+    // The label, then "(optional)" in parentheses and at regular weight
+    // against the label's medium, so it reads as a side note rather than as
+    // part of the label.
     const summary = page.locator('label[for="meal-summary"]');
     expect((await summary.textContent()).replace(/\s+/g, ' ').trim()).toBe('Summary (optional)');
-    const [label, marker, muted, disabled] = await summary.evaluate((el) => {
-      const probe = (token) => {
-        const p = document.createElement('i');
-        p.style.color = `var(${token})`;
-        document.body.append(p);
-        const c = getComputedStyle(p).color;
-        p.remove();
-        return c;
-      };
-      return [
-        getComputedStyle(el).color,
-        getComputedStyle(el.querySelector('.field-optional')).color,
-        probe('--color-muted'),
-        probe('--color-disabled'),
-      ];
-    });
-    expect(label).toBe(muted);
-    expect(marker).toBe(disabled);
-    expect(marker).not.toBe(label);
+    const look = await summary.evaluate((el) => ({
+      label: { weight: getComputedStyle(el).fontWeight },
+      marker: { weight: getComputedStyle(el.querySelector('.field-optional')).fontWeight },
+    }));
+    expect(look.label.weight).toBe('500');
+    expect(look.marker.weight).toBe('400');
     // A required field shows an asterisk, not a word; the word is there for
     // a screen reader only (visually hidden).
     const name = page.locator('label[for="meal-name"]');
     expect(await text(name.locator('.field-required'))).toBe('*');
     expect((await name.textContent()).trim()).toMatch(/^Meal name\*\s+required$/);
+  });
+
+  test('“(optional)” is legible: at least 4.5:1 against the card, in both themes', async ({ page }) => {
+    await boot(page);
+    await toStep3(page);
+    const luminance = (rgb) => {
+      const [r, g, b] = rgb.match(/[\d.]+/g).slice(0, 3).map((v) => {
+        const c = Number(v) / 255;
+        return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const ratio = (a, b) => {
+      const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+      return (hi + 0.05) / (lo + 0.05);
+    };
+    const ratios = {};
+    for (const scheme of ['light', 'dark']) {
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {}))));
+      const { marker, card } = await page.evaluate(() => ({
+        marker: getComputedStyle(document.querySelector('label[for="meal-summary"] .field-optional')).color,
+        card: getComputedStyle(document.querySelector('.add-meal-card')).backgroundColor,
+      }));
+      ratios[scheme] = ratio(marker, card);
+      expect(ratios[scheme], `${scheme}: ${marker} on ${card} is ${ratios[scheme].toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
+    }
+    test.info().annotations.push({ type: 'contrast', description: `light ${ratios.light.toFixed(2)}:1, dark ${ratios.dark.toFixed(2)}:1` });
+  });
+
+  test('Method is "Method (optional)", with "step by step" in its placeholder', async ({ page }) => {
+    await boot(page);
+    await toStep3(page);
+    const label = page.locator('label[for="meal-method"]');
+    expect((await label.textContent()).replace(/\s+/g, ' ').trim()).toBe('Method (optional)');
+    await expect(page.locator('#meal-method')).toHaveAttribute(
+      'placeholder',
+      'Step by step, one step per line, numbered automatically',
+    );
+  });
+
+  test.describe('on a 375px-wide phone', () => {
+    test.use({ viewport: { width: 375, height: 667 } });
+
+    test('the ingredient placeholder is never cut off', async ({ page }) => {
+      await boot(page);
+      await toStep3(page);
+      await page.evaluate(() => document.fonts.ready);
+      const input = page.locator('input[placeholder="Add ingredient"]');
+      await input.scrollIntoViewIfNeeded();
+      const fit = await input.evaluate((el) => {
+        const cs = getComputedStyle(el);
+        const ctx = document.createElement('canvas').getContext('2d');
+        ctx.font = cs.font;
+        return {
+          text: ctx.measureText(el.placeholder).width,
+          room: el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight),
+          right: el.getBoundingClientRect().right,
+          viewport: document.documentElement.clientWidth,
+          rowOverflow: el.parentElement.scrollWidth - el.parentElement.clientWidth,
+        };
+      });
+      // The whole placeholder fits with a little to spare, and the input
+      // stays on the screen and inside its row.
+      expect(fit.text, `placeholder ${fit.text.toFixed(1)}px in ${fit.room.toFixed(1)}px`).toBeLessThanOrEqual(fit.room - 6);
+      expect(fit.right).toBeLessThanOrEqual(fit.viewport);
+      expect(fit.rowOverflow).toBeLessThanOrEqual(1);
+    });
   });
 
   test('the wordmark on the sign-in screen is "Staj"', async ({ page }) => {

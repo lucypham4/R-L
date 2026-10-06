@@ -37,7 +37,11 @@
 
 .bubble-add-input {
   flex: 0 0 auto;
-  width: 120px;
+  /* In em, so it grows with the text, and wide enough for its placeholder
+     ("Add ingredient") with room over: at 120px it was cut to "Add
+     ingredien". max-width keeps it inside a very narrow row. */
+  width: 12em;
+  max-width: 100%;
   padding: 6px 14px;
   border: 1px solid var(--color-line-strong);
   border-radius: 999px;

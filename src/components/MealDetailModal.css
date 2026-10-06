@@ -717,8 +717,12 @@
 
 .share-card-footer {
   margin-top: 32px;
-  padding: 18px 32px;
+  padding: 22px 32px 26px;
   border-top: 1px solid var(--color-line);
-  font: 500 0.6875rem/1 var(--font-mono);
-  color: var(--color-disabled);
+  /* The wordmark, in the face it has on the first frame (Splash.css): Tinos
+     at regular weight, tightened a little. Big enough to be a mark at the
+     foot of the image rather than a credit line. */
+  font: 400 1.75rem/1 var(--font-serif);
+  letter-spacing: -0.02em;
+  color: var(--color-ink);
 }

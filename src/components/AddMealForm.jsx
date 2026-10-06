@@ -778,7 +778,7 @@ export default function AddMealForm({ onSave, onCancel }) {
             <div>
               <div className="add-meal-label-row">
                 <Label htmlFor="meal-method" optional>
-                  Method, step by step
+                  Method
                 </Label>
                 {isSpeechRecognitionSupported() && (
                   <button
@@ -800,7 +800,7 @@ export default function AddMealForm({ onSave, onCancel }) {
                 <TextArea
                   id="meal-method"
                   rows={3}
-                  placeholder="One step per line, numbered automatically"
+                  placeholder="Step by step, one step per line, numbered automatically"
                   value={methodText}
                   onChange={(e) => setMethodText(e.target.value)}
                 />
