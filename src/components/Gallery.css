@@ -101,8 +101,18 @@
   transition: border-color var(--dur-color) var(--ease);
 }
 
+/* Focused, the field shows it the way a text field does (TextField.css):
+   an ink border and the soft ink ring, following its rounded corners. The
+   input inside has no box of its own, so the global ring is taken off it,
+   where it drew a square inside the field. */
 .gallery-search-field:focus-within {
-  border-color: var(--color-line-strong);
+  border-color: var(--color-ink);
+  outline: 2px solid var(--color-ink-ring);
+  outline-offset: 1px;
+}
+
+.gallery-search-input:focus-visible {
+  outline: none;
 }
 
 .gallery-search-icon {
@@ -128,12 +138,6 @@
   -webkit-appearance: none;
 }
 
-/* The one filled button on the page, so it is easy to find: ink fill with
-   the icon drawn in the page colour, a circle as every button is a pill, and
-   44px square, the smallest a thumb can hit without trying. It stands beside
-   the search field, the same height, not inside it, where there is no room
-   for a button that size. Ink is the theme-aware token, so it flips in dark
-   mode as the primary buttons do. */
 .gallery-filter-btn {
   position: relative;
   flex-shrink: 0;
@@ -143,9 +147,10 @@
   width: 44px;
   height: 44px;
   padding: 0;
+  border: 1px solid var(--color-line-strong);
   border-radius: var(--radius-pill);
-  background: var(--color-ink);
-  color: var(--color-bg);
+  background: transparent;
+  color: var(--color-ink);
 }
 
 .gallery-filter-btn svg {
@@ -154,29 +159,24 @@
 }
 
 .gallery-filter-btn:hover {
-  background: var(--color-ink-hover);
+  background: var(--color-surface);
 }
 
-/* A filter is narrowing the list: an accent dot at the button's top right,
-   inside a ring of the button's own fill (ink), so a gap is cut between it
-   and the icon's lines. 8px of accent in a 12px box; it clears the icon by a
-   couple of pixels and stays inside the circle. */
-.gallery-filter-dot {
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  width: 12px;
-  height: 12px;
-  box-sizing: border-box;
-  border: 2px solid var(--color-ink);
-  border-radius: 50%;
-  background: var(--color-accent);
-  transition: border-color var(--dur-color) var(--ease);
+/* Two states, and the button itself says which: with no filter on it is
+   the icon in ink inside a thin grey ring (the grey outline a secondary
+   button wears, shape.md); with one on, it fills with ink and the icon
+   turns the page colour, as a primary does. Ink is theme-aware, so both
+   flip in dark mode. 44px either way, the smallest a thumb hits without
+   trying, beside the search field at its height rather than inside it. */
+.gallery-filter-btn-active {
+  border-color: var(--color-ink);
+  background: var(--color-ink);
+  color: var(--color-bg);
 }
 
-/* The ring is the button's fill, so it follows the fill into its hover. */
-.gallery-filter-btn:hover .gallery-filter-dot {
+.gallery-filter-btn-active:hover {
   border-color: var(--color-ink-hover);
+  background: var(--color-ink-hover);
 }
 
 .gallery-count {
@@ -302,22 +302,10 @@
   animation: rise-in var(--dur-enter) var(--ease-out) backwards;
 }
 
-/* The filter dot pops rather than blinking on, which draws the eye to
-   the fact that a filter is now narrowing the results. */
-.gallery-filter-dot {
-  animation: filter-dot-pop var(--dur-move) var(--ease-spring) backwards;
-}
-
-@keyframes filter-dot-pop {
-  from {
-    transform: scale(0);
-  }
-}
-
 .gallery-filter-btn,
 .gallery-edit-done {
   transition: background var(--dur-color) var(--ease), color var(--dur-color) var(--ease),
-    transform var(--dur-move) var(--ease-spring);
+    border-color var(--dur-color) var(--ease), transform var(--dur-move) var(--ease-spring);
 }
 
 .gallery-filter-btn:active,

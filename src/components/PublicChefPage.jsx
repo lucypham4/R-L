@@ -7,7 +7,7 @@ import { fetchChefBySlug, DEFAULT_PAGE_THEME } from '../lib/chefsApi';
 import { fetchMeals } from '../lib/mealsApi';
 import { leaveDish, pushDish, replaceDish } from '../lib/dishHistory';
 import { shelfOf, stepOnShelf } from '../lib/shelf';
-import { measureChefHeader, chefHeaderFrame, applyChefHeaderFrame } from '../lib/chefHeader';
+import { measureChefHeader, chefHeaderFrame, applyChefHeaderFrame, applyChefHeaderLayout, resultsScroll } from '../lib/chefHeader';
 import { prefersReducedMotion, onReducedMotionChange, tokenMs } from '../lib/motion';
 import './PublicChefPage.css';
 
@@ -42,10 +42,11 @@ const TRAVELLERS = ['travelAvatar', 'travelName', 'travelNameSmall'];
 
 /**
  * Drives the picture and name between the header and the pinned bar from
- * the scroll position (lib/chefHeader.js), and snaps the page between the
- * two rests. Returns a ref binder for the pieces, and whether the
- * travelling copies have taken over yet: until the first measure they stay
- * hidden and the header's own show.
+ * the scroll position (lib/chefHeader.js), docks the search under them, and
+ * snaps the page between the two rests. Returns a ref binder for the
+ * pieces, whether the travelling copies have taken over yet (until the
+ * first measure they stay hidden and the header's own show), and what to
+ * do when the search or a filter changes the dishes shown.
  */
 function useTravellingHeader(ready) {
   const els = useRef({});
@@ -53,11 +54,41 @@ function useTravellingHeader(ready) {
     els.current[key] = el;
   }, []);
   const [travelling, setTravelling] = useState(false);
+  const geometry = useRef(null);
+  const remeasure = useRef(null);
+  const lift = useRef(0);
+
+  // Searching from the docked bar leaves the reader where they are unless
+  // the results now start above the screen; then they are brought up to
+  // just under the bar, which stays collapsed. With a short header the
+  // dishes reach the bar before it has finished collapsing, so at the
+  // collapsed rest the first of them is under it; while a search or filter
+  // narrows the list from there, the results are let down by that much, and
+  // put back when the search is cleared.
+  const keepResultsInView = useCallback((narrowed) => {
+    const g = geometry.current;
+    const count = els.current.count;
+    if (!g || !g.search || !count) return;
+    const docked = window.scrollY >= g.distance - 1;
+    const base = g.search.results - lift.current;
+    const next = narrowed && (docked || lift.current > 0) ? Math.max(0, Math.ceil(g.distance - base)) : 0;
+    if (next !== lift.current) {
+      lift.current = next;
+      count.style.marginTop = next ? `${next}px` : '';
+      remeasure.current?.();
+    }
+    const top = resultsScroll(geometry.current);
+    if (window.scrollY > top) window.scrollTo(0, top);
+  }, []);
 
   useEffect(() => {
     if (!ready) return;
     const e = els.current;
-    const keys = ['root', 'startAvatar', 'startName', 'endAvatar', 'endName', 'backdrop', 'snapCollapsed', ...TRAVELLERS];
+    // The search and the gallery are Gallery's; found rather than bound.
+    e.search = e.root?.querySelector('.gallery-search');
+    e.count = e.root?.querySelector('.gallery-count');
+    e.gallery = e.root?.querySelector('.gallery');
+    const keys = ['root', 'startAvatar', 'startName', 'endAvatar', 'endName', 'endSearch', 'backdrop', 'snapCollapsed', 'search', 'gallery', ...TRAVELLERS];
     if (keys.some((k) => !e[k])) return;
 
     let g = null;
@@ -80,10 +111,13 @@ function useTravellingHeader(ready) {
     };
     const measure = () => {
       g = measureChefHeader(e);
+      geometry.current = g;
+      applyChefHeaderLayout(g, e);
       render();
     };
 
     measure();
+    remeasure.current = measure;
     setTravelling(true);
     document.documentElement.classList.add('public-chef-snap');
     window.addEventListener('scroll', render, { passive: true });
@@ -97,6 +131,16 @@ function useTravellingHeader(ready) {
     });
     return () => {
       document.documentElement.classList.remove('public-chef-snap');
+      e.root.style.removeProperty('--public-search-dock');
+      e.gallery.style.minHeight = '';
+      e.search.style.translate = '';
+      if (e.count) {
+        e.count.style.opacity = '';
+        e.count.style.marginTop = '';
+      }
+      lift.current = 0;
+      remeasure.current = null;
+      geometry.current = null;
       window.removeEventListener('scroll', render);
       window.removeEventListener('resize', measure);
       resize?.disconnect();
@@ -104,7 +148,7 @@ function useTravellingHeader(ready) {
     };
   }, [ready]);
 
-  return { bind, travelling };
+  return { bind, travelling, keepResultsInView };
 }
 
 export default function PublicChefPage({ slug }) {
@@ -117,7 +161,7 @@ export default function PublicChefPage({ slug }) {
   // has no way to rearrange it.
   const [sort, setSort] = useState('custom');
   const [error, setError] = useState('');
-  const { bind, travelling } = useTravellingHeader(status === 'ready');
+  const { bind, travelling, keepResultsInView } = useTravellingHeader(status === 'ready');
 
   useEffect(() => {
     let cancelled = false;
@@ -221,8 +265,9 @@ export default function PublicChefPage({ slug }) {
     <div ref={bind('root')} className={`public-chef-page ${travelling ? 'public-chef-travelling' : ''}`}>
       {/* The bar the chef settles into: a backdrop that fades in as they
           arrive, and empty slots marking where the picture and name end
-          up. Decorative, like the travelling copies: the heading is in
-          the header. */}
+          up, and under them where the search docks. Decorative, like the
+          travelling copies: the heading is in the header, and the search
+          is the page's own, which sticks in that slot. */}
       <div className="public-chef-bar" aria-hidden="true">
         <div ref={bind('backdrop')} className="public-chef-bar-backdrop" />
         <div className="public-chef-bar-inner">
@@ -231,6 +276,7 @@ export default function PublicChefPage({ slug }) {
             {name}
           </span>
         </div>
+        <span ref={bind('endSearch')} className="public-chef-bar-search" />
       </div>
       <div ref={bind('travelAvatar')} className="public-chef-travel-avatar" aria-hidden="true">
         <Avatar src={chef.avatarUrl} size={112} />
@@ -245,6 +291,7 @@ export default function PublicChefPage({ slug }) {
       <Gallery
         meals={meals}
         onOpenMeal={handleOpenMeal}
+        onQueryChange={keepResultsInView}
         header={<ChefHeader chef={chef} bind={bind} />}
         sort={sort}
         onSortChange={setSort}

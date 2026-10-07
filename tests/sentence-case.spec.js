@@ -2,7 +2,7 @@ import { test, expect } from './support/network';
 import { fileURLToPath } from 'node:url';
 import { findCapitals } from './support/caps';
 
-// Sentence case, everywhere (shape.md): "Step 1 of 3", "3 of 3 meals", a
+// Sentence case, everywhere (shape.md): "Step 1 of 3", "3 of 3 dishes", a
 // field's "(optional)" beside its label, and the wordmark written "Staj".
 // corners.spec.js walks every screen for any style that draws capitals
 // (tests/support/caps.js); this pins the text that matters, as rendered
@@ -46,7 +46,7 @@ const text = (locator) => locator.evaluate((el) => el.innerText.trim());
 test.describe('sentence case', () => {
   test('the gallery: the count and each card’s date', async ({ page }) => {
     await boot(page);
-    expect(await text(page.locator('.gallery-count'))).toBe('2 of 2 meals');
+    expect(await text(page.locator('.gallery-count'))).toBe('2 of 2 dishes');
     // "18 Sept 2026": a capital for the month and lower case after it,
     // whatever the browser's ICU calls September.
     for (const date of await page.locator('.meal-card-date').allInnerTexts()) {

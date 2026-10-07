@@ -149,6 +149,40 @@
   visibility: hidden;
 }
 
+/* Where the search docks: a second row of the bar, under the picture and
+   name, the search's height and no wider than the search is. Empty, like
+   the slots above it; the page's own search sticks over it. */
+.public-chef-bar-search {
+  display: block;
+  max-width: calc(420px + var(--space-sm) + 44px);
+  height: 44px;
+  margin-top: var(--space-md);
+}
+
+/* The search on this page: the field and the filter button are taken out
+   of their row (the count stays in the page) so they can stick at the
+   bar's slot, above its backdrop, once lib/chefHeader.js has measured
+   where that is. Until the collapse it adds a hold (`translate`) that keeps
+   the search on its lane under the name. */
+.public-chef-page .gallery-search-row {
+  display: contents;
+}
+
+.public-chef-page .gallery-search {
+  margin-bottom: var(--space-md);
+}
+
+.public-chef-page .gallery-count {
+  display: block;
+  margin-bottom: var(--space-xl);
+}
+
+.public-chef-travelling .gallery-search {
+  position: sticky;
+  top: var(--public-search-dock);
+  z-index: 30;
+}
+
 /* The travelling copies, placed from their top-left corner by
    lib/chefHeader.js. Hidden until it has measured where they go. */
 .public-chef-travel-avatar,
