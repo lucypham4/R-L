@@ -11,7 +11,7 @@ import { uploadImage, isCloudinaryConfigured } from '../lib/cloudinary';
 import { createSpeechRecognizer, isSpeechRecognitionSupported } from '../lib/speechToText';
 import { generateMealDetails, cleanDescription, isAiConfigured, isBusyFailure } from '../lib/aiFill';
 import { loadBubbleList, saveBubbleList } from '../lib/bubbleLists';
-import { DEFAULT_SERVES, SUMMARY_MAX } from '../lib/meal';
+import { DEFAULT_SERVES, SUMMARY_MAX, normaliseServes } from '../lib/meal';
 import './AddMealForm.css';
 
 const DESCRIPTION_MAX = 400;
@@ -21,13 +21,13 @@ const SERVES_MIN = 1;
 const SERVES_MAX = 99;
 
 /**
- * A number input hands back a string, and an empty one hands back ''. Both
- * have to be rejected before Number() turns them into something the card
- * would print as fact.
+ * A number input hands back a string, and an empty one hands back ''. Blank
+ * is allowed (the card then says nothing about serves), but anything typed
+ * has to be a count the card could print honestly.
  */
 function servesError(value) {
   const trimmed = String(value).trim();
-  if (!trimmed) return 'How many it served is required';
+  if (!trimmed) return '';
   const n = Number(trimmed);
   if (!Number.isInteger(n)) return 'Use a whole number';
   if (n < SERVES_MIN || n > SERVES_MAX) return `Between ${SERVES_MIN} and ${SERVES_MAX}`;
@@ -100,7 +100,7 @@ export default function AddMealForm({ onSave, onCancel }) {
   const [date, setDate] = useState('');
   // Pre-filled rather than blank: 2 was what every meal silently claimed
   // before this field existed, and it's the common case. The difference is
-  // that a chef now sees it and can change it.
+  // that a chef now sees it and can change it, or clear it to say nothing.
   const [serves, setServes] = useState(String(DEFAULT_SERVES));
   const [cuisine, setCuisine] = useState('');
   const [category, setCategory] = useState('');
@@ -529,7 +529,8 @@ export default function AddMealForm({ onSave, onCancel }) {
       await onSave({
         name: name.trim(),
         date,
-        serves: Number(serves),
+        // Null when left blank: the card then says nothing about serves.
+        serves: normaliseServes(serves),
         cuisine: cuisine.trim(),
         category: category.trim(),
         description: description.trim(),
@@ -861,7 +862,9 @@ export default function AddMealForm({ onSave, onCancel }) {
                 {touched.date && <ErrorText>{errors.date}</ErrorText>}
               </div>
               <div className="add-meal-serves">
-                <Label htmlFor="meal-serves">How many it served</Label>
+                <Label htmlFor="meal-serves" optional>
+                  How many it served
+                </Label>
                 <TextInput
                   id="meal-serves"
                   type="number"
