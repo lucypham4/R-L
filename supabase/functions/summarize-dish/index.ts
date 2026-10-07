@@ -6,12 +6,14 @@
 // result. Lives server-side because it needs GEMINI_API_KEY.
 //
 // Deploy: supabase functions deploy summarize-dish
-// Configure: supabase secrets set GEMINI_API_KEY=... (shared with ai-fill)
+// Configure: supabase secrets set GEMINI_API_KEY=... (shared with ai-fill).
+// A busy model is answered by GEMINI_FALLBACK_MODEL, if set, as in ai-fill
+// (../_shared/gemini.ts).
 
+import { askGemini } from '../_shared/gemini.ts';
 import { SUMMARY_GUIDANCE, cleanSummary } from '../_shared/summary.ts';
 
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-const GEMINI_MODEL = Deno.env.get('GEMINI_MODEL') || 'gemini-3.6-flash';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -65,39 +67,33 @@ Deno.serve(async (req) => {
   ].filter(Boolean);
 
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                {
-                  text: [
-                    'A dish from a chef\'s recipe archive:',
-                    ...facts,
-                    '',
-                    `Write its summary: ${SUMMARY_GUIDANCE}`,
-                    "Don't add anything the details above don't say.",
-                  ].join('\n'),
-                },
-              ],
-            },
-          ],
-          generationConfig: { responseMimeType: 'application/json', responseSchema: RESPONSE_SCHEMA },
-        }),
-      },
+    const outcome = await askGemini(
+      GEMINI_API_KEY,
+      JSON.stringify({
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              {
+                text: [
+                  'A dish from a chef\'s recipe archive:',
+                  ...facts,
+                  '',
+                  `Write its summary: ${SUMMARY_GUIDANCE}`,
+                  "Don't add anything the details above don't say.",
+                ].join('\n'),
+              },
+            ],
+          },
+        ],
+        generationConfig: { responseMimeType: 'application/json', responseSchema: RESPONSE_SCHEMA },
+      }),
     );
-
-    if (!response.ok) {
-      const errText = await response.text();
-      return jsonResponse({ error: `AI request failed (${response.status}): ${errText}` }, 502);
+    if (!outcome.ok) {
+      return jsonResponse({ error: `AI request failed (${outcome.status}): ${outcome.text}` }, 502);
     }
 
-    const result = await response.json();
+    const result = outcome.result;
     const raw = result.candidates?.[0]?.content?.parts?.[0]?.text;
     let summary = '';
     try {

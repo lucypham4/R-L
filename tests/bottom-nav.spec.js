@@ -9,7 +9,7 @@ import { test, expect } from './support/network';
 // ink spans for every glyph -- left the pill still looking tight on the
 // right: the person's shoulders were its widest point and its lowest.
 //
-// So this samples each glyph's rendered paths, active-tab scale included,
+// So this samples each glyph's rendered paths, filled or outline,
 // and takes the smallest distance from its ink to the curve of its own end.
 
 async function endClearances(page) {
@@ -39,17 +39,24 @@ async function endClearances(page) {
   });
 }
 
-test('the nav pill looks as roomy at its right end as at its left', async ({ page }) => {
+test('the nav pill looks as roomy at its right end as at its left, whichever tab is on', async ({ page }) => {
   await page.route('**stub.supabase.co/**', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
   );
   await page.goto('/');
   await expect(page.locator('.bottom-nav')).toBeVisible();
-  // The active tab's icon scales up on a transition; measure it settled.
   await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
 
-  const { left, right } = await endClearances(page);
-  expect(Math.abs(left - right), `left ${left.toFixed(2)}px, right ${right.toFixed(2)}px`).toBeLessThan(0.5);
+  // Home is on: its glyph is the filled one.
+  const homeOn = await endClearances(page);
+  expect(Math.abs(homeOn.left - homeOn.right), `left ${homeOn.left.toFixed(2)}px, right ${homeOn.right.toFixed(2)}px`).toBeLessThan(0.5);
+
+  // Add is on: now it is the filled one at the other end.
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(page.locator('.add-meal-card')).toBeVisible();
+  await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
+  const addOn = await endClearances(page);
+  expect(Math.abs(addOn.left - addOn.right), `left ${addOn.left.toFixed(2)}px, right ${addOn.right.toFixed(2)}px`).toBeLessThan(0.5);
 });
 
 test('the page fades out under the pill, from solid at the bottom edge to clear above it', async ({ page }) => {

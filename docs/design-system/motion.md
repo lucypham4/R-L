@@ -52,7 +52,8 @@ pill that slides under a toggle's labels, and `.sheen-fill`, the skeleton
 and sheen over a field the AI is writing.
 
 Component-specific keyframes stay in that component's stylesheet
-(`filter-sheet-rise`, `filter-dot-pop`, `dish-sheet-enter`).
+(`filter-sheet-rise`, `filter-sheet-drop`, `filter-sheet-scrim-out`,
+`filter-dot-pop`, `dish-sheet-enter`).
 
 A keyframe used by two components belongs in `global.css`. `modal-rise`
 previously lived in `MealDetailModal.css` while `MealActionSheet.css` also
@@ -116,10 +117,10 @@ animates; there's no paired exit. A proper cross-fade needs both panels
 absolutely positioned and a fixed container height, which the wizard
 doesn't have — its steps hold deliberately different amounts of content.
 
-**Toggles** (`SegmentedToggle`, the bottom nav; `.slide-track` in
-`global.css`). Choosing one of a few — photo or sketch, 1:1 or 4:5, home or
-add — slides one pill under the labels instead of filling each where it
-stands, so the eye follows where the choice went. The container says how many
+**Toggles** (`SegmentedToggle`; `.slide-track` in `global.css`). Choosing
+one of a few — photo or sketch, 1:1 or 4:5 — slides one pill under the
+labels instead of filling each where it stands, so the eye follows where the
+choice went. The container says how many
 segments there are and which is chosen (`--slide-count`, `--slide-index`),
 how it is spaced (`--slide-gap`, `--slide-inset`), and the pill is its
 `::before`, `translateX`'d over `--dur-move` on `--ease`. Segments are all one
@@ -131,12 +132,31 @@ redo when a web font swaps in. The labels only change colour, over
   past the end of its container.
 - *Reduced motion needs nothing.* `--dur-move` is 0, so the pill jumps; the
   labels still fade, so the change is legible and nothing travels.
-- *Which toggles slide.* One-of-N choices: the add-meal form's Photo / Sketch,
-  the crop modal's 1:1 / 4:5, and the nav. The rest are independent on-or-off
-  or pick-several (the filter chips and bubbles, the dictation button, the
-  filter button, a carousel thumbnail), so there is nothing for a pill to
-  travel between; they cross-fade their fill over `--dur-color`, which is the
-  same timing the sliding toggles give their labels.
+- *Which toggles slide.* One-of-N choices: the add-meal form's Photo / Sketch
+  and the crop modal's 1:1 / 4:5. The rest are independent on-or-off or
+  pick-several (the filter chips and bubbles, the dictation button, a carousel
+  thumbnail), so there is nothing for a pill to travel between; they
+  cross-fade their fill over `--dur-color`, which is the same timing the
+  sliding toggles give their labels.
+- *The nav doesn't slide.* It used to, with a black pill under the tab you
+  were on. It marks that tab with its glyph now: filled and in ink where the
+  other is an outline in the muted colour, so the swap is a change of
+  drawing and colour (`--dur-color`), and nothing travels. That leaves
+  reduced motion nothing to do.
+
+**The filter sheet** (`FilterSheet`). It rises over `--dur-move` (`filter-sheet-rise`)
+and leaves the same way back: the sheet drops down the screen
+(`filter-sheet-drop`) while the overlay it sits in fades out over
+`--dur-color` (`filter-sheet-scrim-out`), so the sheet fades as it goes and the
+scrim and its blur clear with it. Every way out (the close button, a tap on
+the backdrop, Escape) takes that exit, and the sheet comes off the page once
+it has run, after as long as the tokens say (`tokenMs`), not a copied
+figure. The overlay takes no taps meanwhile.
+
+- *Reduced motion substitutes, it doesn't flatten.* `--dur-move` is 0, which
+  would leave the sheet gone at once under a scrim still fading, so the slide
+  is dropped (an explicit media query) and the sheet fades with the scrim over
+  `--dur-color`, which survives.
 
 **Filling in** (`.sheen-fill`, add-meal step 3). After the chef writes about
 the dish, step 3 opens straight away and the fields the AI writes —

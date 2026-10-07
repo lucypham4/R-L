@@ -6,8 +6,9 @@ import { fileURLToPath } from 'node:url';
 //   - Red is for one button: the one that finishes adding a meal. Every
 //     other primary is ink, a Cancel or a Back is a gray outline.
 //   - A button reads in sentence case, in the system face.
-//   - A segmented toggle (photo or sketch, 1:1 or 4:5) and the nav slide
-//     their pill to the chosen option instead of snapping.
+//   - A segmented toggle (photo or sketch, 1:1 or 4:5) slides its pill to
+//     the chosen option instead of snapping. The nav has no pill: the tab
+//     you are on is the one with the filled glyph.
 //
 // shape.md has the rules, motion.md the toggles. This checks them against
 // what ships, in computed style rather than a reading of the CSS.
@@ -146,7 +147,22 @@ test.describe('buttons', () => {
 });
 
 test.describe('the bottom nav', () => {
-  test('the active tab is a filled ink pill that slides to the other one', async ({ page }) => {
+  // Nothing sits behind the tab you are on: it is told apart by its glyph,
+  // which is filled where the other tab's is an outline.
+  const glyph = (page, name) =>
+    page.getByRole('button', { name, exact: true }).evaluate((tab) => {
+      const svg = tab.querySelector('svg');
+      const own = getComputedStyle(svg);
+      return {
+        current: tab.getAttribute('aria-current'),
+        fill: own.fill,
+        stroke: own.stroke,
+        tabBackground: getComputedStyle(tab).backgroundColor,
+        tabShadow: getComputedStyle(tab).boxShadow,
+      };
+    });
+
+  test('the active tab is a filled glyph, the other an outline, and there is no pill behind either', async ({ page }) => {
     await openWizard(page);
     // Opening the wizard moved the active tab to Add; go back to see it move.
     await page.keyboard.press('Escape');
@@ -154,35 +170,43 @@ test.describe('the bottom nav', () => {
     await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
 
     const ink = await resolve(page, '--color-ink');
-    const bg = await resolve(page, '--color-bg');
-    const pill = () =>
-      page.evaluate(() => {
-        const cs = getComputedStyle(document.querySelector('.bottom-nav'), '::before');
-        return { fill: cs.backgroundColor, x: new DOMMatrix(cs.transform).m41, width: parseFloat(cs.width) };
-      });
+    const muted = await resolve(page, '--color-muted');
+    const none = 'rgba(0, 0, 0, 0)';
 
-    const home = await pill();
-    expect(home.fill).toBe(ink);
-    expect(home.x).toBeCloseTo(0, 0);
-    expect(await page.getByRole('button', { name: 'Home' }).evaluate((el) => getComputedStyle(el).color)).toBe(bg);
+    await expect(page.locator('.bottom-nav-tab')).toHaveCount(2);
+    // The black circle is gone: no pill drawn on the nav, no fill on a tab.
+    expect(await page.locator('.bottom-nav').evaluate((el) => getComputedStyle(el, '::before').content)).toBe('none');
 
+    const home = await glyph(page, 'Home');
+    const add = await glyph(page, 'Add');
+    expect(home).toMatchObject({ current: 'page', fill: ink, stroke: 'none', tabBackground: none, tabShadow: 'none' });
+    expect(add).toMatchObject({ current: null, fill: 'none', stroke: muted, tabBackground: none, tabShadow: 'none' });
+
+    // Choosing the other tab swaps which one is filled.
     await page.getByRole('button', { name: 'Add', exact: true }).click();
-    const moving = await page.evaluate(() =>
-      document
-        .querySelector('.bottom-nav')
-        .getAnimations({ subtree: true })
-        .filter((a) => a.transitionProperty === 'transform' && a.effect.pseudoElement === '::before')
-        .map((a) => a.effect.getTiming().duration),
-    );
-    expect(moving.length).toBe(1);
-    expect(moving[0]).toBeGreaterThan(0);
-    expect(moving[0]).toBeLessThan(400);
-
     await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
-    const add = await pill();
-    // One pill's width and the 4px between the tabs.
-    expect(add.x).toBeCloseTo(add.width + 4, 0);
-    expect(await page.getByRole('button', { name: 'Add', exact: true }).evaluate((el) => getComputedStyle(el).color)).toBe(bg);
+    expect(await glyph(page, 'Add')).toMatchObject({ current: 'page', fill: ink, stroke: 'none', tabBackground: none });
+    expect(await glyph(page, 'Home')).toMatchObject({ current: null, fill: 'none', stroke: muted, tabBackground: none });
+  });
+
+  test('the tabs keep their size when the glyph is filled', async ({ page }) => {
+    await openWizard(page);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.add-meal-card')).toBeHidden();
+    const sizes = () =>
+      page.evaluate(() =>
+        [...document.querySelectorAll('.bottom-nav-tab svg')].map((svg) => {
+          const r = svg.getBoundingClientRect();
+          return [r.width, r.height];
+        }),
+      );
+    const before = await sizes();
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    expect(await sizes()).toEqual(before);
+    expect(before).toEqual([
+      [24, 24],
+      [24, 24],
+    ]);
   });
 });
 

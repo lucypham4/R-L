@@ -98,6 +98,19 @@ async function reachFailedStep3(page, onAiFill, notes = 'Chicken thigh sous vide
   return notes;
 }
 
+/**
+ * Skips the pauses between the app's own tries. After a 503 or 429 the app
+ * waits 1.5s and then 3s before its second and third try; the tests that call
+ * this are about what the chef sees once those have run, not about the
+ * waiting, so time is moved on a second at a time while the page is open.
+ * (The tests about the pauses themselves don't use it.)
+ */
+async function skipRetryPauses(page) {
+  await page.clock.install();
+  const tick = setInterval(() => page.clock.fastForward(1000).catch(() => {}), 100);
+  page.on('close', () => clearInterval(tick));
+}
+
 /** A promise a test can settle from outside, to hold a route open while it looks at the page. */
 function deferred() {
   let release;
@@ -159,7 +172,7 @@ test.describe('add-meal wizard, ai-fill failure', () => {
   });
 
   for (const status of [503, 429]) {
-    test(`retries once, after a pause, when the model answers ${status}`, async ({ page }) => {
+    test(`retries after a pause, when the model answers ${status}`, async ({ page }) => {
       let calls = 0;
       const startedAt = Date.now();
       let secondCallAt = 0;
@@ -177,11 +190,31 @@ test.describe('add-meal wizard, ai-fill failure', () => {
       await expect(page.locator('.add-meal-notice')).toHaveCount(0);
       await expect(page.locator('#meal-name')).toHaveValue(AI_DETAILS.name);
       expect(calls).toBe(2);
-      expect(secondCallAt - startedAt).toBeGreaterThanOrEqual(1800);
+      // The first pause is 1.5s (the response itself takes a moment more).
+      expect(secondCallAt - startedAt).toBeGreaterThanOrEqual(1400);
     });
   }
 
-  test('gives up after the one retry', async ({ page }) => {
+  test('tries up to three times, the pause growing between them', async ({ page }) => {
+    const callTimes = [];
+    await openWizard(page, (route) => {
+      callTimes.push(Date.now());
+      return callTimes.length < 3 ? upstreamFailure(route, 503) : aiSuccess(route);
+    });
+    await attachPhotoAndContinue(page);
+    await submitNotes(page, 'Chicken thigh sous vide then torched.');
+
+    // Two failures and a third try that lands: still no failure for the chef.
+    await expect(page.locator('#meal-name')).toHaveValue(AI_DETAILS.name, { timeout: 10_000 });
+    await expect(page.locator('.add-meal-notice')).toHaveCount(0);
+    expect(callTimes).toHaveLength(3);
+    // 1.5s before the second try, 3s before the third: the pause doubles.
+    expect(callTimes[1] - callTimes[0]).toBeGreaterThanOrEqual(1400);
+    expect(callTimes[2] - callTimes[1]).toBeGreaterThanOrEqual(2900);
+  });
+
+  test('gives up after the third try', async ({ page }) => {
+    await skipRetryPauses(page);
     let calls = 0;
     await openWizard(page, (route) => {
       calls += 1;
@@ -192,7 +225,7 @@ test.describe('add-meal wizard, ai-fill failure', () => {
 
     await expect(page.locator('.add-meal-progress')).toHaveText(/Step 3 of 3/);
     await expect(page.locator('.add-meal-notice')).toBeVisible();
-    expect(calls).toBe(2);
+    expect(calls).toBe(3);
   });
 
   test('does not retry any other failure', async ({ page }) => {
@@ -334,6 +367,7 @@ test.describe('add-meal wizard, ai-fill failure', () => {
   ];
   for (const { why, respond, line } of FAILED_RETRIES) {
     test(`when Try again fails because ${why}, the line says "${line}"`, async ({ page }) => {
+      await skipRetryPauses(page);
       await reachFailedStep3(page, respond);
 
       await page.getByRole('button', { name: 'Try again' }).click();
@@ -344,12 +378,13 @@ test.describe('add-meal wizard, ai-fill failure', () => {
   }
 
   test('the line follows the latest failure, not the first', async ({ page }) => {
-    // Calls 1-2 are the card's first fill and its automatic retry, 3-4 the
-    // first Try again and its own, 5 the second Try again.
+    // Calls 1-3 are the card's first fill and its automatic retries, 4-6 the
+    // first Try again and its own, 7 the second Try again.
+    await skipRetryPauses(page);
     let calls = 0;
     await reachFailedStep3(page, (route) => {
       calls += 1;
-      return upstreamFailure(route, calls <= 4 ? 503 : 404);
+      return upstreamFailure(route, calls <= 6 ? 503 : 404);
     });
     const afterRetry = page.locator('.add-meal-notice-retry-failed');
 
@@ -358,7 +393,7 @@ test.describe('add-meal wizard, ai-fill failure', () => {
 
     await page.getByRole('button', { name: 'Try again' }).click();
     await expect(afterRetry).toHaveText('That didn’t work. You can fill it in below.');
-    expect(calls).toBe(5);
+    expect(calls).toBe(7);
   });
 
   test('the line goes when Try again is pressed again, and comes back if that fails too', async ({ page }) => {

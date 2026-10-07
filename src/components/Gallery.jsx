@@ -76,7 +76,8 @@ export default function Gallery({
     return true;
   });
 
-  const hasActiveFilters = Boolean(selectedCuisines.length || selectedCategories.length || year);
+  const activeFilterCount = selectedCuisines.length + selectedCategories.length + (year ? 1 : 0);
+  const hasActiveFilters = activeFilterCount > 0;
 
   function toggleCuisine(value) {
     setSelectedCuisines((prev) => (prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]));
@@ -120,21 +121,24 @@ export default function Gallery({
       )}
 
       <div className="gallery-search-row">
-        <div className="gallery-search-field">
-          <SearchIcon />
-          <input
-            type="search"
-            className="gallery-search-input"
-            placeholder="Search meals…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            aria-label="Search meals"
-          />
+        <div className="gallery-search">
+          <div className="gallery-search-field">
+            <SearchIcon />
+            <input
+              type="search"
+              className="gallery-search-input"
+              placeholder="Search meals…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              aria-label="Search meals"
+            />
+          </div>
           <button
             type="button"
-            className={`gallery-filter-btn ${hasActiveFilters ? 'gallery-filter-btn-active' : ''}`}
+            className="gallery-filter-btn"
             onClick={() => setShowFilters(true)}
-            aria-label="Open filters"
+            aria-label={hasActiveFilters ? `Open filters, ${activeFilterCount} active` : 'Open filters'}
+            aria-haspopup="dialog"
           >
             <FilterIcon />
             {hasActiveFilters && <span className="gallery-filter-dot" aria-hidden="true" />}
@@ -247,12 +251,16 @@ function SearchIcon() {
   );
 }
 
+// Two parallel lines, each with a round hollow node on it, the nodes
+// staggered (the top one left of centre, the bottom one right of it). The
+// lines stop at a node's edge on either side rather than running through it.
 function FilterIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 6h16" />
-      <path d="M7 12h10" />
-      <path d="M10 18h4" />
+    <svg viewBox="0 0 512 512" fill="none" stroke="currentColor" strokeWidth="40" strokeLinecap="round" aria-hidden="true">
+      <path d="M22 172H66M190 172H488" />
+      <circle cx="127" cy="172" r="62" />
+      <path d="M22 340H322M446 340H488" />
+      <circle cx="385" cy="340" r="62" />
     </svg>
   );
 }

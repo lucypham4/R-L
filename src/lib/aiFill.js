@@ -3,8 +3,8 @@ import { SUMMARY_MAX } from './meal';
 
 // Both features below need a server-side secret (the Gemini API key), so
 // they ride on the same Supabase project as auth/data via Edge Functions
-// (supabase/functions/ai-fill, supabase/functions/clean-description)
-// rather than calling a third-party API directly from the browser.
+// (supabase/functions/ai-fill, clean-description and summarize-dish) rather
+// than calling a third-party API directly from the browser.
 export const isAiConfigured = isSupabaseConfigured;
 
 // How long the add-meal card waits for the fill before giving up. Without a
@@ -37,20 +37,26 @@ async function messageFromFunctionsError(error, fallback) {
   return fallback;
 }
 
-// The ai-fill function answers 502 for every failure upstream of it and puts
+// The three functions answer 502 for every failure upstream of them and put
 // Gemini's own status inside the message ("AI request failed (503): ..."), so
 // this is the only place the browser can learn it. It reads the status out of
-// that wording; supabase/functions/ai-fill/index.ts says so where it's built.
+// that wording; supabase/functions/_shared/gemini.ts says so where it's built.
 function upstreamStatusOf(message) {
   const match = /^AI request failed \((\d{3})\)/.exec(message);
   return match ? Number(match[1]) : null;
 }
 
 // Gemini is briefly overloaded (503) or rate-limited (429) far more often
-// than it's actually down, and a second try a moment later usually lands.
-// Anything else (a bad key, a missing model) won't change in two seconds.
+// than it's actually down, and a try a moment later usually lands. Anything
+// else (a bad key, a missing model) won't change in a few seconds.
+//
+// One retry after two seconds was not enough: an overload lasts longer than
+// that, so the chef saw the failure notice and only got a fill by pressing
+// Try again, which was really just a longer wait. So it is up to three tries
+// in all, the pause growing as it goes (1.5s, then 3s: about 4.5s of waiting
+// in the worst case), and the 30-second limit still covers the lot.
 const RETRYABLE_UPSTREAM_STATUSES = new Set([503, 429]);
-const RETRY_DELAY_MS = 2000;
+const RETRY_DELAYS_MS = [1500, 3000];
 
 /**
  * True when a failed generateMealDetails() was the model being busy (503,
@@ -61,8 +67,8 @@ export function isBusyFailure(error) {
   return RETRYABLE_UPSTREAM_STATUSES.has(error?.upstreamStatus);
 }
 
-async function invokeAiFill(body, timeout) {
-  const { data, error } = await supabase.functions.invoke('ai-fill', { body, timeout });
+async function invokeFunction(name, body, timeout) {
+  const { data, error } = await supabase.functions.invoke(name, timeout ? { body, timeout } : { body });
   if (error) {
     // supabase-js aborts the request when the timeout passes and hands back
     // the fetch's own AbortError as the error's context. Not a Gemini status,
@@ -75,6 +81,29 @@ async function invokeAiFill(body, timeout) {
     throw failure;
   }
   return data;
+}
+
+/**
+ * Calls an Edge Function, trying again when the model behind it was busy
+ * (503, 429): up to three tries in all, with a growing pause between them.
+ * Any other failure throws straight away. `onRetry`, if given, is called as
+ * each wait begins. With a `timeout` the limit is for the whole call,
+ * retries included, so each try gets what the ones before it (and the pauses
+ * between) have left over rather than a fresh allowance.
+ */
+async function invokeWithRetry(name, body, { timeout, onRetry } = {}) {
+  const deadline = timeout ? Date.now() + timeout : Infinity;
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await invokeFunction(name, body, timeout && Math.max(deadline - Date.now(), 1));
+    } catch (failure) {
+      const pause = RETRY_DELAYS_MS[attempt];
+      if (!RETRYABLE_UPSTREAM_STATUSES.has(failure.upstreamStatus) || pause === undefined) throw failure;
+      if (deadline - Date.now() - pause <= 0) throw failure;
+      onRetry?.();
+      await new Promise((resolve) => setTimeout(resolve, pause));
+    }
+  }
 }
 
 function blobToBase64(blob) {
@@ -93,11 +122,12 @@ function blobToBase64(blob) {
  * Asks the ai-fill Edge Function to infer a full meal's details from a photo
  * and the chef's own freeform (unlimited-length) notes about the dish.
  *
- * An overloaded or rate-limited model (503, 429) is tried once more after a
- * short wait before this gives up; any other failure throws straight away.
- * `onRetry`, if given, is called as that wait begins, so a caller can tell
- * the chef it's trying again rather than still on the first go. The whole
- * fill, retry included, gives up after AI_FILL_TIMEOUT_MS.
+ * An overloaded or rate-limited model (503, 429) is tried again, up to three
+ * tries in all with a growing pause between them, before this gives up; any
+ * other failure throws straight away. `onRetry`, if given, is called as each
+ * wait begins, so a caller can tell the chef it's trying again rather than
+ * still on the first go. The whole fill, retries included, gives up after
+ * AI_FILL_TIMEOUT_MS.
  */
 export async function generateMealDetails({ notes, photoBlob, photoMediaType, onRetry }) {
   if (!isAiConfigured) {
@@ -113,20 +143,7 @@ export async function generateMealDetails({ notes, photoBlob, photoMediaType, on
     image: { data: imageData, mediaType: photoMediaType || 'image/png' },
   };
 
-  // The limit is for the whole fill, retry included, so a retry gets what the
-  // first try left over rather than a fresh 30 seconds.
-  const deadline = Date.now() + AI_FILL_TIMEOUT_MS;
-  let data;
-  try {
-    data = await invokeAiFill(body, AI_FILL_TIMEOUT_MS);
-  } catch (failure) {
-    if (!RETRYABLE_UPSTREAM_STATUSES.has(failure.upstreamStatus)) throw failure;
-    const remaining = deadline - Date.now() - RETRY_DELAY_MS;
-    if (remaining <= 0) throw failure;
-    onRetry?.();
-    await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
-    data = await invokeAiFill(body, remaining);
-  }
+  const data = await invokeWithRetry('ai-fill', body, { timeout: AI_FILL_TIMEOUT_MS, onRetry });
   if (!data || typeof data !== 'object') throw new Error('Got an unexpected response.');
 
   return {
@@ -153,27 +170,30 @@ function cleanSummary(value) {
 
 /**
  * Asks the summarize-dish Edge Function to write the one-sentence summary
- * for a meal logged before the AI fill wrote one. Resolves to '' when it
- * couldn't, so a caller can try again another time.
+ * for a meal logged before the AI fill wrote one. A busy model is tried
+ * again, as in the fill. Resolves to '' when it couldn't, so a caller can try
+ * again another time.
  */
 export async function summarizeDish(meal) {
   if (!isAiConfigured) return '';
-  const { data, error } = await supabase.functions.invoke('summarize-dish', {
-    body: {
+  try {
+    const data = await invokeWithRetry('summarize-dish', {
       name: meal.name,
       description: meal.description,
       cuisine: meal.cuisine,
       category: meal.category,
       ingredients: meal.ingredients,
-    },
-  });
-  if (error || !data) return '';
-  return cleanSummary(data.summary);
+    });
+    return data ? cleanSummary(data.summary) : '';
+  } catch {
+    return '';
+  }
 }
 
 /**
  * Asks the clean-description Edge Function to tidy up a dictated (or typed)
  * description: fix grammar/punctuation, drop filler words, keep the meaning.
+ * A busy model is tried again, as in the fill.
  */
 export async function cleanDescription({ description }) {
   if (!isAiConfigured) {
@@ -183,15 +203,7 @@ export async function cleanDescription({ description }) {
     throw new Error('Write or dictate a description first.');
   }
 
-  const { data, error } = await supabase.functions.invoke('clean-description', {
-    body: { description },
-  });
-
-  if (error) {
-    throw new Error(
-      await messageFromFunctionsError(error, "Couldn't reach the AI just now.")
-    );
-  }
+  const data = await invokeWithRetry('clean-description', { description });
   if (!data || typeof data.description !== 'string') throw new Error('Got an unexpected response.');
 
   return data.description;

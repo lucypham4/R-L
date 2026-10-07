@@ -77,12 +77,23 @@
   margin-bottom: var(--space-xl);
 }
 
+/* The field and the filter button beside it: one item in the row, so the
+   two never part when the row wraps. The field is 420px at most, as it
+   was, and the button sits to its right. */
+.gallery-search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex: 1 1 260px;
+  max-width: calc(420px + var(--space-sm) + 44px);
+}
+
 .gallery-search-field {
   position: relative;
   display: flex;
   align-items: center;
-  flex: 1 1 260px;
-  max-width: 420px;
+  flex: 1;
+  min-width: 0;
   height: 44px;
   border: 1px solid var(--color-line);
   border-radius: var(--radius);
@@ -117,44 +128,55 @@
   -webkit-appearance: none;
 }
 
-/* Inset inside the field rather than divided off by a rule, so its fill
-   has an edge of its own, and a circle, as every button is a pill. */
+/* The one filled button on the page, so it is easy to find: ink fill with
+   the icon drawn in the page colour, a circle as every button is a pill, and
+   44px square, the smallest a thumb can hit without trying. It stands beside
+   the search field, the same height, not inside it, where there is no room
+   for a button that size. Ink is the theme-aware token, so it flips in dark
+   mode as the primary buttons do. */
 .gallery-filter-btn {
   position: relative;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  margin-right: 3px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
   border-radius: var(--radius-pill);
-  color: var(--color-muted);
+  background: var(--color-ink);
+  color: var(--color-bg);
 }
 
 .gallery-filter-btn svg {
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
 }
 
 .gallery-filter-btn:hover {
-  color: var(--color-ink);
-  background: var(--color-surface);
+  background: var(--color-ink-hover);
 }
 
-.gallery-filter-btn-active {
-  color: var(--color-ink);
-  background: var(--color-surface);
-}
-
+/* A filter is narrowing the list: an accent dot at the button's top right,
+   inside a ring of the button's own fill (ink), so a gap is cut between it
+   and the icon's lines. 8px of accent in a 12px box; it clears the icon by a
+   couple of pixels and stays inside the circle. */
 .gallery-filter-dot {
   position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 6px;
-  height: 6px;
+  top: 5px;
+  right: 5px;
+  width: 12px;
+  height: 12px;
+  box-sizing: border-box;
+  border: 2px solid var(--color-ink);
   border-radius: 50%;
-  background: var(--color-ink);
+  background: var(--color-accent);
+  transition: border-color var(--dur-color) var(--ease);
+}
+
+/* The ring is the button's fill, so it follows the fill into its hover. */
+.gallery-filter-btn:hover .gallery-filter-dot {
+  border-color: var(--color-ink-hover);
 }
 
 .gallery-count {

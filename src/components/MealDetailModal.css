@@ -372,6 +372,7 @@
 }
 
 .dish-back {
+  padding: 0;
   justify-self: start;
   display: flex;
   align-items: center;
@@ -492,6 +493,7 @@
 }
 
 .dish-step {
+  padding: 0;
   position: absolute;
   top: 50%;
   margin-top: calc(var(--control-height) / -2);

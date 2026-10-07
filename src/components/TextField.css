@@ -34,6 +34,33 @@
   transition: border-color var(--dur-color) var(--ease);
 }
 
+/* A date input is the one field iOS Safari draws for itself. Left alone it
+   ignores the height above, grows to its own, and sets the date at the top
+   of that with white space under it; empty, it can collapse to nothing.
+   appearance: none hands the box back, min-height holds it open, and the
+   line is as tall as the room inside the borders (46 less 2), so the date
+   sits in the middle whichever way the browser aligns it. The two pieces
+   below are the rows WebKit puts the text in: the value carries a min-height
+   and its own alignment, and the edit area its own padding, that a text
+   input doesn't have. */
+.field-input[type='date'] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-width: 0;
+  min-height: 46px;
+  line-height: 44px;
+}
+
+.field-input[type='date']::-webkit-date-and-time-value {
+  min-height: 0;
+  margin: 0;
+  text-align: left;
+}
+
+.field-input[type='date']::-webkit-datetime-edit {
+  padding: 0;
+}
+
 .field-input::placeholder {
   color: var(--color-disabled);
 }

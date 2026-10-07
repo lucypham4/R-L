@@ -3,6 +3,11 @@
    --color-line-strong of dark mode. Where it hangs is the caller's: it
    only has to be positioned inside something `position: relative`. */
 .delete-badge {
+  /* A button has padding of its own from the browser, and iOS Safari's is
+     wider than this badge is: the box is stretched past its width into an
+     oval and the × is squeezed to nothing. Every button that is a fixed box
+     around an icon says padding: 0 (see "Icon buttons" in shape.md). */
+  padding: 0;
   position: absolute;
   z-index: 1;
   display: flex;

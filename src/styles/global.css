@@ -46,6 +46,14 @@ button {
   border-radius: var(--radius-pill);
 }
 
+/* An icon in a button is a flex item, and flex items shrink: where the
+   browser's own button padding leaves less room than the icon is wide (iOS
+   Safari's does, for any button under about 40px) the icon is squeezed
+   until it vanishes. It is never allowed to give way. */
+button > svg {
+  flex: none;
+}
+
 img {
   max-width: 100%;
   display: block;
@@ -227,10 +235,11 @@ img {
    --ease-spring, whose overshoot would push it past the container's edge.
    --dur-move is 0 under reduced motion, which turns the slide into a jump
    while the label colour (--dur-color) still fades. Used by
-   SegmentedToggle and the bottom nav. */
+   SegmentedToggle. (The bottom nav used to slide one too; it marks its
+   active tab with a filled icon now.) */
 .slide-track {
-  /* The container has to be positioned for the pill to sit in it: the nav
-     is fixed and .segmented is relative, so neither is set here. */
+  /* The container has to be positioned for the pill to sit in it:
+     .segmented is relative, so it is not set here. */
   isolation: isolate;
 }
 
