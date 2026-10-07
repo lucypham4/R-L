@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Avatar from './Avatar';
 import Button from './Button';
 import CloseIcon from './CloseIcon';
@@ -25,6 +25,11 @@ export default function Gallery({
   title = 'Staj',
   // In place of the wordmark header: a public page puts its chef there.
   header,
+  // Called after the search or a filter changes what's shown, once the
+  // grid has re-rendered, with whether anything is narrowing the list. The
+  // public page uses it to bring the results up under its header when the
+  // search is docked there.
+  onQueryChange,
   // The chef's picture, top right, which opens their profile. A public
   // page leaves it out: its visitors have no profile of their own here.
   avatarUrl,
@@ -79,6 +84,14 @@ export default function Gallery({
   const activeFilterCount = selectedCuisines.length + selectedCategories.length + (year ? 1 : 0);
   const hasActiveFilters = activeFilterCount > 0;
 
+  const queryKey = JSON.stringify([query, selectedCuisines, selectedCategories, year]);
+  const lastQueryKey = useRef(queryKey);
+  useEffect(() => {
+    if (lastQueryKey.current === queryKey) return;
+    lastQueryKey.current = queryKey;
+    onQueryChange?.(Boolean(query) || hasActiveFilters);
+  }, [queryKey, onQueryChange, query, hasActiveFilters]);
+
   function toggleCuisine(value) {
     setSelectedCuisines((prev) => (prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]));
   }
@@ -127,21 +140,20 @@ export default function Gallery({
             <input
               type="search"
               className="gallery-search-input"
-              placeholder="Search meals…"
+              placeholder="Search dishes…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              aria-label="Search meals"
+              aria-label="Search dishes"
             />
           </div>
           <button
             type="button"
-            className="gallery-filter-btn"
+            className={`gallery-filter-btn ${hasActiveFilters ? 'gallery-filter-btn-active' : ''}`}
             onClick={() => setShowFilters(true)}
             aria-label={hasActiveFilters ? `Open filters, ${activeFilterCount} active` : 'Open filters'}
             aria-haspopup="dialog"
           >
             <FilterIcon />
-            {hasActiveFilters && <span className="gallery-filter-dot" aria-hidden="true" />}
           </button>
         </div>
         <span className="gallery-count">

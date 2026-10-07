@@ -2,9 +2,10 @@ import { test, expect } from './support/network';
 
 // The filter button on the home screen and the sheet it opens.
 //
-//   - The button is one solid, contrasting circle, 44px square, with two
-//     lines and their round nodes drawn in the page colour. When a filter is
-//     on, an accent dot shows on it and its name says how many.
+//   - The button is a 44px circle with two lines and their round nodes on
+//     it. With no filter on it is the icon in ink inside a thin grey ring;
+//     with one on, it is filled with ink and the icon is the page colour.
+//     There is no dot: the fill is the sign. Its name says how many are on.
 //   - The sheet's close button shows a cross, and closing (by it, by the
 //     backdrop or by Escape) plays an exit: the sheet drops and the backdrop
 //     fades, then the sheet is gone. Reduced motion keeps the fade and drops
@@ -67,23 +68,84 @@ const running = (page) =>
   );
 
 test.describe('the filter button', () => {
-  test('is a 44px circle with the page colour drawn on a solid ink fill', async ({ page }) => {
+  /** How the button looks: its fill, ring and icon colour. */
+  const look = (page) =>
+    trigger(page).evaluate((el) => {
+      const cs = getComputedStyle(el);
+      const svg = getComputedStyle(el.querySelector('svg'));
+      return {
+        bg: cs.backgroundColor,
+        ring: cs.borderTopColor,
+        ringWidth: cs.borderTopWidth,
+        radius: parseFloat(cs.borderTopLeftRadius),
+        stroke: svg.stroke,
+        fill: svg.fill,
+      };
+    });
+
+  /** Turns one filter on from the sheet and closes it again. */
+  async function filterBy(page, label) {
+    await trigger(page).click();
+    await page.locator('.filter-sheet button', { hasText: label }).click();
+    await page.getByRole('button', { name: 'Close' }).click();
+    await expect(sheet(page)).toBeHidden();
+    await page.mouse.move(0, 0);
+    await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {}))));
+  }
+
+  test('with no filter on: the icon in ink, inside a thin grey ring, no fill', async ({ page }) => {
     await boot(page);
-    const button = trigger(page);
-    const box = await button.boundingBox();
+    const box = await trigger(page).boundingBox();
     expect(box.width).toBe(44);
     expect(box.height).toBe(44);
 
-    const look = await button.evaluate((el) => {
-      const cs = getComputedStyle(el);
-      const svg = getComputedStyle(el.querySelector('svg'));
-      return { bg: cs.backgroundColor, radius: cs.borderTopLeftRadius, stroke: svg.stroke, fill: svg.fill };
-    });
-    expect(look.bg).toBe(await resolve(page, 'color', '--color-ink'));
-    // Strokes are the page colour, and the shapes are drawn, not filled.
-    expect(look.stroke).toBe(await resolve(page, 'color', '--color-bg'));
-    expect(look.fill).toBe('none');
-    expect(parseFloat(look.radius)).toBeGreaterThanOrEqual(22);
+    const off = await look(page);
+    expect(off.bg).toBe('rgba(0, 0, 0, 0)');
+    expect(off.ring).toBe(await resolve(page, 'color', '--color-line-strong'));
+    expect(off.ringWidth).toBe('1px');
+    expect(off.stroke).toBe(await resolve(page, 'color', '--color-ink'));
+    // The nodes are drawn, not filled.
+    expect(off.fill).toBe('none');
+    expect(off.radius).toBeGreaterThanOrEqual(22);
+  });
+
+  test('with a filter on: filled with ink, the icon in the page colour, and no dot', async ({ page }) => {
+    await boot(page);
+    await filterBy(page, 'French');
+    const on = await look(page);
+    const ink = await resolve(page, 'color', '--color-ink');
+    expect(on.bg).toBe(ink);
+    expect(on.ring).toBe(ink);
+    expect(on.stroke).toBe(await resolve(page, 'color', '--color-bg'));
+    expect(on.fill).toBe('none');
+    // The fill says it; nothing red, and nothing on top of the button.
+    await expect(trigger(page).locator('span, i, div')).toHaveCount(0);
+    const accent = await resolve(page, 'color', '--color-accent');
+    const red = await page.evaluate(
+      (a) => [...document.querySelectorAll('.gallery-search *')].filter((el) => getComputedStyle(el).backgroundColor === a).length,
+      accent,
+    );
+    expect(red).toBe(0);
+
+    // And back to the ring when the filters are cleared.
+    await trigger(page).click();
+    await page.getByRole('button', { name: 'Clear all' }).click();
+    await page.getByRole('button', { name: 'Close' }).click();
+    await expect(sheet(page)).toBeHidden();
+    await page.mouse.move(0, 0);
+    await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {}))));
+    expect((await look(page)).bg).toBe('rgba(0, 0, 0, 0)');
+  });
+
+  test('the change of state cross-fades rather than snapping', async ({ page }) => {
+    await boot(page);
+    await trigger(page).click();
+    await page.locator('.filter-sheet button', { hasText: 'French' }).click();
+    await page.getByRole('button', { name: 'Close' }).click();
+    const fades = await trigger(page).evaluate((el) =>
+      el.getAnimations().map((a) => a.transitionProperty).filter((p) => ['background-color', 'border-top-color', 'color'].includes(p)),
+    );
+    expect(fades.length).toBeGreaterThan(0);
   });
 
   test('stands beside the search field, the same height, and not inside it', async ({ page }) => {
@@ -131,79 +193,30 @@ test.describe('the filter button', () => {
     expect(top.r).toBe(bottom.r);
     // Two lines, each in two pieces round its node.
     expect(icon.pieces).toEqual([2, 2]);
-    // The stroke weight and round caps, in the page colour (currentColor).
+    // The stroke weight and round caps, in currentColor (ink, with no filter on).
     expect(icon.strokeWidth).toBe('40px');
     expect(icon.linecap).toBe('round');
-    expect(icon.stroke).toBe(await resolve(page, 'color', '--color-bg'));
+    expect(icon.stroke).toBe(await resolve(page, 'color', '--color-ink'));
     // Large enough to read at a glance, and not squeezed.
     expect(icon.width).toBe(24);
     expect(icon.height).toBe(24);
   });
 
-  test('is ink in the dark theme too, so it flips with the page', async ({ page }) => {
+  test('both states flip in the dark theme, with the page', async ({ page }) => {
     await page.emulateMedia({ colorScheme: 'dark' });
     await boot(page);
-    const look = await trigger(page).evaluate((el) => ({
-      bg: getComputedStyle(el).backgroundColor,
-      stroke: getComputedStyle(el.querySelector('svg')).stroke,
-      page: getComputedStyle(document.body).backgroundColor,
-    }));
-    expect(look.bg).toBe(await resolve(page, 'color', '--color-ink'));
-    expect(look.stroke).toBe(look.page);
-    expect(look.bg).not.toBe(look.page);
-  });
+    const ink = await resolve(page, 'color', '--color-ink');
+    const pageColour = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+    expect(ink).not.toBe(pageColour);
 
-  test('shows an accent dot, ringed in the button’s fill, once a filter is on', async ({ page }) => {
-    await boot(page);
-    await expect(page.locator('.gallery-filter-dot')).toHaveCount(0);
-    await trigger(page).click();
-    await page.locator('.filter-sheet button', { hasText: 'French' }).click();
-    await page.getByRole('button', { name: 'Close' }).click();
-    await expect(sheet(page)).toBeHidden();
-    const dot = page.locator('.gallery-filter-dot');
-    await expect(dot).toHaveCount(1);
-    await page.mouse.move(0, 0);
-    await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {}))));
-    const look = await dot.evaluate((el) => {
-      const cs = getComputedStyle(el);
-      const d = el.getBoundingClientRect();
-      const b = el.parentElement.getBoundingClientRect();
-      return {
-        width: d.width,
-        ring: cs.borderTopColor,
-        ringWidth: cs.borderTopWidth,
-        fill: cs.backgroundColor,
-        button: getComputedStyle(el.parentElement).backgroundColor,
-        // Inside the button's own box, clear of its top-right corner.
-        inside: d.top >= b.top && d.right <= b.right,
-        // Where the dot's ring ends, against where the icon's top line begins.
-        ringBottom: d.bottom,
-        iconTop: el.parentElement.querySelector('svg').querySelector('path').getBoundingClientRect().top,
-      };
-    });
-    expect(look.width).toBe(12);
-    expect(look.ringWidth).toBe('2px');
-    expect(look.fill).toBe(await resolve(page, 'color', '--color-accent'));
-    // The ring is the button's fill, so it cuts a gap rather than showing as a line.
-    expect(look.ring).toBe(look.button);
-    expect(look.ring).toBe(await resolve(page, 'color', '--color-ink'));
-    expect(look.inside).toBe(true);
-    expect(look.ringBottom).toBeLessThanOrEqual(look.iconTop + 1);
-  });
+    const off = await look(page);
+    expect(off.stroke).toBe(ink);
+    expect(off.ring).toBe(await resolve(page, 'color', '--color-line-strong'));
 
-  test('the accent dot is the accent in the dark theme too', async ({ page }) => {
-    await page.emulateMedia({ colorScheme: 'dark' });
-    await boot(page);
-    await trigger(page).click();
-    await page.locator('.filter-sheet button', { hasText: 'French' }).click();
-    await page.getByRole('button', { name: 'Close' }).click();
-    await expect(sheet(page)).toBeHidden();
-    const look = await page.locator('.gallery-filter-dot').evaluate((el) => ({
-      fill: getComputedStyle(el).backgroundColor,
-      ring: getComputedStyle(el).borderTopColor,
-    }));
-    expect(look.fill).toBe(await resolve(page, 'color', '--color-accent'));
-    expect(look.ring).toBe(await resolve(page, 'color', '--color-ink'));
+    await filterBy(page, 'French');
+    const on = await look(page);
+    expect(on.bg).toBe(ink);
+    expect(on.stroke).toBe(pageColour);
   });
 
   test('says how many filters are on, in its name', async ({ page }) => {
@@ -226,13 +239,33 @@ test.describe('the filter button', () => {
     await expect(sheet(page)).toBeHidden();
     await expect(page.getByRole('button', { name: 'Open filters, 3 active' })).toBeVisible();
 
-    // Clear all: back to the plain name, and the dot goes with it.
+    // Clear all: back to the plain name.
     await trigger(page).click();
     await page.getByRole('button', { name: 'Clear all' }).click();
     await page.getByRole('button', { name: 'Close' }).click();
     await expect(sheet(page)).toBeHidden();
     await expect(page.getByRole('button', { name: 'Open filters', exact: true })).toBeVisible();
-    await expect(page.locator('.gallery-filter-dot')).toHaveCount(0);
+  });
+
+  test('the search beside it says "Search dishes…"', async ({ page }) => {
+    await boot(page);
+    const input = page.getByRole('searchbox', { name: 'Search dishes' });
+    await expect(input).toHaveAttribute('placeholder', 'Search dishes…');
+  });
+
+  test('the search field shows focus on its own rounded edge, not as a square inside it', async ({ page }) => {
+    await boot(page);
+    await page.getByRole('searchbox', { name: 'Search dishes' }).focus();
+    // The border cross-fades to ink over --dur-color; read it settled.
+    await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {}))));
+    const focus = await page.evaluate(() => {
+      const input = getComputedStyle(document.querySelector('.gallery-search-input'));
+      const field = getComputedStyle(document.querySelector('.gallery-search-field'));
+      return { inputOutline: input.outlineStyle, fieldOutline: field.outlineStyle, fieldBorder: field.borderTopColor };
+    });
+    expect(focus.inputOutline).toBe('none');
+    expect(focus.fieldOutline).toBe('solid');
+    expect(focus.fieldBorder).toBe(await resolve(page, 'color', '--color-ink'));
   });
 
   test('opens the sheet', async ({ page }) => {
