@@ -80,6 +80,28 @@ test.describe('how many a dish served', () => {
     await expect(facts).not.toContainText(/Serves/i);
   });
 
+  test('clearing it is fine, and the card says nothing', async ({ page }) => {
+    await boot(page);
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await page.setInputFiles('#photo', DISH_PHOTO);
+    await page.getByRole('button', { name: 'Use photo' }).click();
+    await page.locator('.add-meal-next').click();
+    await page.locator('textarea').first().fill('A dish nobody counted heads for.');
+    await page.locator('.add-meal-next').click();
+
+    await page.locator('#meal-name').fill('Pan-fried shrimp');
+    await page.locator('#meal-date').fill('2026-10-05');
+    await page.locator('#meal-serves').fill('');
+    await page.locator('#meal-serves').blur();
+    // Optional, so blank isn't an error and doesn't block saving.
+    await expect(page.locator('.add-meal-serves')).not.toContainText(/required/i);
+    await page.getByRole('button', { name: /save/i }).click();
+
+    await expect(page.locator('.meal-card')).toHaveCount(1);
+    await page.locator('.meal-card').first().click();
+    await expect(page.locator('.dish-peek-facts')).not.toContainText(/Serves/i);
+  });
+
   test('rejects a serving count the card could not print honestly', async ({ page }) => {
     await boot(page);
     await page.getByRole('button', { name: 'Add', exact: true }).click();

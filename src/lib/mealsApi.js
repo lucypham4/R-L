@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { DEFAULT_SERVES, normaliseServes } from './meal';
+import { normaliseServes } from './meal';
 
 function fromRow(row) {
   return {
@@ -22,12 +22,16 @@ function fromRow(row) {
 }
 
 function toRow(meal) {
+  const serves = normaliseServes(meal.serves);
   return {
     name: meal.name,
     cuisine: meal.cuisine || '',
     category: meal.category || '',
     date: meal.date,
-    serves: normaliseServes(meal.serves) ?? DEFAULT_SERVES,
+    // Left out when the chef didn't say, so the column's own answer stands
+    // (null once serves-optional-migration.sql has run). Sending an explicit
+    // null would fail outright on a project that hasn't run it yet.
+    ...(serves !== null ? { serves } : {}),
     description: meal.description,
     ingredients: meal.ingredients ?? [],
     method: meal.method ?? [],
