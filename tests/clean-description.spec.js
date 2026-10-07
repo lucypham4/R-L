@@ -45,6 +45,10 @@ async function reachCleanUp(page, answers) {
   return calls;
 }
 
+// Clean up's own Details, next to its line. (The AI-fill notice above it, which
+// these tests leave showing because the fill fails, has one of its own.)
+const cleanUpDetails = (page) => page.locator('.field-error + .add-meal-notice-details');
+
 test.describe('Clean up, when the model is busy', () => {
   test('tries again, the pause growing, and the cleaned description lands', async ({ page }) => {
     const calls = await reachCleanUp(page, [busy(503), busy(429), { body: { description: CLEANED } }]);
@@ -58,23 +62,53 @@ test.describe('Clean up, when the model is busy', () => {
     await expect(page.locator('.field-error')).toHaveCount(0);
   });
 
-  test('gives up after the third try, and the description is left as it was', async ({ page }) => {
+  test('gives up after the third try with a plain line, the raw reply only behind Details', async ({ page }) => {
     const calls = await reachCleanUp(page, [busy()]);
     await page.getByRole('button', { name: 'Clean up' }).click();
 
-    await expect(page.locator('.field-error')).toContainText('AI request failed (503)', { timeout: 10_000 });
+    const line = page.locator('.field-error');
+    await expect(line).toHaveText('The AI couldn’t clean this up. Still busy. Try again in a minute.', { timeout: 10_000 });
     expect(calls).toHaveLength(3);
     await expect(page.locator('#meal-description')).toHaveValue(NOTES);
     // Free to try again.
     await expect(page.getByRole('button', { name: 'Clean up' })).toBeEnabled();
+
+    // No Gemini JSON in the line, or anywhere the chef can see it: it is
+    // under Details, which starts closed.
+    expect(await line.innerText()).not.toMatch(/AI request failed|UNAVAILABLE|[{}]/);
+    const details = cleanUpDetails(page);
+    const reason = details.locator('.add-meal-notice-reason');
+    await expect(details).not.toHaveAttribute('open', '');
+    await expect(reason).toBeHidden();
+    await details.locator('summary').click();
+    await expect(reason).toContainText('AI request failed (503)');
+    await expect(reason).toContainText('UNAVAILABLE');
   });
 
-  test('does not retry any other failure', async ({ page }) => {
+  test('does not retry any other failure, and says the description is unchanged', async ({ page }) => {
     const calls = await reachCleanUp(page, [{ status: 502, body: { error: 'AI request failed (404): model not found' } }]);
     await page.getByRole('button', { name: 'Clean up' }).click();
 
-    await expect(page.locator('.field-error')).toContainText('AI request failed (404)');
+    await expect(page.locator('.field-error')).toHaveText('The AI couldn’t clean this up. Your description is unchanged.');
+    const reason = cleanUpDetails(page).locator('.add-meal-notice-reason');
+    await expect(reason).toBeHidden();
+    await cleanUpDetails(page).locator('summary').click();
+    await expect(reason).toHaveText('AI request failed (404): model not found');
     await page.waitForTimeout(1800);
     expect(calls).toHaveLength(1);
+    await expect(page.locator('#meal-description')).toHaveValue(NOTES);
+  });
+
+  test('the notice goes when Clean up is pressed again and works', async ({ page }) => {
+    await reachCleanUp(page, [
+      { status: 502, body: { error: 'AI request failed (404): model not found' } },
+      { body: { description: CLEANED } },
+    ]);
+    await page.getByRole('button', { name: 'Clean up' }).click();
+    await expect(page.locator('.field-error')).toBeVisible();
+    await page.getByRole('button', { name: 'Clean up' }).click();
+    await expect(page.locator('#meal-description')).toHaveValue(CLEANED);
+    await expect(page.locator('.field-error')).toHaveCount(0);
+    await expect(cleanUpDetails(page)).toHaveCount(0);
   });
 });

@@ -223,6 +223,23 @@ test.describe('a summary for a meal logged before them', () => {
     await expect(lede(page)).toHaveText('Coal-charred leeks with brown butter.', { timeout: 10_000 });
     expect(asks).toBe(3);
   });
+
+  test('says nothing about it when the model stays busy: no raw reply, no error, the card as it was', async ({ page }) => {
+    let asks = 0;
+    await boot(page, [dish('m1', '2026-09-11', { description: LONG_FIRST_SENTENCE })], {
+      summarize: (route, json) => {
+        asks += 1;
+        return json({ error: 'AI request failed (503): { "error": { "code": 503, "status": "UNAVAILABLE" } }' }, 502);
+      },
+    });
+    await openFirstDish(page);
+    await expect.poll(() => asks, { timeout: 10_000 }).toBe(3);
+    await page.waitForTimeout(500);
+    await expect(lede(page)).toHaveText('Leek with brown butter and hazelnut.');
+    const shown = await page.locator('body').innerText();
+    expect(shown).not.toMatch(/AI request failed|UNAVAILABLE|couldn.t/i);
+    await expect(page.getByRole('alert')).toHaveCount(0);
+  });
 });
 
 test.describe('adding a meal', () => {

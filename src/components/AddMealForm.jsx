@@ -135,6 +135,7 @@ export default function AddMealForm({ onSave, onCancel }) {
   const [retryFailure, setRetryFailure] = useState(null); // { signature, busy }
   const [cleanupStatus, setCleanupStatus] = useState('idle'); // idle | loading | done | error
   const [cleanupError, setCleanupError] = useState('');
+  const [cleanupBusy, setCleanupBusy] = useState(false);
   const fileInputRef = useRef(null);
   const cardRef = useRef(null);
   const recognizerRef = useRef(null);
@@ -474,8 +475,12 @@ export default function AddMealForm({ onSave, onCancel }) {
       setDescription(cleaned.slice(0, DESCRIPTION_MAX));
       setCleanupStatus('done');
     } catch (err) {
+      // The chef gets a plain line; the model's own words (Gemini's JSON,
+      // for a busy one) go behind Details and to the console, as in the fill.
+      console.error('Clean up failed:', err);
       setCleanupStatus('error');
       setCleanupError(err.message || 'Could not clean up the description.');
+      setCleanupBusy(isBusyFailure(err));
     }
   }
 
@@ -784,7 +789,18 @@ export default function AddMealForm({ onSave, onCancel }) {
               <div className="add-meal-counter">
                 {description.length} / {DESCRIPTION_MAX}
               </div>
-              {cleanupStatus === 'error' && <ErrorText>{cleanupError}</ErrorText>}
+              {cleanupStatus === 'error' && (
+                <>
+                  <ErrorText>
+                    The AI couldn&rsquo;t clean this up.{' '}
+                    {cleanupBusy ? 'Still busy. Try again in a minute.' : 'Your description is unchanged.'}
+                  </ErrorText>
+                  <details className="add-meal-notice-details">
+                    <summary>Details</summary>
+                    <p className="add-meal-notice-reason">{cleanupError}</p>
+                  </details>
+                </>
+              )}
               {touched.description && <ErrorText>{errors.description}</ErrorText>}
             </div>
 

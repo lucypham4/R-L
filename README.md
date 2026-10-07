@@ -249,7 +249,12 @@ through the retries, and the whole fill still ends at 30 seconds). If
 `GEMINI_FALLBACK_MODEL` is set, each of those tries also asks that model,
 straight away, when the first one is busy. **Clean up** and the summary
 written for an older dish do the same (`clean-description` and
-`summarize-dish`): up to three tries, and the fallback model. If Try again
+`summarize-dish`): up to three tries, and the fallback model. When Clean up
+still fails, a plain line says so under the description ("The AI couldn't
+clean this up. Still busy. Try again in a minute." for a 503 or 429, "Your
+description is unchanged." otherwise) with the model's own words behind its
+own **Details** toggle, closed by default, as here; the dish summary just
+leaves the card as it was. If Try again
 fails too, a line under the button says why it's worth another go or not:
 "Still busy. Try again in a minute." for a 503 or 429, "That didn't work.
 You can fill it in below." for anything else. It goes when the chef presses
