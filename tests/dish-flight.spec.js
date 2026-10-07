@@ -283,7 +283,7 @@ test.describe('the back arrow', () => {
 
   test('a dish whose card is not in the gallery leaves with the view, and is gone', async ({ page }) => {
     await boot(page);
-    await page.getByRole('searchbox', { name: 'Search meals' }).fill('number 12');
+    await page.getByRole('searchbox', { name: 'Search dishes' }).fill('number 12');
     await expect(page.locator('.meal-card')).toHaveCount(1);
     await tapCard(page, 'm12');
     await settle(page);

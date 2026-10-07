@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Avatar from './Avatar';
 import Button from './Button';
 import CloseIcon from './CloseIcon';
 import FilterSheet from './FilterSheet';
 import MealCard from './MealCard';
 import MealActionSheet from './MealActionSheet';
+import { placeAmong, sortDishes } from '../lib/dishOrder';
+import { useDishReorder } from '../lib/useDishReorder';
 import './Gallery.css';
 
 // Cards past this index all share the same entrance delay, so a long
@@ -25,15 +27,33 @@ export default function Gallery({
   title = 'Staj',
   // In place of the wordmark header: a public page puts its chef there.
   header,
+  // Called after the search or a filter changes what's shown, once the
+  // grid has re-rendered, with whether anything is narrowing the list. The
+  // public page uses it to bring the results up under its header when the
+  // search is docked there.
+  onQueryChange,
   // The chef's picture, top right, which opens their profile. A public
   // page leaves it out: its visitors have no profile of their own here.
   avatarUrl,
   onOpenProfile,
+  // How the dishes are laid out (lib/dishOrder.js), and who to tell when
+  // the viewer picks another. Held by the page, whose open dish steps
+  // through the dishes in an order that follows it (lib/shelf.js).
+  sort,
+  onSortChange,
+  // The chef's own order, as dish ids: what 'custom' lays them out by.
+  dishOrder,
+  // Given, a held dish can be dragged somewhere else, and this gets the
+  // whole archive's new order. A public page leaves it out: its visitors
+  // can see the chef's order but not change it.
+  onReorder,
 }) {
   const [search, setSearch] = useState('');
   const [selectedCuisines, setSelectedCuisines] = useState([]);
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [year, setYear] = useState('');
+  // Why the order a dish was just dragged into didn't save.
+  const [orderError, setOrderError] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [actionSheetMeal, setActionSheetMeal] = useState(null);
@@ -62,7 +82,9 @@ export default function Gallery({
 
   const query = search.trim().toLowerCase();
 
-  const filtered = meals.filter((m) => {
+  const ordered = useMemo(() => sortDishes(meals, sort, dishOrder), [meals, sort, dishOrder]);
+
+  const filtered = ordered.filter((m) => {
     if (selectedCuisines.length && !selectedCuisines.includes(m.cuisine)) return false;
     if (selectedCategories.length && !selectedCategories.includes(m.category)) return false;
     if (year && String(new Date(m.date).getFullYear()) !== year) return false;
@@ -76,8 +98,50 @@ export default function Gallery({
     return true;
   });
 
+  const reorder = useDishReorder({
+    ids: filtered.map((m) => String(m.id)),
+    enabled: Boolean(onReorder),
+    // The dish has started to move, so it was a drag, not a hold for the
+    // menu: the menu gives way.
+    onDragStart: () => setActionSheetMeal(null),
+    onDrop: handleDrop,
+  });
+
+  // While a dish is being moved, the grid shows the order it's being moved
+  // through; once it's let go, the order it was saved in.
+  const shown = useMemo(() => {
+    if (!reorder.order) return filtered;
+    const byId = new Map(filtered.map((m) => [String(m.id), m]));
+    return reorder.order.map((id) => byId.get(id)).filter(Boolean);
+  }, [reorder.order, filtered]);
+
+  // Whatever the grid was sorted by, the order it's in now, with the
+  // dish where it was let go, becomes the chef's own: the gallery moves to
+  // 'custom' to keep it there.
+  function handleDrop(visible, id) {
+    const all = placeAmong(ordered.map((m) => String(m.id)), visible, id);
+    setOrderError('');
+    if (sort !== 'custom') onSortChange('custom');
+    Promise.resolve(onReorder(all)).catch((err) => {
+      setOrderError(err.message || "Couldn't save this order.");
+    });
+  }
+
+  function handleHold(meal, point) {
+    setActionSheetMeal(meal);
+    reorder.arm(meal.id, point);
+  }
+
   const activeFilterCount = selectedCuisines.length + selectedCategories.length + (year ? 1 : 0);
   const hasActiveFilters = activeFilterCount > 0;
+
+  const queryKey = JSON.stringify([query, selectedCuisines, selectedCategories, year]);
+  const lastQueryKey = useRef(queryKey);
+  useEffect(() => {
+    if (lastQueryKey.current === queryKey) return;
+    lastQueryKey.current = queryKey;
+    onQueryChange?.(Boolean(query) || hasActiveFilters);
+  }, [queryKey, onQueryChange, query, hasActiveFilters]);
 
   function toggleCuisine(value) {
     setSelectedCuisines((prev) => (prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]));
@@ -127,30 +191,31 @@ export default function Gallery({
             <input
               type="search"
               className="gallery-search-input"
-              placeholder="Search meals…"
+              placeholder="Search dishes…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              aria-label="Search meals"
+              aria-label="Search dishes"
             />
           </div>
           <button
             type="button"
-            className="gallery-filter-btn"
+            className={`gallery-filter-btn ${hasActiveFilters ? 'gallery-filter-btn-active' : ''}`}
             onClick={() => setShowFilters(true)}
             aria-label={hasActiveFilters ? `Open filters, ${activeFilterCount} active` : 'Open filters'}
             aria-haspopup="dialog"
           >
             <FilterIcon />
-            {hasActiveFilters && <span className="gallery-filter-dot" aria-hidden="true" />}
           </button>
         </div>
         <span className="gallery-count">
-          {filtered.length} of {meals.length} meals
+          {filtered.length} of {meals.length} dishes
         </span>
       </div>
 
       {showFilters && (
         <FilterSheet
+          sort={sort}
+          onChangeSort={onSortChange}
           selectedCuisines={selectedCuisines}
           selectedCategories={selectedCategories}
           year={year}
@@ -164,6 +229,12 @@ export default function Gallery({
           onClearAll={clearFilters}
           onClose={() => setShowFilters(false)}
         />
+      )}
+
+      {orderError && (
+        <p className="gallery-order-error" role="alert">
+          {orderError}
+        </p>
       )}
 
       {editMode && (
@@ -208,16 +279,17 @@ export default function Gallery({
           <p className="gallery-empty">No meals match those filters.</p>
         )
       ) : (
-        <div className={`gallery-grid ${introDone ? '' : 'gallery-grid-intro'}`}>
-          {filtered.map((meal, i) => (
+        <div ref={reorder.bindGrid} className={`gallery-grid ${introDone ? '' : 'gallery-grid-intro'}`}>
+          {shown.map((meal, i) => (
             <MealCard
               key={meal.id}
               meal={meal}
               style={{ '--stagger-index': Math.min(i, STAGGER_CAP) }}
               onOpen={onOpenMeal}
-              onLongPress={onDeleteMeal ? setActionSheetMeal : undefined}
+              onLongPress={onDeleteMeal ? handleHold : undefined}
               editMode={editMode}
               onDelete={handleDeleteFromBadge}
+              dragging={reorder.draggingId === String(meal.id)}
             />
           ))}
         </div>

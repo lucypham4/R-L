@@ -2,10 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { tokenMs } from '../lib/motion';
 import CloseIcon from './CloseIcon';
 import FilterSelect from './FilterSelect';
+import SegmentedToggle from './SegmentedToggle';
+import { SORTS } from '../lib/dishOrder';
 import './Bubbles.css';
 import './FilterSheet.css';
 
 export default function FilterSheet({
+  sort,
+  onChangeSort,
   selectedCuisines,
   selectedCategories,
   year,
@@ -72,6 +76,19 @@ export default function FilterSheet({
         </div>
 
         <div className="filter-sheet-body">
+          {/* How the dishes are laid out, not which of them show, so
+              Clear all leaves it be and it never lights the filter dot. */}
+          <div className="filter-sheet-group">
+            <span className="filter-sheet-label">Sort by</span>
+            <SegmentedToggle
+              label="Sort by"
+              className="filter-sheet-sort"
+              options={SORTS}
+              value={sort}
+              onChange={onChangeSort}
+            />
+          </div>
+
           <FilterChipGroup label="Cuisine" options={cuisines} selected={selectedCuisines} onToggle={onToggleCuisine} />
           <FilterChipGroup label="Category" options={categories} selected={selectedCategories} onToggle={onToggleCategory} />
 

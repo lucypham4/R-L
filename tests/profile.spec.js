@@ -516,12 +516,15 @@ test.describe('the public page', () => {
     expect(D / nameRise).toBeGreaterThan(1.9);
 
     // The backdrop's lower edge follows the header up: half-way, it sits
-    // between where the header ends at the top and where the bar ends.
+    // between where the header ends at the top and where the bar ends, or,
+    // once the search is riding up under the name (this header is short),
+    // just under the search, so what slides by goes under that too.
     await scrollTo(page, D * 0.5);
     const edge = await page.locator('.public-chef-bar-backdrop').evaluate((el) => el.getBoundingClientRect().bottom);
     const barBottom = await page.locator('.public-chef-bar').evaluate((el) => el.getBoundingClientRect().bottom);
+    const held = await box(page.locator('.gallery-search'));
     expect(edge).toBeGreaterThan(barBottom);
-    expect(edge).toBeLessThan(nameTopBottom);
+    expect(edge).toBeLessThanOrEqual(Math.max(nameTopBottom, held.y + held.h + 12) + 0.5);
 
     // The names hand over between 45% and 55%: half-way, both show.
     await scrollTo(page, D * 0.5);
@@ -576,6 +579,124 @@ test.describe('the public page', () => {
     expect(Math.abs((await settle(far)) - far)).toBeLessThan(2);
   });
 
+  test('the search docks in the bar under the name, and stays there as the dishes scroll on', async ({ page }) => {
+    await boot(page, { path: '/ana', meals: MEALS, chef: { ...CHEF, bio: 'Seasonal Vietnamese.' } });
+    const avatar = page.locator('.public-chef-travel-avatar');
+    await expect.poll(async () => Math.round((await box(avatar)).w)).toBe(112);
+    const search = page.locator('.gallery-search');
+    const input = page.getByRole('searchbox', { name: 'Search dishes' });
+    await expect(input).toHaveAttribute('placeholder', 'Search dishes…');
+
+    // At the top it is in the page, under the header.
+    const atTop = await box(search);
+    const nameBottom = (await box(page.locator('.public-chef-name'))).y + (await box(page.locator('.public-chef-name'))).h;
+    expect(atTop.y).toBeGreaterThan(nameBottom);
+
+    await noSnap(page);
+    const D = await collapseAt(page);
+    const slot = await box(page.locator('.public-chef-bar-search'));
+    // Collapsed, and far down the page: in the bar's second row, under the
+    // name, the backdrop running on under it.
+    for (const y of [D, D + 300, D + 700]) {
+      await scrollTo(page, y);
+      const s = await box(search);
+      expect(Math.abs(s.y - slot.y), `at ${Math.round(y)}`).toBeLessThan(1);
+      const name = await box(page.locator('.public-chef-travel-name-small'));
+      expect(s.y).toBeGreaterThan(name.y + name.h);
+      const edge = await page.locator('.public-chef-bar-backdrop').evaluate((el) => el.getBoundingClientRect().bottom);
+      expect(edge).toBeGreaterThanOrEqual(s.y + s.h);
+    }
+    // Stuck by CSS once docked, so it holds still with nothing scripted on it.
+    expect(await search.evaluate((el) => getComputedStyle(el).position)).toBe('sticky');
+    expect(await search.evaluate((el) => el.style.translate)).toBe('');
+    // It is the page's own search, not a copy: one box, and it takes taps.
+    await expect(page.getByRole('searchbox')).toHaveCount(1);
+    expect(await search.evaluate((el) => getComputedStyle(el).pointerEvents)).toBe('auto');
+  });
+
+  test('with a short header the search rises with the name, never across it', async ({ page }) => {
+    // No bio and no specialties: the search starts just under the name, so
+    // it meets its lane early and rides it up with the collapse.
+    await boot(page, { path: '/ana', meals: MEALS });
+    const avatar = page.locator('.public-chef-travel-avatar');
+    await expect.poll(async () => Math.round((await box(avatar)).w)).toBe(112);
+    const search = page.locator('.gallery-search');
+    const large = page.locator('.public-chef-travel-name:not(.public-chef-travel-name-small)');
+    const small = page.locator('.public-chef-travel-name-small');
+    await noSnap(page);
+    const D = await collapseAt(page);
+    let held = 0;
+    for (let i = 0; i <= 20; i++) {
+      await scrollTo(page, (D * i) / 20);
+      const s = await box(search);
+      const a = await box(avatar);
+      const n = await box((await opacity(large)) >= 0.5 ? large : small);
+      expect(s.y, `search under the name at ${i * 5}%`).toBeGreaterThanOrEqual(n.y + n.h);
+      expect(s.y, `search under the picture at ${i * 5}%`).toBeGreaterThanOrEqual(a.y + a.h);
+      if (await search.evaluate((el) => el.style.translate !== '')) held += 1;
+      // Once held, the backdrop reaches under it.
+      const natural = await page.evaluate(() => {
+        const el = document.querySelector('.gallery-search');
+        return el.style.translate ? parseFloat(el.style.translate.split(' ')[1]) : 0;
+      });
+      if (natural > 12) {
+        const edge = await page.locator('.public-chef-bar-backdrop').evaluate((el) => el.getBoundingClientRect().bottom);
+        expect(edge).toBeGreaterThanOrEqual(s.y + s.h);
+      }
+    }
+    // It did ride the lane on the way (held by the script), and ends docked.
+    expect(held).toBeGreaterThan(3);
+    const slot = await box(page.locator('.public-chef-bar-search'));
+    expect(Math.abs((await box(search)).y - slot.y)).toBeLessThan(1);
+  });
+
+  test('searching from the docked bar keeps it collapsed and brings the results up under it', async ({ page }) => {
+    const many = [...MEALS, ...MEALS.map((m) => ({ ...m, id: `${m.id}b`, name: `${m.name} again` }))];
+    await boot(page, { path: '/ana', meals: many, chef: { ...CHEF, bio: 'Seasonal Vietnamese.' } });
+    const avatar = page.locator('.public-chef-travel-avatar');
+    await expect.poll(async () => Math.round((await box(avatar)).w)).toBe(112);
+    await noSnap(page);
+    const D = await collapseAt(page);
+    await scrollTo(page, D + 900);
+
+    await page.getByRole('searchbox', { name: 'Search dishes' }).fill('Dish 3 again');
+    await expect(page.locator('.meal-card')).toHaveCount(1);
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+
+    // Still collapsed, the search still docked, the one result on screen
+    // just under it rather than somewhere above.
+    const y = await page.evaluate(() => window.scrollY);
+    expect(y).toBeGreaterThanOrEqual(D - 1);
+    expect(Math.round((await box(avatar)).w)).toBe(56);
+    const s = await box(page.locator('.gallery-search'));
+    const card = await box(page.locator('.meal-card'));
+    expect(card.y).toBeGreaterThan(s.y + s.h);
+    expect(card.y).toBeLessThan(await page.evaluate(() => window.innerHeight / 2));
+
+    // Cleared, it all comes back, and the reader stays where they were put.
+    await page.getByRole('searchbox', { name: 'Search dishes' }).fill('');
+    await expect(page.locator('.meal-card')).toHaveCount(many.length);
+    expect(Math.abs((await page.evaluate(() => window.scrollY)) - y)).toBeLessThan(2);
+    // Whatever room was made for the results is given back.
+    expect(await page.locator('.gallery-count').evaluate((el) => el.style.marginTop)).toBe('');
+  });
+
+  test('the count goes before the bar’s soft edge, rather than resting half-faded in it', async ({ page }) => {
+    await boot(page, { path: '/ana', meals: MEALS, chef: { ...CHEF, bio: 'Seasonal Vietnamese.' } });
+    const count = page.locator('.gallery-count');
+    await expect.poll(async () => Math.round((await box(page.locator('.public-chef-travel-avatar'))).w)).toBe(112);
+    expect(await opacity(count)).toBe(1);
+    await noSnap(page);
+    for (let i = 0; i <= 30; i++) {
+      await scrollTo(page, i * 15);
+      const o = await opacity(count);
+      const c = await box(count);
+      const edge = await page.locator('.public-chef-bar-backdrop').evaluate((el) => el.getBoundingClientRect().bottom + parseFloat(getComputedStyle(el, '::after').height));
+      // Anything still showing is clear of the backdrop and its fade.
+      if (o > 0) expect(c.y, `count at scroll ${i * 15}`).toBeGreaterThanOrEqual(edge - 0.5);
+    }
+  });
+
   test('with reduced motion, the picture and name jump between the rests instead of travelling', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await boot(page, { path: '/ana', meals: MEALS });
@@ -593,6 +714,11 @@ test.describe('the public page', () => {
     // Past it, it is in the bar.
     await scrollTo(page, D * 0.6);
     await expect.poll(async () => Math.round((await box(avatar)).w)).toBe(56);
+
+    // And once collapsed, the search is docked under it.
+    await scrollTo(page, D + 200);
+    const slot = await box(page.locator('.public-chef-bar-search'));
+    expect(Math.abs((await box(page.locator('.gallery-search'))).y - slot.y)).toBeLessThan(1);
   });
 });
 

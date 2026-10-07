@@ -139,3 +139,10 @@
 .filter-sheet-group .filter-select select {
   width: 100%;
 }
+
+/* The full width of the sheet, like the year menu below it, with the three
+   orders sharing it equally. */
+.filter-sheet-sort {
+  display: grid;
+  width: 100%;
+}
