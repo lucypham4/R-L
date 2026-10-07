@@ -15,7 +15,13 @@ import Splash from './components/Splash';
 import { isSupabaseConfigured } from './lib/supabase';
 import { isCloudinaryConfigured } from './lib/cloudinary';
 import { fetchMeals, insertMeal, deleteMeal, updateMealSummary } from './lib/mealsApi';
-import { fetchChefProfile, updateChefPageTheme, updateChefAvatar, updateChefProfile } from './lib/chefsApi';
+import {
+  fetchChefProfile,
+  updateChefPageTheme,
+  updateChefAvatar,
+  updateChefProfile,
+  updateChefDishOrder,
+} from './lib/chefsApi';
 import { getSession, onAuthChange, signOut, isRecoveringPassword, takeEmailLinkError } from './lib/auth';
 import { loadLocalMeals, saveLocalMeals, createLocalMeal } from './lib/localMeals';
 import { scrollToTop } from './lib/motion';
@@ -26,6 +32,7 @@ import { summarizeDish, isAiConfigured } from './lib/aiFill';
 import { loadTheme, saveTheme, nextTheme, applyTheme } from './lib/theme';
 import { importLocalMeals, countLocalMeals } from './lib/localImport';
 import { loadLocalAvatar, saveLocalAvatar, storeAvatar } from './lib/avatar';
+import { loadLocalOrder, saveLocalOrder, loadSort, saveSort } from './lib/dishOrder';
 import './App.css';
 
 export default function App() {
@@ -79,6 +86,9 @@ function AdminApp() {
   const [theme, setTheme] = useState(loadTheme);
   // A guest's profile picture. A chef's is on chefProfile instead.
   const [localAvatar, setLocalAvatar] = useState(loadLocalAvatar);
+  // A guest's own order for their dishes. A chef's is on chefProfile
+  // instead, where their public page reads it too.
+  const [localOrder, setLocalOrder] = useState(loadLocalOrder);
   // Local Import (see CONTEXT.md / ADR 0001): offered once, right after a
   // fresh sign-up, while the new account is guaranteed empty. Anything
   // declined or left behind by a partial failure stays in local storage,
@@ -268,6 +278,28 @@ function AdminApp() {
   }
 
   const avatarUrl = chefProfile ? chefProfile.avatarUrl : localAvatar;
+  const dishOrder = chefProfile ? chefProfile.dishOrder : localOrder;
+
+  // The order a dish was just dragged into, as every dish's id. Shown at
+  // once; signed in, it's saved to the chef's profile, and if that fails
+  // the dishes go back to where they were and the error propagates for
+  // the gallery to show.
+  async function handleReorder(ids) {
+    if (!chefProfile) {
+      setLocalOrder(ids);
+      saveLocalOrder(ids);
+      return;
+    }
+    const previous = chefProfile.dishOrder;
+    setChefProfile((p) => ({ ...p, dishOrder: ids }));
+    try {
+      const updated = await updateChefDishOrder(userId, ids);
+      setChefProfile((p) => (p.dishOrder === ids ? updated : p));
+    } catch (err) {
+      setChefProfile((p) => (p.dishOrder === ids ? { ...p, dishOrder: previous } : p));
+      throw err;
+    }
+  }
 
   // The chef's name and bio, from Edit on their profile. Errors propagate,
   // for the form to show.
@@ -421,6 +453,10 @@ function AdminApp() {
           onDeleteMeal={handleDeleteMeal}
           avatarUrl={avatarUrl}
           onOpenProfile={() => setShowProfile(true)}
+          initialSort={loadSort()}
+          onSortChange={saveSort}
+          dishOrder={dishOrder}
+          onReorder={handleReorder}
         />
       </div>
 

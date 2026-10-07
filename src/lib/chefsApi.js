@@ -28,6 +28,9 @@ function fromRow(row) {
     // Both missing until profile-details-migration.sql has run.
     specialties: Array.isArray(row.specialties) ? row.specialties.filter((s) => typeof s === 'string') : [],
     links: cleanLinks(row.links),
+    // The chef's own order for their dishes, as ids. Missing entirely
+    // until dish-order-migration.sql has run.
+    dishOrder: Array.isArray(row.dish_order) ? row.dish_order.map(String) : [],
   };
 }
 
@@ -92,6 +95,22 @@ export async function updateChefAvatar(userId, avatarUrl) {
   return fromRow(data);
 }
 
+/**
+ * Saves the order the chef dragged their dishes into, which their public
+ * page shows them in too. Needs dish-order-migration.sql; until it has
+ * run, Supabase refuses the column and the error says so.
+ */
+export async function updateChefDishOrder(userId, dishOrder) {
+  const { data, error } = await supabase
+    .from('chefs')
+    .update({ dish_order: dishOrder })
+    .eq('id', userId)
+    .select()
+    .single();
+  if (error) throw missingColumnError(error) ?? error;
+  return fromRow(data);
+}
+
 const PROFILE_COLUMNS = {
   displayName: 'display_name',
   bio: 'bio',
@@ -127,6 +146,7 @@ const COLUMN_FEATURES = {
   bio: 'bios',
   specialties: 'specialties',
   links: 'links',
+  dish_order: 'the order of your dishes',
 };
 
 /**

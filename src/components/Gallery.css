@@ -216,6 +216,12 @@
   margin-top: var(--space-md);
 }
 
+.gallery-order-error {
+  margin-bottom: var(--space-lg);
+  font: 400 0.8125rem/1.5 var(--font-sans);
+  color: var(--color-danger);
+}
+
 .gallery-edit-bar {
   display: flex;
   align-items: center;
@@ -250,6 +256,9 @@
 }
 
 .gallery-grid {
+  /* The dishes' offsetParent, which is what dragging one measures their
+     places from (lib/useDishReorder.js). */
+  position: relative;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--grid-gap-sm);

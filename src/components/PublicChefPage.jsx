@@ -241,7 +241,16 @@ export default function PublicChefPage({ slug }) {
         {name}
       </span>
 
-      <Gallery meals={sortedMeals} onOpenMeal={handleOpenMeal} header={<ChefHeader chef={chef} bind={bind} />} />
+      {/* In the chef's own order to begin with: the page is their work,
+          laid out as they arranged it. A visitor can sort it by date
+          instead, but has no way to rearrange it. */}
+      <Gallery
+        meals={sortedMeals}
+        onOpenMeal={handleOpenMeal}
+        header={<ChefHeader chef={chef} bind={bind} />}
+        initialSort="custom"
+        dishOrder={chef.dishOrder}
+      />
 
       {/* The collapsed rest's snap area, from where the name sits in the
           bar to the end of the page, and a last snap point at the very
