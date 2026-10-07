@@ -116,7 +116,13 @@ function Chevron({ direction }) {
   );
 }
 
-export default function MealDetailModal({ meal, index, total, onClose, onStep, prevMeal, nextMeal }) {
+// `onEdit` is only passed where the dish is the viewer's own to change (the
+// chef's admin app, not a public page), and puts an Edit button beside
+// Share. `paused` is for while something sits on top of the dish, the edit
+// form: the dish stays open underneath, but must not answer the keys typed
+// into the form above it (Escape would close it, and the arrows would step
+// away from the dish being edited).
+export default function MealDetailModal({ meal, index, total, onClose, onStep, onEdit, paused = false, prevMeal, nextMeal }) {
   const { els, bind } = useElements();
   const shareCardRef = useRef(null);
   const [shareStatus, setShareStatus] = useState('idle'); // idle | working | done | error
@@ -125,6 +131,8 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep, p
   const [outgoingName, setOutgoingName] = useState(null);
   const shownNameRef = useRef(meal?.name);
   const swiped = useRef(false);
+  const editRef = useRef(null);
+  const wasPaused = useRef(false);
   // The swipe in progress, and a step whose slide is still to be played
   // once the next dish has rendered.
   const drag = useRef(null);
@@ -272,6 +280,7 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep, p
   }, [els]);
 
   useEffect(() => {
+    if (paused) return;
     function onKeyDown(e) {
       if (e.key === 'Escape') onClose();
       if (!canStep) return;
@@ -280,7 +289,14 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep, p
     }
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [onClose, canStep]);
+  }, [onClose, canStep, paused]);
+
+  // Closing the edit form hands focus back to the button that opened it,
+  // rather than letting it fall to the page behind.
+  useEffect(() => {
+    if (wasPaused.current && !paused) editRef.current?.focus({ preventScroll: true });
+    wasPaused.current = paused;
+  }, [paused]);
 
   // The neighbours' photos, fetched ahead so a step never waits on the
   // network half-way through its slide.
@@ -695,9 +711,16 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep, p
             <span className="dish-index">
               No. {index} of {total}
             </span>
-            <button type="button" className="dish-share" onClick={handleShare} disabled={shareStatus === 'working'}>
-              {shareStatus === 'working' ? 'Preparing…' : shareStatus === 'done' ? 'Saved image' : shareStatus === 'error' ? 'Could not share' : 'Share'}
-            </button>
+            <div className="dish-actions">
+              {onEdit && (
+                <button ref={editRef} type="button" className="dish-action" onClick={onEdit}>
+                  Edit
+                </button>
+              )}
+              <button type="button" className="dish-action dish-share" onClick={handleShare} disabled={shareStatus === 'working'}>
+                {shareStatus === 'working' ? 'Preparing…' : shareStatus === 'done' ? 'Saved image' : shareStatus === 'error' ? 'Could not share' : 'Share'}
+              </button>
+            </div>
           </div>
 
           <div className="dish-hero">

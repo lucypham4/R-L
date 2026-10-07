@@ -34,6 +34,20 @@ function servesError(value) {
   return '';
 }
 
+/**
+ * Makes sure `value` is one of the bubbles on offer for `kind` and hands it
+ * back trimmed. The pickers only show what is in the saved list, so a value
+ * that isn't there (a cuisine the AI named, a bubble since deleted, a dish
+ * from another device) would be held by the form and drawn by nothing.
+ */
+function rememberBubble(kind, value) {
+  const trimmed = (value ?? '').trim();
+  if (!trimmed) return '';
+  const list = loadBubbleList(kind);
+  if (!list.includes(trimmed)) saveBubbleList(kind, [...list, trimmed]);
+  return trimmed;
+}
+
 function newPhotoId() {
   return typeof crypto !== 'undefined' && crypto.randomUUID
     ? crypto.randomUUID()
@@ -81,8 +95,13 @@ function ArrowIcon({ direction = 'forward' }) {
   );
 }
 
-export default function AddMealForm({ onSave, onCancel }) {
-  const [step, setStep] = useState(1);
+// Given a `meal`, the form edits that dish instead of adding one: it opens on
+// the recipe card (step 3), pre-filled, and its photos stay as they are. The
+// AI fill has nothing to do there -- the dish already has its details -- and
+// the steps before the card are only about getting a photo and notes in.
+export default function AddMealForm({ meal, onSave, onCancel }) {
+  const editing = Boolean(meal);
+  const [step, setStep] = useState(editing ? 3 : 1);
   const [photoMode, setPhotoMode] = useState('upload'); // upload | sketch
   const [photos, setPhotos] = useState([]); // [{ id, originalFile, file, previewUrl }]
   const [activeIndex, setActiveIndex] = useState(0);
@@ -96,21 +115,21 @@ export default function AddMealForm({ onSave, onCancel }) {
   // (reading 'getBlob')" and could never be saved.
   const sketchBlobRef = useRef(null);
   const [notes, setNotes] = useState('');
-  const [name, setName] = useState('');
-  const [date, setDate] = useState('');
+  const [name, setName] = useState(meal?.name ?? '');
+  const [date, setDate] = useState(meal?.date ? String(meal.date).slice(0, 10) : '');
   // Pre-filled rather than blank: 2 was what every meal silently claimed
   // before this field existed, and it's the common case. The difference is
   // that a chef now sees it and can change it, or clear it to say nothing.
-  const [serves, setServes] = useState(String(DEFAULT_SERVES));
-  const [cuisine, setCuisine] = useState('');
-  const [category, setCategory] = useState('');
-  const [description, setDescription] = useState('');
+  const [serves, setServes] = useState(editing ? String(normaliseServes(meal.serves) ?? '') : String(DEFAULT_SERVES));
+  const [cuisine, setCuisine] = useState(() => rememberBubble('cuisine', meal?.cuisine));
+  const [category, setCategory] = useState(() => rememberBubble('category', meal?.category));
+  const [description, setDescription] = useState(meal?.description ?? '');
   // The line on the dish's resting card. Written by the AI fill when it
   // runs; left blank, the card makes one from the description (summaryOf).
-  const [summary, setSummary] = useState('');
-  const [ingredients, setIngredients] = useState([]);
-  const [methodText, setMethodText] = useState('');
-  const [note, setNote] = useState('');
+  const [summary, setSummary] = useState(meal?.summary ?? '');
+  const [ingredients, setIngredients] = useState(meal?.ingredients ?? []);
+  const [methodText, setMethodText] = useState((meal?.method ?? []).join('\n'));
+  const [note, setNote] = useState(meal?.note ?? '');
   const [touched, setTouched] = useState({});
   const [uploadProgressList, setUploadProgressList] = useState([]);
   const [status, setStatus] = useState('idle'); // idle | uploading | saving | error
@@ -148,10 +167,14 @@ export default function AddMealForm({ onSave, onCancel }) {
       if (e.key === 'Escape' && status !== 'uploading' && status !== 'saving') onCancel();
     }
     document.addEventListener('keydown', onKeyDown);
+    // Put back what was there rather than clearing it: editing opens over a
+    // dish that has already locked the page, and closing the form mustn't
+    // unlock it from under the dish.
+    const before = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', onKeyDown);
-      document.body.style.overflow = '';
+      document.body.style.overflow = before;
     };
   }, [onCancel, status]);
 
@@ -279,11 +302,8 @@ export default function AddMealForm({ onSave, onCancel }) {
   // already there) before setting it, then forces BubbleSelect to remount
   // via the `key` prop below so it reloads the list and shows it selected.
   function applyBubbleValue(kind, value, setter) {
-    const trimmed = value.trim();
-    if (!trimmed) return;
-    const list = loadBubbleList(kind);
-    if (!list.includes(trimmed)) saveBubbleList(kind, [...list, trimmed]);
-    setter(trimmed);
+    const trimmed = rememberBubble(kind, value);
+    if (trimmed) setter(trimmed);
   }
 
   function handleCropConfirm(blob) {
@@ -513,7 +533,10 @@ export default function AddMealForm({ onSave, onCancel }) {
 
     try {
       let photoUrls;
-      if (photoMode === 'sketch') {
+      if (editing) {
+        // The dish keeps the photos it has; there is nothing to upload.
+        photoUrls = meal.photos ?? [];
+      } else if (photoMode === 'sketch') {
         const blob = await getSketchBlob();
         if (!blob) throw new Error('Could not read the sketch. Try drawing again.');
         setStatus('uploading');
@@ -543,7 +566,7 @@ export default function AddMealForm({ onSave, onCancel }) {
       setStatus('idle');
     } catch (err) {
       setStatus('error');
-      setSubmitError(err.message || 'Something went wrong saving this meal.');
+      setSubmitError(err.message || (editing ? 'Something went wrong saving your changes.' : 'Something went wrong saving this meal.'));
     }
   }
 
@@ -551,19 +574,31 @@ export default function AddMealForm({ onSave, onCancel }) {
     ? uploadProgressList.reduce((sum, p) => sum + p, 0) / uploadProgressList.length
     : 0;
   const isSaving = status === 'uploading' || status === 'saving';
-  const saveLabel = status === 'uploading' ? `Uploading… ${Math.round(uploadProgress * 100)}%` : status === 'saving' ? 'Saving…' : 'Save meal';
+  const saveLabel =
+    status === 'uploading'
+      ? `Uploading… ${Math.round(uploadProgress * 100)}%`
+      : status === 'saving'
+        ? 'Saving…'
+        : editing
+          ? 'Save changes'
+          : 'Save meal';
 
   return (
     <div className="modal-overlay" onMouseDown={(e) => e.target === e.currentTarget && !isSaving && onCancel()}>
-      <div className="add-meal-card" ref={cardRef} role="dialog" aria-modal="true" aria-label="Add a meal">
-        <p className="add-meal-progress">Step {step} of 3</p>
-        {/* The step counter already says where you are; the bar makes it
-            glanceable and, by growing rather than jumping, shows that the
-            last step moved you forward. */}
-        <div className="add-meal-progress-track" aria-hidden="true">
-          <span className="add-meal-progress-fill" style={{ transform: `scaleX(${step / 3})` }} />
-        </div>
-        <h2 className="add-meal-title">{STEP_TITLES[step]}</h2>
+      <div className="add-meal-card" ref={cardRef} role="dialog" aria-modal="true" aria-label={editing ? `Edit ${meal.name}` : 'Add a meal'}>
+        {/* Editing is one screen, not three steps, so there's no count to keep. */}
+        {!editing && (
+          <>
+            <p className="add-meal-progress">Step {step} of 3</p>
+            {/* The step counter already says where you are; the bar makes it
+                glanceable and, by growing rather than jumping, shows that the
+                last step moved you forward. */}
+            <div className="add-meal-progress-track" aria-hidden="true">
+              <span className="add-meal-progress-fill" style={{ transform: `scaleX(${step / 3})` }} />
+            </div>
+          </>
+        )}
+        <h2 className="add-meal-title">{editing ? 'Edit your recipe card' : STEP_TITLES[step]}</h2>
 
         {step === 1 && (
           <div className="add-meal-form">
@@ -954,13 +989,20 @@ export default function AddMealForm({ onSave, onCancel }) {
             {submitError && <ErrorText>{submitError}</ErrorText>}
 
             <div className="add-meal-footer">
-              <Button type="button" variant="secondary" onClick={handleBackToNotes} disabled={isSaving}>
-                <ArrowIcon direction="back" /> Back
-              </Button>
+              {editing ? (
+                <Button type="button" variant="secondary" onClick={onCancel} disabled={isSaving}>
+                  Cancel
+                </Button>
+              ) : (
+                <Button type="button" variant="secondary" onClick={handleBackToNotes} disabled={isSaving}>
+                  <ArrowIcon direction="back" /> Back
+                </Button>
+              )}
               {/* The one red button in the app: it finishes adding the meal.
                   Held until the AI has answered, so a late fill can't land
-                  on a card that has already been saved. */}
-              <Button type="submit" variant="final" disabled={isSaving || aiPending.size > 0}>
+                  on a card that has already been saved. Saving changes to a
+                  dish that is already there is an ordinary primary. */}
+              <Button type="submit" variant={editing ? 'primary' : 'final'} disabled={isSaving || aiPending.size > 0}>
                 {saveLabel}
               </Button>
             </div>

@@ -72,6 +72,43 @@ export async function insertMeal(meal, userId) {
 }
 
 /**
+ * Saves a chef's edits to a dish they already have. Photos and tags aren't
+ * part of an edit and are left as they are. Needs summary-migration.sql,
+ * which is what lets a chef update their own meals.
+ *
+ * Unlike a new meal, an edit sends what is blank as blank: a chef who clears
+ * the summary or the serves means it, and leaving the key out would keep the
+ * old value. (Clearing serves needs serves-optional-migration.sql, which
+ * makes the column nullable.)
+ */
+export async function updateMeal(id, fields) {
+  const row = {
+    name: fields.name,
+    cuisine: fields.cuisine || '',
+    category: fields.category || '',
+    date: fields.date,
+    serves: normaliseServes(fields.serves),
+    description: fields.description,
+    ingredients: fields.ingredients ?? [],
+    method: fields.method ?? [],
+    note: fields.note || '',
+    summary: fields.summary?.trim() ?? '',
+  };
+  const update = (r) => supabase.from('meals').update(r).eq('id', id).select();
+  let { data, error } = await update(row);
+  // As on insert: no summary column yet is no reason to lose the edit.
+  if (error && isMissingColumn(error, 'summary')) {
+    const { summary: _dropped, ...rest } = row;
+    ({ data, error } = await update(rest));
+  }
+  if (error) throw error;
+  // Row-level security turns an update no policy allows into an empty
+  // success, as it does a delete (see deleteMeal). No row back, nothing saved.
+  if (!data?.length) throw new Error("Couldn't save your changes to your account. The dish is as it was.");
+  return fromRow(data[0]);
+}
+
+/**
  * Saves a summary written for a meal after the fact. Needs
  * summary-migration.sql, which adds the column and lets a chef update
  * their own meals.
