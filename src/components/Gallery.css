@@ -157,18 +157,26 @@
   background: var(--color-ink-hover);
 }
 
-/* A filter is narrowing the list: a dot on the button's rim, ink on a ring
-   of the page colour so it stands clear of the fill it overlaps. */
+/* A filter is narrowing the list: an accent dot at the button's top right,
+   inside a ring of the button's own fill (ink), so a gap is cut between it
+   and the icon's lines. 8px of accent in a 12px box; it clears the icon by a
+   couple of pixels and stays inside the circle. */
 .gallery-filter-dot {
   position: absolute;
-  top: 0;
-  right: 0;
+  top: 5px;
+  right: 5px;
   width: 12px;
   height: 12px;
   box-sizing: border-box;
-  border: 2px solid var(--color-bg);
+  border: 2px solid var(--color-ink);
   border-radius: 50%;
-  background: var(--color-ink);
+  background: var(--color-accent);
+  transition: border-color var(--dur-color) var(--ease);
+}
+
+/* The ring is the button's fill, so it follows the fill into its hover. */
+.gallery-filter-btn:hover .gallery-filter-dot {
+  border-color: var(--color-ink-hover);
 }
 
 .gallery-count {

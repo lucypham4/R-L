@@ -197,12 +197,31 @@ test.describe('a summary for a meal logged before them', () => {
   });
 
   test('leaves the card as it was if the AI can’t write one', async ({ page }) => {
-    await boot(page, [dish('m1', '2026-09-11', { description: LONG_FIRST_SENTENCE })], {
+    const calls = await boot(page, [dish('m1', '2026-09-11', { description: LONG_FIRST_SENTENCE })], {
       summarize: (route, json) => json({ error: 'GEMINI_API_KEY is not configured on this project.' }, 500),
     });
     await openFirstDish(page);
     await page.waitForTimeout(300);
     await expect(lede(page)).toHaveText('Leek with brown butter and hazelnut.');
+    // Not a busy model, so not asked again.
+    await page.waitForTimeout(1800);
+    expect(calls.filter((c) => c.path === '/functions/v1/summarize-dish')).toHaveLength(1);
+  });
+
+  test('is asked for again when the model is busy, as the AI fill is', async ({ page }) => {
+    let asks = 0;
+    await boot(page, [dish('m1', '2026-09-11', { description: LONG_FIRST_SENTENCE })], {
+      summarize: (route, json) => {
+        asks += 1;
+        return asks < 3
+          ? json({ error: 'AI request failed (503): { "error": { "code": 503, "status": "UNAVAILABLE" } }' }, 502)
+          : json({ summary: 'Coal-charred leeks with brown butter.' });
+      },
+    });
+    await openFirstDish(page);
+    // The pauses are 1.5s and 3s; the card keeps its own line until it lands.
+    await expect(lede(page)).toHaveText('Coal-charred leeks with brown butter.', { timeout: 10_000 });
+    expect(asks).toBe(3);
   });
 });
 

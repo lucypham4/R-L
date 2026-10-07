@@ -3,8 +3,8 @@ import { SUMMARY_MAX } from './meal';
 
 // Both features below need a server-side secret (the Gemini API key), so
 // they ride on the same Supabase project as auth/data via Edge Functions
-// (supabase/functions/ai-fill, supabase/functions/clean-description)
-// rather than calling a third-party API directly from the browser.
+// (supabase/functions/ai-fill, clean-description and summarize-dish) rather
+// than calling a third-party API directly from the browser.
 export const isAiConfigured = isSupabaseConfigured;
 
 // How long the add-meal card waits for the fill before giving up. Without a
@@ -37,10 +37,10 @@ async function messageFromFunctionsError(error, fallback) {
   return fallback;
 }
 
-// The ai-fill function answers 502 for every failure upstream of it and puts
+// The three functions answer 502 for every failure upstream of them and put
 // Gemini's own status inside the message ("AI request failed (503): ..."), so
 // this is the only place the browser can learn it. It reads the status out of
-// that wording; supabase/functions/ai-fill/index.ts says so where it's built.
+// that wording; supabase/functions/_shared/gemini.ts says so where it's built.
 function upstreamStatusOf(message) {
   const match = /^AI request failed \((\d{3})\)/.exec(message);
   return match ? Number(match[1]) : null;
@@ -67,8 +67,8 @@ export function isBusyFailure(error) {
   return RETRYABLE_UPSTREAM_STATUSES.has(error?.upstreamStatus);
 }
 
-async function invokeAiFill(body, timeout) {
-  const { data, error } = await supabase.functions.invoke('ai-fill', { body, timeout });
+async function invokeFunction(name, body, timeout) {
+  const { data, error } = await supabase.functions.invoke(name, timeout ? { body, timeout } : { body });
   if (error) {
     // supabase-js aborts the request when the timeout passes and hands back
     // the fetch's own AbortError as the error's context. Not a Gemini status,
@@ -81,6 +81,29 @@ async function invokeAiFill(body, timeout) {
     throw failure;
   }
   return data;
+}
+
+/**
+ * Calls an Edge Function, trying again when the model behind it was busy
+ * (503, 429): up to three tries in all, with a growing pause between them.
+ * Any other failure throws straight away. `onRetry`, if given, is called as
+ * each wait begins. With a `timeout` the limit is for the whole call,
+ * retries included, so each try gets what the ones before it (and the pauses
+ * between) have left over rather than a fresh allowance.
+ */
+async function invokeWithRetry(name, body, { timeout, onRetry } = {}) {
+  const deadline = timeout ? Date.now() + timeout : Infinity;
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await invokeFunction(name, body, timeout && Math.max(deadline - Date.now(), 1));
+    } catch (failure) {
+      const pause = RETRY_DELAYS_MS[attempt];
+      if (!RETRYABLE_UPSTREAM_STATUSES.has(failure.upstreamStatus) || pause === undefined) throw failure;
+      if (deadline - Date.now() - pause <= 0) throw failure;
+      onRetry?.();
+      await new Promise((resolve) => setTimeout(resolve, pause));
+    }
+  }
 }
 
 function blobToBase64(blob) {
@@ -120,23 +143,7 @@ export async function generateMealDetails({ notes, photoBlob, photoMediaType, on
     image: { data: imageData, mediaType: photoMediaType || 'image/png' },
   };
 
-  // The limit is for the whole fill, retries included, so each try gets what
-  // the ones before it (and the pauses between) have left over rather than a
-  // fresh 30 seconds.
-  const deadline = Date.now() + AI_FILL_TIMEOUT_MS;
-  let data;
-  for (let attempt = 0; ; attempt += 1) {
-    try {
-      data = await invokeAiFill(body, Math.max(deadline - Date.now(), 1));
-      break;
-    } catch (failure) {
-      const pause = RETRY_DELAYS_MS[attempt];
-      if (!RETRYABLE_UPSTREAM_STATUSES.has(failure.upstreamStatus) || pause === undefined) throw failure;
-      if (deadline - Date.now() - pause <= 0) throw failure;
-      onRetry?.();
-      await new Promise((resolve) => setTimeout(resolve, pause));
-    }
-  }
+  const data = await invokeWithRetry('ai-fill', body, { timeout: AI_FILL_TIMEOUT_MS, onRetry });
   if (!data || typeof data !== 'object') throw new Error('Got an unexpected response.');
 
   return {
@@ -163,27 +170,30 @@ function cleanSummary(value) {
 
 /**
  * Asks the summarize-dish Edge Function to write the one-sentence summary
- * for a meal logged before the AI fill wrote one. Resolves to '' when it
- * couldn't, so a caller can try again another time.
+ * for a meal logged before the AI fill wrote one. A busy model is tried
+ * again, as in the fill. Resolves to '' when it couldn't, so a caller can try
+ * again another time.
  */
 export async function summarizeDish(meal) {
   if (!isAiConfigured) return '';
-  const { data, error } = await supabase.functions.invoke('summarize-dish', {
-    body: {
+  try {
+    const data = await invokeWithRetry('summarize-dish', {
       name: meal.name,
       description: meal.description,
       cuisine: meal.cuisine,
       category: meal.category,
       ingredients: meal.ingredients,
-    },
-  });
-  if (error || !data) return '';
-  return cleanSummary(data.summary);
+    });
+    return data ? cleanSummary(data.summary) : '';
+  } catch {
+    return '';
+  }
 }
 
 /**
  * Asks the clean-description Edge Function to tidy up a dictated (or typed)
  * description: fix grammar/punctuation, drop filler words, keep the meaning.
+ * A busy model is tried again, as in the fill.
  */
 export async function cleanDescription({ description }) {
   if (!isAiConfigured) {
@@ -193,15 +203,7 @@ export async function cleanDescription({ description }) {
     throw new Error('Write or dictate a description first.');
   }
 
-  const { data, error } = await supabase.functions.invoke('clean-description', {
-    body: { description },
-  });
-
-  if (error) {
-    throw new Error(
-      await messageFromFunctionsError(error, "Couldn't reach the AI just now.")
-    );
-  }
+  const data = await invokeWithRetry('clean-description', { description });
   if (!data || typeof data.description !== 'string') throw new Error('Got an unexpected response.');
 
   return data.description;

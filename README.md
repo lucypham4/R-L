@@ -204,14 +204,16 @@ with no billing required:
 1. `supabase functions deploy ai-fill`,
    `supabase functions deploy clean-description` and
    `supabase functions deploy summarize-dish` (from
-   `supabase/functions/`; the first and last share
-   `supabase/functions/_shared/summary.ts`, which the CLI bundles in).
+   `supabase/functions/`; all three import from `supabase/functions/_shared/`,
+   which the CLI bundles in).
 2. `supabase secrets set GEMINI_API_KEY=...` on the same project (a free
    key from [Google AI Studio](https://aistudio.google.com/apikey), shared
    by both functions; an optional `GEMINI_MODEL` secret overrides the
    default model, currently `gemini-3.6-flash`). An optional
-   `GEMINI_FALLBACK_MODEL` secret names a second model for `ai-fill` to try
-   when the first answers 503 or 429 (see "If AI fill fails" below).
+   `GEMINI_FALLBACK_MODEL` secret names a second model for all three
+   functions to try when the first answers 503 or 429 (see "If AI fill
+   fails" below). The functions share `supabase/functions/_shared/gemini.ts`
+   for that, and `supabase/functions/_shared/summary.ts` for the summary.
 3. Reload the app. **Next** on step 2 now fills the card, and **Clean up**
    shows under Description once there is a description to work from.
 
@@ -245,7 +247,9 @@ to three times, with a pause that doubles (1.5 seconds, then 3) before the
 notice shows at all; nothing else is retried (the card keeps shimmering
 through the retries, and the whole fill still ends at 30 seconds). If
 `GEMINI_FALLBACK_MODEL` is set, each of those tries also asks that model,
-straight away, when the first one is busy. If Try again
+straight away, when the first one is busy. **Clean up** and the summary
+written for an older dish do the same (`clean-description` and
+`summarize-dish`): up to three tries, and the fallback model. If Try again
 fails too, a line under the button says why it's worth another go or not:
 "Still busy. Try again in a minute." for a 503 or 429, "That didn't work.
 You can fill it in below." for anything else. It goes when the chef presses

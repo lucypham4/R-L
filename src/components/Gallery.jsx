@@ -76,7 +76,8 @@ export default function Gallery({
     return true;
   });
 
-  const hasActiveFilters = Boolean(selectedCuisines.length || selectedCategories.length || year);
+  const activeFilterCount = selectedCuisines.length + selectedCategories.length + (year ? 1 : 0);
+  const hasActiveFilters = activeFilterCount > 0;
 
   function toggleCuisine(value) {
     setSelectedCuisines((prev) => (prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]));
@@ -136,7 +137,8 @@ export default function Gallery({
             type="button"
             className="gallery-filter-btn"
             onClick={() => setShowFilters(true)}
-            aria-label="Open filters"
+            aria-label={hasActiveFilters ? `Open filters, ${activeFilterCount} active` : 'Open filters'}
+            aria-haspopup="dialog"
           >
             <FilterIcon />
             {hasActiveFilters && <span className="gallery-filter-dot" aria-hidden="true" />}
@@ -249,16 +251,16 @@ function SearchIcon() {
   );
 }
 
-// Two parallel lines, each with a round node on it: the lines stop at the
-// node's edge on either side rather than running through it, so the node
-// reads as a control sitting on its track.
+// Two parallel lines, each with a round hollow node on it, the nodes
+// staggered (the top one left of centre, the bottom one right of it). The
+// lines stop at a node's edge on either side rather than running through it.
 function FilterIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 8h2.5M11.5 8H20" />
-      <circle cx="9" cy="8" r="2.5" />
-      <path d="M4 16h8.5M17.5 16H20" />
-      <circle cx="15" cy="16" r="2.5" />
+    <svg viewBox="0 0 512 512" fill="none" stroke="currentColor" strokeWidth="40" strokeLinecap="round" aria-hidden="true">
+      <path d="M22 172H66M190 172H488" />
+      <circle cx="127" cy="172" r="62" />
+      <path d="M22 340H322M446 340H488" />
+      <circle cx="385" cy="340" r="62" />
     </svg>
   );
 }

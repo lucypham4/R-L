@@ -77,11 +77,21 @@ that holds an icon and checks each is still a circle with its icon drawn.
 The one filled button on the home screen, so it's the easiest thing to find:
 a solid `--color-ink` circle, 44px, with its icon drawn in `--color-bg`. Both
 are theme-aware tokens, so it flips with the page. The icon is two parallel
-lines, each with a round node on it, the lines stopping at the node's edge
-rather than running through it. It stands beside the search field, the same
-height (44px), not inside it: a button that size doesn't fit in the field's
-border. When a filter is on, a small ink dot sits on its rim inside a ring of
-the page colour, so it stands clear of the fill.
+lines, each with a hollow round node on it, the nodes staggered (the top one
+left of centre, the bottom one right of it) and the lines stopping at a
+node's edge rather than running through it. It is drawn on a 512 grid at a
+stroke of 40 with round caps, and in `currentColor`, so it takes the button's
+contrast colour. It stands beside the search field, the same height (44px),
+not inside it: a button that size doesn't fit in the field's border.
+
+When a filter is on, an accent dot (`--color-accent`, 8px) shows at its top
+right, inside a 2px ring of the button's own fill, which cuts a gap between
+the dot and the icon's lines. The button's name says it too: "Open filters,
+2 active", counting cuisines, categories and the year. The dot is the one
+place besides Save meal and the required `*` where the accent is used, and
+the accent against the ink fill is 2.7:1 in the light theme and 2.6:1 in the
+dark, a little under the 3:1 that WCAG asks of a state shown by colour alone;
+the name carries the state for anyone who can't rely on the dot.
 
 ## Button colour: red is one button
 
@@ -93,8 +103,8 @@ A button's colour says what it is, and there are three:
 | Secondary (`.btn-secondary`) | gray outline (`--color-line-strong`), ink label | the way out or back: Cancel, Back, and the Settings buttons |
 | Final (`.btn-final`) | filled `--color-accent`, the app's only red | the button that finishes adding a meal: **Save meal**, the last step of the add-meal wizard |
 
-`--color-accent` is that one button's colour, and the required-field `*`'s,
-and nothing else's. It used to be the general primary colour, and a screen
+`--color-accent` is that one button's colour, the required-field `*`'s, and
+the dot on the filter button, and nothing else's. It used to be the general primary colour, and a screen
 with three red things on it has no way to say which one matters. Now when a
 control is red it is the end of the wizard.
 
@@ -106,8 +116,7 @@ What the rule rules out:
 
 - Active and pressed states are ink, not red: the nav's active tab
   (its glyph is filled, in ink), the dictation button while it's listening,
-  the dot on the filter button, the
-  wizard's progress bar, the zoom slider.
+  the wizard's progress bar, the zoom slider.
 - So is the keyboard focus ring (`--focus-ring`, and a field's focus border
   and `--color-ink-ring`). Otherwise every focused button flashes red.
 - Destructive buttons aren't red either. The action sheet's Delete is plain

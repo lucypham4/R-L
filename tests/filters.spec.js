@@ -3,7 +3,8 @@ import { test, expect } from './support/network';
 // The filter button on the home screen and the sheet it opens.
 //
 //   - The button is one solid, contrasting circle, 44px square, with two
-//     lines and their round nodes drawn in the page colour.
+//     lines and their round nodes drawn in the page colour. When a filter is
+//     on, an accent dot shows on it and its name says how many.
 //   - The sheet's close button shows a cross, and closing (by it, by the
 //     backdrop or by Escape) plays an exit: the sheet drops and the backdrop
 //     fades, then the sheet is gone. Reduced motion keeps the fade and drops
@@ -94,23 +95,46 @@ test.describe('the filter button', () => {
     await expect(page.locator('.gallery-search-field').getByRole('button')).toHaveCount(0);
   });
 
-  test('the icon is two parallel lines, each with a round node on it', async ({ page }) => {
+  test('the icon is two lines broken around two hollow, staggered nodes', async ({ page }) => {
     await boot(page);
     const icon = await trigger(page).evaluate((el) => {
       const svg = el.querySelector('svg');
       const box = svg.getBoundingClientRect();
+      const own = getComputedStyle(svg);
       return {
-        nodes: [...svg.querySelectorAll('circle')].map((c) => ({ cx: +c.getAttribute('cx'), cy: +c.getAttribute('cy') })),
-        lines: [...svg.querySelectorAll('path')].length,
+        viewBox: svg.getAttribute('viewBox'),
+        nodes: [...svg.querySelectorAll('circle')].map((c) => ({
+          cx: +c.getAttribute('cx'),
+          cy: +c.getAttribute('cy'),
+          r: +c.getAttribute('r'),
+          fill: getComputedStyle(c).fill,
+        })),
+        // Each line is drawn in two pieces, one either side of its node.
+        pieces: [...svg.querySelectorAll('path')].map((p) => (p.getAttribute('d').match(/M/g) || []).length),
+        strokeWidth: own.strokeWidth,
+        linecap: own.strokeLinecap,
+        stroke: own.stroke,
         width: box.width,
         height: box.height,
       };
     });
-    // Two nodes on two different rows, at different places along them.
+    expect(icon.viewBox).toBe('0 0 512 512');
     expect(icon.nodes).toHaveLength(2);
-    expect(icon.nodes[0].cy).not.toBe(icon.nodes[1].cy);
-    expect(icon.nodes[0].cx).not.toBe(icon.nodes[1].cx);
-    expect(icon.lines).toBe(2);
+    const [top, bottom] = icon.nodes;
+    // Staggered: the top node left of centre, the bottom one right of it.
+    expect(top.cy).toBeLessThan(bottom.cy);
+    expect(top.cx).toBeLessThan(256);
+    expect(bottom.cx).toBeGreaterThan(256);
+    // Hollow, and the same size.
+    expect(top.fill).toBe('none');
+    expect(bottom.fill).toBe('none');
+    expect(top.r).toBe(bottom.r);
+    // Two lines, each in two pieces round its node.
+    expect(icon.pieces).toEqual([2, 2]);
+    // The stroke weight and round caps, in the page colour (currentColor).
+    expect(icon.strokeWidth).toBe('40px');
+    expect(icon.linecap).toBe('round');
+    expect(icon.stroke).toBe(await resolve(page, 'color', '--color-bg'));
     // Large enough to read at a glance, and not squeezed.
     expect(icon.width).toBe(24);
     expect(icon.height).toBe(24);
@@ -129,7 +153,7 @@ test.describe('the filter button', () => {
     expect(look.bg).not.toBe(look.page);
   });
 
-  test('shows a dot, standing clear of the fill, once a filter is on', async ({ page }) => {
+  test('shows an accent dot, ringed in the button’s fill, once a filter is on', async ({ page }) => {
     await boot(page);
     await expect(page.locator('.gallery-filter-dot')).toHaveCount(0);
     await trigger(page).click();
@@ -138,13 +162,77 @@ test.describe('the filter button', () => {
     await expect(sheet(page)).toBeHidden();
     const dot = page.locator('.gallery-filter-dot');
     await expect(dot).toHaveCount(1);
+    await page.mouse.move(0, 0);
+    await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {}))));
     const look = await dot.evaluate((el) => {
       const cs = getComputedStyle(el);
-      return { width: el.getBoundingClientRect().width, ring: cs.borderTopColor, fill: cs.backgroundColor };
+      const d = el.getBoundingClientRect();
+      const b = el.parentElement.getBoundingClientRect();
+      return {
+        width: d.width,
+        ring: cs.borderTopColor,
+        ringWidth: cs.borderTopWidth,
+        fill: cs.backgroundColor,
+        button: getComputedStyle(el.parentElement).backgroundColor,
+        // Inside the button's own box, clear of its top-right corner.
+        inside: d.top >= b.top && d.right <= b.right,
+        // Where the dot's ring ends, against where the icon's top line begins.
+        ringBottom: d.bottom,
+        iconTop: el.parentElement.querySelector('svg').querySelector('path').getBoundingClientRect().top,
+      };
     });
     expect(look.width).toBe(12);
-    expect(look.ring).toBe(await resolve(page, 'color', '--color-bg'));
-    expect(look.fill).toBe(await resolve(page, 'color', '--color-ink'));
+    expect(look.ringWidth).toBe('2px');
+    expect(look.fill).toBe(await resolve(page, 'color', '--color-accent'));
+    // The ring is the button's fill, so it cuts a gap rather than showing as a line.
+    expect(look.ring).toBe(look.button);
+    expect(look.ring).toBe(await resolve(page, 'color', '--color-ink'));
+    expect(look.inside).toBe(true);
+    expect(look.ringBottom).toBeLessThanOrEqual(look.iconTop + 1);
+  });
+
+  test('the accent dot is the accent in the dark theme too', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await boot(page);
+    await trigger(page).click();
+    await page.locator('.filter-sheet button', { hasText: 'French' }).click();
+    await page.getByRole('button', { name: 'Close' }).click();
+    await expect(sheet(page)).toBeHidden();
+    const look = await page.locator('.gallery-filter-dot').evaluate((el) => ({
+      fill: getComputedStyle(el).backgroundColor,
+      ring: getComputedStyle(el).borderTopColor,
+    }));
+    expect(look.fill).toBe(await resolve(page, 'color', '--color-accent'));
+    expect(look.ring).toBe(await resolve(page, 'color', '--color-ink'));
+  });
+
+  test('says how many filters are on, in its name', async ({ page }) => {
+    await boot(page);
+    // None on: it is just the button that opens the sheet.
+    await expect(trigger(page)).toHaveAttribute('aria-label', 'Open filters');
+    await expect(trigger(page)).toHaveAttribute('aria-haspopup', 'dialog');
+
+    await trigger(page).click();
+    await page.locator('.filter-sheet button', { hasText: 'French' }).click();
+    await page.getByRole('button', { name: 'Close' }).click();
+    await expect(sheet(page)).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Open filters, 1 active' })).toBeVisible();
+
+    // Cuisine, category and year each count once.
+    await trigger(page).click();
+    await page.locator('.filter-sheet button', { hasText: 'Italian' }).click();
+    await page.locator('.filter-sheet button', { hasText: 'Main' }).click();
+    await page.getByRole('button', { name: 'Close' }).click();
+    await expect(sheet(page)).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Open filters, 3 active' })).toBeVisible();
+
+    // Clear all: back to the plain name, and the dot goes with it.
+    await trigger(page).click();
+    await page.getByRole('button', { name: 'Clear all' }).click();
+    await page.getByRole('button', { name: 'Close' }).click();
+    await expect(sheet(page)).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Open filters', exact: true })).toBeVisible();
+    await expect(page.locator('.gallery-filter-dot')).toHaveCount(0);
   });
 
   test('opens the sheet', async ({ page }) => {
