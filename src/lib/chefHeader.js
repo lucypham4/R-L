@@ -27,6 +27,15 @@
 //   dish's photo does into its thumbnail. Here the name starts *under* the
 //   picture and rises into the bar, so the picture makes its arc in the
 //   first part of the journey, clear of the name before it arrives.
+// - The search docks in the bar, under the name, so a client can search
+//   the dishes from anywhere on the page. It scrolls with the page until it
+//   meets a lane that runs from just under the name at the top to its place
+//   in the bar, and rides that lane up; past the collapse it is CSS sticky
+//   in that place, so it holds still with no script behind it. The lane
+//   keeps it clear of the name and picture whatever the header's length:
+//   with a long bio it arrives after the collapse, with none it rises with
+//   the header. Once it is held, the backdrop runs on under it, so what
+//   scrolls by slides under the search as well as the name.
 //
 // Both rests are laid out in CSS: the top by the header's own picture
 // and name, which stay in the page (invisible) to hold their place and
@@ -48,6 +57,10 @@ const PICTURE_SPAN = 0.55;
 // name's rate.
 const SLOWDOWN = 2;
 
+// Over how many pixels of being held the search takes the backdrop with
+// it, so the backdrop's edge grows under it rather than jumping there.
+const DOCK_EASE = 12;
+
 /**
  * Reads both rests from the current layout. Call it whenever the layout
  * can have changed: a resize, a font arriving, a picture loading.
@@ -57,7 +70,7 @@ const SLOWDOWN = 2;
  * `endName` are the bar's slots (fixed, so their screen position is
  * where they are).
  */
-export function measureChefHeader({ root, startAvatar, startName, endAvatar, endName }) {
+export function measureChefHeader({ root, startAvatar, startName, endAvatar, endName, search, endSearch, backdrop }) {
   const scrollY = window.scrollY;
   const a0 = startAvatar.getBoundingClientRect();
   const n0 = startName.getBoundingClientRect();
@@ -75,8 +88,35 @@ export function measureChefHeader({ root, startAvatar, startName, endAvatar, end
   // The header's own gap: the edge starts where the next thing under the
   // name does.
   const gap = parseFloat(getComputedStyle(startName.closest('header')).rowGap) || 0;
+  const edgeFrom = n0.bottom + scrollY + gap;
+  // The search: where the page has it (read with its sticking and its hold
+  // taken off for a moment), and its place in the bar.
+  let dock = null;
+  if (search && endSearch) {
+    const { position, translate } = search.style;
+    search.style.position = 'static';
+    search.style.translate = 'none';
+    const s0 = search.getBoundingClientRect();
+    search.style.position = position;
+    search.style.translate = translate;
+    const s1 = endSearch.getBoundingClientRect();
+    // What comes after the search: the count, then the dishes. Scrolled to
+    // `results`, the count sits just clear of the docked bar's soft edge.
+    const count = search.nextElementSibling?.getBoundingClientRect();
+    const soft = parseFloat(getComputedStyle(backdrop, '::after').height) || 0;
+    dock = {
+      y0: s0.top + scrollY,
+      h: s0.height,
+      top: s1.top,
+      pad: bar.bottom - s1.bottom,
+      soft,
+      countY0: count ? count.top + scrollY : null,
+      results: count ? count.top + scrollY - bar.bottom - soft - DOCK_EASE : 0,
+    };
+  }
   return {
-    edge: { from: n0.bottom + scrollY + gap, to: bar.bottom },
+    search: dock,
+    edge: { from: edgeFrom, to: bar.bottom },
     avatar: {
       top: a0.top + scrollY,
       from: { cx: a0.left + a0.width / 2, cy: a0.top + scrollY + a0.height / 2, size: a0.width },
@@ -126,11 +166,35 @@ export function chefHeaderFrame(t, g, quantise = false) {
   const large = { ...name, scale: lerp(1, n.k, m), o: 1 - ramp(m, 0, 0.55) };
   const small = { ...name, scale: lerp(1 / n.k, 1, m), o: ramp(m, 0.45, 0.9) };
 
-  // The backdrop's lower edge follows the header up, and it is there as
-  // soon as anything starts to slide under it.
-  const backdrop = { edge: lerp(g.edge.from, g.edge.to, m) + pull, o: ramp(p, 0, 0.12) };
+  // The search scrolls with the page until it meets its lane, then rides
+  // it: just under the name at the top, its place in the bar at the end.
+  // `hold` is what the script adds to where CSS sticking puts it (no more
+  // than its place in the bar), which past the collapse is nothing.
+  let search = null;
+  if (g.search) {
+    const s = g.search;
+    const natural = s.y0 - t;
+    const lane = lerp(g.edge.from, s.top, m) + pull;
+    const y = Math.max(natural, lane);
+    search = { y, hold: y - Math.max(natural, s.top), docked: clamp01((y - natural) / DOCK_EASE) };
+  }
 
-  return { p, m, avatar, large, small, backdrop };
+  // The backdrop's lower edge follows the header up, and it is there as
+  // soon as anything starts to slide under it. Once the search is held, it
+  // reaches under the search too.
+  let edge = lerp(g.edge.from, g.edge.to, m) + pull;
+  if (search) edge = Math.max(edge, lerp(edge, search.y + g.search.h + g.search.pad, search.docked));
+  const backdrop = { edge, o: ramp(p, 0, 0.12) };
+
+  // The count goes before it reaches the backdrop's soft edge rather than
+  // through it: the collapsed rest can land it right in the fade, where a
+  // half-faded line reads as a mistake rather than as something scrolling
+  // under.
+  if (search && g.search.countY0 !== null) {
+    search.count = clamp01((g.search.countY0 - t - (edge + g.search.soft)) / DOCK_EASE);
+  }
+
+  return { p, m, avatar, large, small, backdrop, search };
 }
 
 /** Writes a frame onto the travelling elements. Transform and opacity only. */
@@ -150,9 +214,36 @@ export function applyChefHeaderFrame(f, g, els) {
   els.backdrop.style.transform = `translate3d(0, ${f.backdrop.edge - els.backdrop.offsetHeight}px, 0)`;
   els.backdrop.style.opacity = String(f.backdrop.o);
 
+  if (f.search) {
+    els.search.style.translate = f.search.hold > 0.01 ? `0 ${f.search.hold}px` : '';
+    if (els.count && f.search.count !== undefined) els.count.style.opacity = String(f.search.count);
+  }
+
   // The two rests are snap points: the top of the page, and the top of a
   // snap area that starts where the name sits in the bar and runs to the
   // end, so everything past the collapse scrolls freely.
   els.startAvatar.style.scrollMarginTop = `${g.avatar.top}px`;
   els.snapCollapsed.style.top = `${g.distance - g.rootTop}px`;
+}
+
+/**
+ * What a new measure changes about the page itself, as opposed to a frame:
+ * where the search sticks, and enough room below the dishes that the page
+ * can always reach the collapse and bring the results up under the docked
+ * search (filtering down to a few dishes would otherwise shorten the page
+ * under the reader and throw the header open again).
+ */
+export function applyChefHeaderLayout(g, { root, gallery }) {
+  if (!g.search) return;
+  root.style.setProperty('--public-search-dock', `${g.search.top}px`);
+  const galleryTop = gallery.getBoundingClientRect().top + window.scrollY;
+  gallery.style.minHeight = `${Math.ceil(resultsScroll(g) + window.innerHeight - galleryTop)}px`;
+}
+
+/**
+ * The scroll at which the results start just under the docked search, and
+ * never short of the collapse.
+ */
+export function resultsScroll(g) {
+  return Math.max(g.distance, g.search ? g.search.results : 0);
 }

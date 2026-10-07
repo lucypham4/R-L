@@ -53,7 +53,7 @@ and sheen over a field the AI is writing.
 
 Component-specific keyframes stay in that component's stylesheet
 (`filter-sheet-rise`, `filter-sheet-drop`, `filter-sheet-scrim-out`,
-`filter-dot-pop`, `dish-sheet-enter`).
+`dish-sheet-enter`).
 
 A keyframe used by two components belongs in `global.css`. `modal-rise`
 previously lived in `MealDetailModal.css` while `MealActionSheet.css` also
@@ -349,10 +349,31 @@ bar pinned at the top left, and they move by the dish sheet's rules.
   the journey and is out of the name's way before it arrives.
   `tests/profile.spec.js` samples the journey and checks the two never
   overlap.
+- *The search docks under the name*, so a client can search the dishes
+  from anywhere on the page. The bar has a second row for it, the search's
+  own height. The search scrolls with the page until it meets a lane that
+  runs from just under the name at the top to that row, and rides the lane
+  up; past the collapse it is `position: sticky` in that row, so it holds
+  still with nothing scripted on it (no frame of lag on a fling). The lane
+  keeps it clear of the name and picture whatever the header's length: with
+  a long bio it arrives after the collapse, with a short header it rises
+  with the name. It is the page's own search, moved, not a copy, so typing
+  in it never loses focus. Once it is held, the backdrop reaches under it,
+  growing over `DOCK_EASE` (12px) of hold rather than jumping, and the
+  count under it goes before it reaches the soft edge, so no rest leaves it
+  half-faded there.
+- *Searching from the bar keeps the bar.* The page is given room enough
+  below the dishes that it can always reach the collapse, so narrowing the
+  list never shortens the page under the reader and throws the header
+  open. If the results then start above the screen they are brought up to
+  just under the bar. With a short header the first dishes are under the
+  bar at the collapsed rest, so while a search or filter narrows the list
+  from there the results are let down by that much; clearing gives it back.
 
 Under reduced motion the picture and name hold their rest until
 half-way, then jump to the bar and fade in where they land, over
-`--dur-color`. The Figma file's Chef profile v1 section has the journey
+`--dur-color`. The search's lane jumps with them; past the collapse it is
+sticky, which isn't motion. The Figma file's Chef profile v1 section has the journey
 at 0–100% and a frame that plays it, all computed from
 `lib/chefHeader.js`.
 
