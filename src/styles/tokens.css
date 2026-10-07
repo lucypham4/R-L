@@ -156,6 +156,8 @@
   --press-scale: 0.97;
   --lift: -4px;
   --rise: 10px;
+  /* How much a dish grows when it's picked up to be dragged. */
+  --drag-scale: 1.04;
 
   /* Focus pull. When the content of a surface is replaced -- stepping
      from one dish to the next -- the incoming text arrives out of focus
@@ -303,6 +305,7 @@
     --press-scale: 1;
     --lift: 0px;
     --rise: 0px;
+    --drag-scale: 1;
 
     /* The focus pull and the depth of field are filter effects rather
        than movement, so they stay -- softening and resolving doesn't

@@ -133,7 +133,10 @@ page and cross-device access possible on top of that.
    then `supabase/bio-migration.sql` once (adds the `bio` column for the
    short bio a chef writes on their profile; until it has run, saving a
    bio fails and says so), then `supabase/profile-details-migration.sql`
-   once (adds the `specialties` and `links` columns, likewise).
+   once (adds the `specialties` and `links` columns, likewise), then
+   `supabase/dish-order-migration.sql` once (adds the `dish_order` column
+   that holds the order a chef drags their dishes into, which their public
+   page shows too; until it has run, saving an order fails and says so).
 3. In Cloudinary, create an **unsigned** upload preset (Settings → Upload →
    Upload presets → Add upload preset, signing mode "Unsigned"). Unsigned
    presets are what let the browser upload directly without exposing your

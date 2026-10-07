@@ -15,17 +15,24 @@ import Splash from './components/Splash';
 import { isSupabaseConfigured } from './lib/supabase';
 import { isCloudinaryConfigured } from './lib/cloudinary';
 import { fetchMeals, insertMeal, updateMeal, deleteMeal, updateMealSummary } from './lib/mealsApi';
-import { fetchChefProfile, updateChefPageTheme, updateChefAvatar, updateChefProfile } from './lib/chefsApi';
+import {
+  fetchChefProfile,
+  updateChefPageTheme,
+  updateChefAvatar,
+  updateChefProfile,
+  updateChefDishOrder,
+} from './lib/chefsApi';
 import { getSession, onAuthChange, signOut, isRecoveringPassword, takeEmailLinkError } from './lib/auth';
 import { loadLocalMeals, saveLocalMeals, createLocalMeal } from './lib/localMeals';
 import { scrollToTop } from './lib/motion';
 import { leaveDish, pushDish, replaceDish } from './lib/dishHistory';
-import { stepOnShelf } from './lib/shelf';
+import { shelfOf, stepOnShelf } from './lib/shelf';
 import { needsSummary, normaliseServes } from './lib/meal';
 import { summarizeDish, isAiConfigured } from './lib/aiFill';
 import { loadTheme, saveTheme, nextTheme, applyTheme } from './lib/theme';
 import { importLocalMeals, countLocalMeals } from './lib/localImport';
 import { loadLocalAvatar, saveLocalAvatar, storeAvatar } from './lib/avatar';
+import { loadLocalOrder, saveLocalOrder, loadSort, saveSort } from './lib/dishOrder';
 import './App.css';
 
 export default function App() {
@@ -81,6 +88,13 @@ function AdminApp() {
   const [theme, setTheme] = useState(loadTheme);
   // A guest's profile picture. A chef's is on chefProfile instead.
   const [localAvatar, setLocalAvatar] = useState(loadLocalAvatar);
+  // A guest's own order for their dishes. A chef's is on chefProfile
+  // instead, where their public page reads it too.
+  const [localOrder, setLocalOrder] = useState(loadLocalOrder);
+  // How the home screen is sorted, remembered on this device. Kept here
+  // rather than in the gallery because the open dish steps through the
+  // dishes in an order that follows it (lib/shelf.js).
+  const [sort, setSort] = useState(loadSort);
   // Local Import (see CONTEXT.md / ADR 0001): offered once, right after a
   // fresh sign-up, while the new account is guaranteed empty. Anything
   // declined or left behind by a partial failure stays in local storage,
@@ -178,13 +192,11 @@ function AdminApp() {
     };
   }, [userId]);
 
-  const sortedMeals = useMemo(
-    () => [...meals].sort((a, b) => new Date(b.date) - new Date(a.date)),
-    [meals]
-  );
+  const dishOrder = chefProfile ? chefProfile.dishOrder : localOrder;
+  const shelf = useMemo(() => shelfOf(meals, sort, dishOrder), [meals, sort, dishOrder]);
 
-  const openIndex = sortedMeals.findIndex((m) => String(m.id) === String(openMealId));
-  const openMeal = openIndex >= 0 ? sortedMeals[openIndex] : null;
+  const openIndex = shelf.findIndex((m) => String(m.id) === String(openMealId));
+  const openMeal = openIndex >= 0 ? shelf[openIndex] : null;
   // The edit form belongs to the open dish: leaving the dish (Back, the
   // browser's back, deleting it) takes the form with it.
   const editingMeal = openMeal && String(openMeal.id) === String(editingMealId) ? openMeal : null;
@@ -192,8 +204,8 @@ function AdminApp() {
     if (!openMeal) setEditingMealId(null);
   }, [openMeal]);
   // The dishes either side, in the modal's numbering: see handleStepMeal.
-  const prevMeal = stepOnShelf(sortedMeals, openIndex, -1);
-  const nextMeal = stepOnShelf(sortedMeals, openIndex, 1);
+  const prevMeal = stepOnShelf(shelf, openIndex, -1);
+  const nextMeal = stepOnShelf(shelf, openIndex, 1);
 
   function handleOpenMeal(meal) {
     pushDish(meal.id);
@@ -201,13 +213,13 @@ function AdminApp() {
   }
 
   // Step through the archive from inside the open dish. `delta` is in the
-  // numbering the modal shows ("No. 12 of 47"), which runs opposite to
-  // sortedMeals -- that's newest-first, so the highest number is index 0 --
-  // and wraps round at both ends (lib/shelf.js). Stepping replaces the
-  // history entry rather than pushing one, so Back
+  // numbering the modal shows ("No. 12 of 47"), which is the shelf's
+  // order: the chef's own under Custom, the order the dishes were made in
+  // otherwise. It wraps round at both ends (lib/shelf.js). Stepping
+  // replaces the history entry rather than pushing one, so Back
   // still leaves the modal instead of walking every dish you passed.
   function handleStepMeal(delta) {
-    const next = stepOnShelf(sortedMeals, openIndex, delta);
+    const next = stepOnShelf(shelf, openIndex, delta);
     if (!next) return;
     replaceDish(next.id);
     setOpenMealId(next.id);
@@ -276,6 +288,32 @@ function AdminApp() {
   }
 
   const avatarUrl = chefProfile ? chefProfile.avatarUrl : localAvatar;
+
+  function handleSortChange(next) {
+    setSort(next);
+    saveSort(next);
+  }
+
+  // The order a dish was just dragged into, as every dish's id. Shown at
+  // once; signed in, it's saved to the chef's profile, and if that fails
+  // the dishes go back to where they were and the error propagates for
+  // the gallery to show.
+  async function handleReorder(ids) {
+    if (!chefProfile) {
+      setLocalOrder(ids);
+      saveLocalOrder(ids);
+      return;
+    }
+    const previous = chefProfile.dishOrder;
+    setChefProfile((p) => ({ ...p, dishOrder: ids }));
+    try {
+      const updated = await updateChefDishOrder(userId, ids);
+      setChefProfile((p) => (p.dishOrder === ids ? updated : p));
+    } catch (err) {
+      setChefProfile((p) => (p.dishOrder === ids ? { ...p, dishOrder: previous } : p));
+      throw err;
+    }
+  }
 
   // The chef's name and bio, from Edit on their profile. Errors propagate,
   // for the form to show.
@@ -439,20 +477,24 @@ function AdminApp() {
           the thing in focus. */}
       <div className={`app-stage ${openMeal ? 'app-stage-receded' : ''}`}>
         <Gallery
-          meals={sortedMeals}
+          meals={meals}
           onOpenMeal={handleOpenMeal}
           onAddMeal={() => setShowAddForm(true)}
           onDeleteMeal={handleDeleteMeal}
           avatarUrl={avatarUrl}
           onOpenProfile={() => setShowProfile(true)}
+          sort={sort}
+          onSortChange={handleSortChange}
+          dishOrder={dishOrder}
+          onReorder={handleReorder}
         />
       </div>
 
       {openMeal && (
         <MealDetailModal
           meal={openMeal}
-          index={sortedMeals.length - openIndex}
-          total={sortedMeals.length}
+          index={openIndex + 1}
+          total={shelf.length}
           onClose={closeMeal}
           onStep={handleStepMeal}
           onEdit={() => setEditingMealId(openMeal.id)}

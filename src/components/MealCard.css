@@ -14,6 +14,12 @@
   width: 100%;
   transition: transform var(--dur-move) var(--ease);
   touch-action: manipulation;
+  /* Holding a dish is how a chef picks it up to move it. Without these,
+     iOS answers the same hold by selecting the dish's name or offering
+     to save its photo. */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* Edit mode's × (DeleteBadge) hangs off the photo's top-right corner
@@ -102,4 +108,24 @@
 .meal-card:focus-visible .meal-card-image {
   outline: var(--focus-ring);
   outline-offset: var(--focus-offset);
+}
+
+/* A dish picked up to be moved (lib/useDishReorder.js): drawn over the
+   others, a little larger, and lifted off the page on a shadow, while
+   the script moves the wrapper with the pointer. Last in the file so it
+   beats the press dip, which would otherwise hold while the finger is
+   down. */
+.meal-card-wrap-dragging {
+  z-index: 3;
+  will-change: transform;
+}
+
+.meal-card-wrap-dragging .meal-card {
+  transform: scale(var(--drag-scale));
+  transition: transform var(--dur-move) var(--ease-spring);
+}
+
+.meal-card-wrap-dragging .meal-card-image {
+  box-shadow: var(--shadow-md);
+  transition: box-shadow var(--dur-color) var(--ease);
 }
