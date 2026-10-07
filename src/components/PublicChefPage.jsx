@@ -6,7 +6,7 @@ import { SpecialtyTags, SocialLinks, chefTitle } from './ChefDetails';
 import { fetchChefBySlug, DEFAULT_PAGE_THEME } from '../lib/chefsApi';
 import { fetchMeals } from '../lib/mealsApi';
 import { leaveDish, pushDish, replaceDish } from '../lib/dishHistory';
-import { stepOnShelf } from '../lib/shelf';
+import { shelfOf, stepOnShelf } from '../lib/shelf';
 import { measureChefHeader, chefHeaderFrame, applyChefHeaderFrame } from '../lib/chefHeader';
 import { prefersReducedMotion, onReducedMotionChange, tokenMs } from '../lib/motion';
 import './PublicChefPage.css';
@@ -112,6 +112,10 @@ export default function PublicChefPage({ slug }) {
   const [chef, setChef] = useState(null);
   const [meals, setMeals] = useState([]);
   const [openMealId, setOpenMealId] = useState(null);
+  // In the chef's own order to begin with: the page is their work, laid
+  // out as they arranged it. A visitor can sort it by date instead, but
+  // has no way to rearrange it.
+  const [sort, setSort] = useState('custom');
   const [error, setError] = useState('');
   const { bind, travelling } = useTravellingHeader(status === 'ready');
 
@@ -164,14 +168,11 @@ export default function PublicChefPage({ slug }) {
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
-  const sortedMeals = useMemo(
-    () => [...meals].sort((a, b) => new Date(b.date) - new Date(a.date)),
-    [meals]
-  );
-  const openIndex = sortedMeals.findIndex((m) => String(m.id) === String(openMealId));
-  const openMeal = openIndex >= 0 ? sortedMeals[openIndex] : null;
-  const prevMeal = stepOnShelf(sortedMeals, openIndex, -1);
-  const nextMeal = stepOnShelf(sortedMeals, openIndex, 1);
+  const shelf = useMemo(() => shelfOf(meals, sort, chef?.dishOrder), [meals, sort, chef]);
+  const openIndex = shelf.findIndex((m) => String(m.id) === String(openMealId));
+  const openMeal = openIndex >= 0 ? shelf[openIndex] : null;
+  const prevMeal = stepOnShelf(shelf, openIndex, -1);
+  const nextMeal = stepOnShelf(shelf, openIndex, 1);
 
   function handleOpenMeal(meal) {
     pushDish(meal.id);
@@ -179,11 +180,11 @@ export default function PublicChefPage({ slug }) {
   }
 
   // A client reading a chef's page steps between dishes the same way the
-  // chef does: by swipe, arrow or arrow key. `delta` is in the modal's
-  // numbering, which runs opposite to newest-first sortedMeals, and wraps
-  // round at both ends (lib/shelf.js).
+  // chef does: by swipe, arrow or arrow key, through the chef's own order
+  // unless they've sorted by date. `delta` is in the modal's numbering,
+  // and wraps round at both ends (lib/shelf.js).
   function handleStepMeal(delta) {
-    const next = stepOnShelf(sortedMeals, openIndex, delta);
+    const next = stepOnShelf(shelf, openIndex, delta);
     if (!next) return;
     replaceDish(next.id);
     setOpenMealId(next.id);
@@ -241,14 +242,12 @@ export default function PublicChefPage({ slug }) {
         {name}
       </span>
 
-      {/* In the chef's own order to begin with: the page is their work,
-          laid out as they arranged it. A visitor can sort it by date
-          instead, but has no way to rearrange it. */}
       <Gallery
-        meals={sortedMeals}
+        meals={meals}
         onOpenMeal={handleOpenMeal}
         header={<ChefHeader chef={chef} bind={bind} />}
-        initialSort="custom"
+        sort={sort}
+        onSortChange={setSort}
         dishOrder={chef.dishOrder}
       />
 
@@ -261,8 +260,8 @@ export default function PublicChefPage({ slug }) {
       {openMeal && (
         <MealDetailModal
           meal={openMeal}
-          index={sortedMeals.length - openIndex}
-          total={sortedMeals.length}
+          index={openIndex + 1}
+          total={shelf.length}
           onClose={closeMeal}
           onStep={handleStepMeal}
           prevMeal={prevMeal}

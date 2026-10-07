@@ -65,7 +65,9 @@ const time = (meal) => new Date(meal.date).getTime() || 0;
  */
 export function sortDishes(meals, sort, order = []) {
   const newest = [...meals].sort((a, b) => time(b) - time(a));
-  if (sort === 'oldest') return [...meals].sort((a, b) => time(a) - time(b));
+  // The exact mirror of newest first, dishes from the same day included,
+  // so the two date sorts are the same archive read from either end.
+  if (sort === 'oldest') return newest.reverse();
   if (sort !== 'custom') return newest;
   const rank = new Map(order.map((id, i) => [String(id), i]));
   const unplaced = newest.filter((m) => !rank.has(String(m.id)));

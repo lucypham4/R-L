@@ -272,8 +272,11 @@ test.describe('swiping between dishes', () => {
     await page.goto('/ana');
     await openDish(page, 1);
     await expect(page.locator(NAME)).toHaveText('Middle dish');
+    // The page opens in the chef's own order, which steps the way the grid
+    // reads (lib/shelf.js). This chef hasn't arranged theirs, so it's
+    // newest first, and the next dish along is the older one.
     await drag(page, -160);
-    await expect(page.locator(NAME)).toHaveText('Newest dish');
+    await expect(page.locator(NAME)).toHaveText('Oldest dish');
   });
 });
 

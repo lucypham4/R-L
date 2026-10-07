@@ -164,6 +164,41 @@ test.describe('dragging a dish', () => {
   });
 });
 
+test.describe('stepping through the open dish', () => {
+  const NAME = '.dish-hero-title .dish-name-in';
+
+  async function step(page, name, label) {
+    await page.getByRole('button', { name }).click();
+    await expect(page.locator('.dish-index')).toHaveText(label);
+  }
+
+  test('follows the custom order, numbered from the first dish in it', async ({ page }) => {
+    await boot(page, { order: ['m2', 'm4', 'm1', 'm3'] });
+    await sortBy(page, 'Custom');
+    await page.locator('.meal-card', { hasText: 'Beetroot' }).click();
+    await expect(page.locator('.dish-index')).toHaveText('No. 2 of 4');
+
+    await step(page, 'Next dish', 'No. 3 of 4');
+    await expect(page.locator(NAME)).toHaveText('Lamb tagine');
+    await step(page, 'Next dish', 'No. 4 of 4');
+    await expect(page.locator(NAME)).toHaveText('Cacio e pepe');
+    // And round from the last to the first.
+    await step(page, 'Next dish', 'No. 1 of 4');
+    await expect(page.locator(NAME)).toHaveText('Charred leek');
+    await step(page, 'Previous dish', 'No. 4 of 4');
+    await expect(page.locator(NAME)).toHaveText('Cacio e pepe');
+  });
+
+  test('sorted by date, still goes in the order the dishes were made', async ({ page }) => {
+    await boot(page, { order: ['m2', 'm4', 'm1', 'm3'] });
+    await page.locator('.meal-card', { hasText: 'Beetroot' }).click();
+    // The newest, so the highest number, as it has always been.
+    await expect(page.locator('.dish-index')).toHaveText('No. 4 of 4');
+    await step(page, 'Previous dish', 'No. 3 of 4');
+    await expect(page.locator(NAME)).toHaveText('Cacio e pepe');
+  });
+});
+
 test.describe('a chef’s order', () => {
   const USER = {
     id: 'chef-1',

@@ -239,6 +239,11 @@ dissolves and the new text focus-pulls in. Short of that, both photos
 settle back on `--ease-spring` and the text comes back over
 `--dur-refocus` — lost fast, regained slowly, as in the focus pull.
 
+- *Which dishes are either side.* The shelf follows the gallery's sort
+  (`src/lib/shelf.js`). In the chef's own order (Custom) it is that order,
+  numbered from the first dish in the grid, so the next dish is the one
+  after it on the page. Sorted by date it is the order the dishes were
+  made, so "No. 12 of 47" is the twelfth oldest either way round.
 - *One way dishes move.* The step arrows and the arrow keys take the same
   slide as a swipe, just from a standing start, so the shelf has one
   direction whichever way you ask to move along it.

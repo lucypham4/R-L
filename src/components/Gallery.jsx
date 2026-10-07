@@ -5,7 +5,7 @@ import CloseIcon from './CloseIcon';
 import FilterSheet from './FilterSheet';
 import MealCard from './MealCard';
 import MealActionSheet from './MealActionSheet';
-import { DEFAULT_SORT, placeAmong, sortDishes } from '../lib/dishOrder';
+import { placeAmong, sortDishes } from '../lib/dishOrder';
 import { useDishReorder } from '../lib/useDishReorder';
 import './Gallery.css';
 
@@ -31,9 +31,10 @@ export default function Gallery({
   // page leaves it out: its visitors have no profile of their own here.
   avatarUrl,
   onOpenProfile,
-  // How the dishes are laid out to begin with (lib/dishOrder.js), and
-  // who to tell when the viewer picks another.
-  initialSort = DEFAULT_SORT,
+  // How the dishes are laid out (lib/dishOrder.js), and who to tell when
+  // the viewer picks another. Held by the page, whose open dish steps
+  // through the dishes in an order that follows it (lib/shelf.js).
+  sort,
   onSortChange,
   // The chef's own order, as dish ids: what 'custom' lays them out by.
   dishOrder,
@@ -46,7 +47,6 @@ export default function Gallery({
   const [selectedCuisines, setSelectedCuisines] = useState([]);
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [year, setYear] = useState('');
-  const [sort, setSort] = useState(initialSort);
   // Why the order a dish was just dragged into didn't save.
   const [orderError, setOrderError] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -110,18 +110,13 @@ export default function Gallery({
     return reorder.order.map((id) => byId.get(id)).filter(Boolean);
   }, [reorder.order, filtered]);
 
-  function changeSort(next) {
-    setSort(next);
-    onSortChange?.(next);
-  }
-
   // Whatever the grid was sorted by, the order it's in now, with the
   // dish where it was let go, becomes the chef's own: the gallery moves to
   // 'custom' to keep it there.
   function handleDrop(visible, id) {
     const all = placeAmong(ordered.map((m) => String(m.id)), visible, id);
     setOrderError('');
-    if (sort !== 'custom') changeSort('custom');
+    if (sort !== 'custom') onSortChange('custom');
     Promise.resolve(onReorder(all)).catch((err) => {
       setOrderError(err.message || "Couldn't save this order.");
     });
@@ -208,7 +203,7 @@ export default function Gallery({
       {showFilters && (
         <FilterSheet
           sort={sort}
-          onChangeSort={changeSort}
+          onChangeSort={onSortChange}
           selectedCuisines={selectedCuisines}
           selectedCategories={selectedCategories}
           year={year}
