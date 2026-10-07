@@ -355,9 +355,14 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep, p
     };
   }, [els]);
 
+  // Going out, the dish takes no more input: a second Back would go back a
+  // second time. `inert` (below) does it where it is supported, which is not
+  // iOS before 15.5; this is for the rest.
+  const close = () => {
+    if (!exiting) onClose();
+  };
+
   useEffect(() => {
-    // Going out, the dish takes no more input: a second Back would go back
-    // a second time.
     if (exiting) return;
     function onKeyDown(e) {
       if (e.key === 'Escape') onClose();
@@ -672,7 +677,7 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep, p
       className={`modal-overlay dish-overlay ${exiting ? 'dish-overlay-exiting' : ''}`}
       // React 18 only passes `inert` through as a string attribute.
       {...(exiting ? { inert: '' } : {})}
-      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+      onMouseDown={(e) => e.target === e.currentTarget && close()}
     >
       <div
         ref={bind('root')}
@@ -779,7 +784,7 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep, p
           <div ref={bind('backdrop')} className="dish-backdrop" />
 
           <div className="dish-bar">
-            <button type="button" className="dish-back" onClick={onClose} aria-label="Back">
+            <button type="button" className="dish-back" onClick={close} aria-label="Back">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M19 12H5M11 5l-7 7 7 7" />
               </svg>

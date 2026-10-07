@@ -309,6 +309,30 @@ test.describe('the back arrow', () => {
     await expect(page.locator('.gallery')).toBeVisible();
   });
 
+  test('and where inert is not supported, a second Back is still ignored', async ({ page }) => {
+    // iOS before 15.5 has no `inert`, so the dish has to ignore it itself.
+    await boot(page);
+    await tapCard(page, 'm11');
+    await settle(page);
+    // Going back is counted and not done, so the dish's history entry stays
+    // as it was and a second call would be seen.
+    await page.evaluate(() => {
+      window.__backs = 0;
+      history.back = () => {
+        window.__backs++;
+      };
+    });
+    await page.evaluate(() => document.querySelector('.dish-back').click());
+    await page.waitForSelector('.dish-overlay-exiting');
+    await page.evaluate(() => {
+      document.querySelector('.dish-overlay').removeAttribute('inert');
+      document.querySelector('.dish-back').click();
+      document.querySelector('.dish-overlay').dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    });
+    await expect(page.locator('.dish')).toHaveCount(0);
+    expect(await page.evaluate(() => window.__backs)).toBe(1);
+  });
+
   test('closed before the photo has landed, it carries on from where it is', async ({ page }) => {
     await boot(page);
     await tapCard(page, 'm11');
