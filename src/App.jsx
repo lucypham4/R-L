@@ -14,7 +14,7 @@ import ProfilePage from './components/ProfilePage';
 import Splash from './components/Splash';
 import { isSupabaseConfigured } from './lib/supabase';
 import { isCloudinaryConfigured } from './lib/cloudinary';
-import { fetchMeals, insertMeal, deleteMeal, updateMealSummary } from './lib/mealsApi';
+import { fetchMeals, insertMeal, updateMeal, deleteMeal, updateMealSummary } from './lib/mealsApi';
 import {
   fetchChefProfile,
   updateChefPageTheme,
@@ -27,7 +27,7 @@ import { loadLocalMeals, saveLocalMeals, createLocalMeal } from './lib/localMeal
 import { scrollToTop } from './lib/motion';
 import { leaveDish, pushDish, replaceDish } from './lib/dishHistory';
 import { shelfOf, stepOnShelf } from './lib/shelf';
-import { needsSummary } from './lib/meal';
+import { needsSummary, normaliseServes } from './lib/meal';
 import { summarizeDish, isAiConfigured } from './lib/aiFill';
 import { loadTheme, saveTheme, nextTheme, applyTheme } from './lib/theme';
 import { importLocalMeals, countLocalMeals } from './lib/localImport';
@@ -69,6 +69,8 @@ function AdminApp() {
   const [loadError, setLoadError] = useState('');
   const [openMealId, setOpenMealId] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  // The dish whose Edit form is open, over the dish itself.
+  const [editingMealId, setEditingMealId] = useState(null);
   const [showSignIn, setShowSignIn] = useState(false);
   const [signInMode, setSignInMode] = useState('signin');
   const [signInNotice, setSignInNotice] = useState('');
@@ -195,6 +197,12 @@ function AdminApp() {
 
   const openIndex = shelf.findIndex((m) => String(m.id) === String(openMealId));
   const openMeal = openIndex >= 0 ? shelf[openIndex] : null;
+  // The edit form belongs to the open dish: leaving the dish (Back, the
+  // browser's back, deleting it) takes the form with it.
+  const editingMeal = openMeal && String(openMeal.id) === String(editingMealId) ? openMeal : null;
+  useEffect(() => {
+    if (!openMeal) setEditingMealId(null);
+  }, [openMeal]);
   // The dishes either side, in the modal's numbering: see handleStepMeal.
   const prevMeal = stepOnShelf(shelf, openIndex, -1);
   const nextMeal = stepOnShelf(shelf, openIndex, 1);
@@ -356,6 +364,22 @@ function AdminApp() {
     setShowAddForm(false);
   }
 
+  // Saves a chef's edits to a dish. Errors propagate, for the form to show.
+  async function handleEditMeal(fields) {
+    const id = editingMeal.id;
+    if (isSupabaseConfigured && session) {
+      const saved = await updateMeal(id, fields);
+      setMeals((prev) => prev.map((m) => (m.id === id ? { ...m, ...saved } : m)));
+    } else {
+      setMeals((prev) => {
+        const next = prev.map((m) => (m.id === id ? { ...m, ...fields, serves: normaliseServes(fields.serves) } : m));
+        saveLocalMeals(next);
+        return next;
+      });
+    }
+    setEditingMealId(null);
+  }
+
   async function handleDeleteMeal(id) {
     if (isSupabaseConfigured && session) {
       await deleteMeal(id);
@@ -473,9 +497,15 @@ function AdminApp() {
           total={shelf.length}
           onClose={closeMeal}
           onStep={handleStepMeal}
+          onEdit={() => setEditingMealId(openMeal.id)}
+          paused={Boolean(editingMeal)}
           prevMeal={prevMeal}
           nextMeal={nextMeal}
         />
+      )}
+
+      {editingMeal && (
+        <AddMealForm meal={editingMeal} onSave={handleEditMeal} onCancel={() => setEditingMealId(null)} />
       )}
 
       {showAddForm && (
