@@ -157,7 +157,7 @@ export default function Gallery({
           </button>
         </div>
         <span className="gallery-count">
-          {filtered.length} of {meals.length} meals
+          {filtered.length} of {meals.length} dishes
         </span>
       </div>
 

@@ -171,7 +171,7 @@ separate call, and not one the case rule below depends on.
 ## Sentence case
 
 Nothing in Staj is set in capitals. A label reads "Step 1 of 3", "0 of 0
-meals", "Date cooked", "Cuisine"; a date reads "26 Sept 2026"; a button reads
+dishes", "Date cooked", "Cuisine"; a date reads "26 Sept 2026"; a button reads
 "Save meal". The labels used to be small uppercase mono, tracked out so the
 capitals had room, and beside buttons that had gone to sentence case the two
 read as different voices.
