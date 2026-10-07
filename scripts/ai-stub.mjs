@@ -3,22 +3,23 @@
 // "AI request failed (503): ..." in the body, exactly as the real Edge
 // Function does. The first FAIL ai-fill requests fail; the rest succeed.
 //
-//   FAIL=2 node scripts/ai-stub.mjs
+//   FAIL=3 node scripts/ai-stub.mjs
 //   VITE_SUPABASE_URL=http://localhost:54321 VITE_SUPABASE_ANON_KEY=stub npm run dev
 //
-//   FAIL=2  (default) the first try and the automatic retry both fail, so the
+//   FAIL=3  (default) the first try and both automatic retries fail, so the
 //                     notice shows; "Try again" then succeeds
-//   FAIL=1            the automatic retry rescues it, so no notice at all
+//   FAIL=1 or 2       the automatic retries rescue it, so no notice at all
 //   FAIL=99           every request fails
 //   PORT=54321        where to listen (set it if `supabase start` has that one)
 //
 // Auth and data requests are answered empty, so the app settles as a guest.
-// Each ai-fill request is logged with a timestamp, so the pause before the
-// automatic retry shows. FAIL counts requests since the stub started; restart
-// it between runs. README.md, "Testing AI failures", has the walkthrough.
+// Each ai-fill request is logged with a timestamp, so the pauses before the
+// automatic retries show (1.5s, then 3s). FAIL counts requests since the
+// stub started; restart it between runs. README.md, "Testing AI failures",
+// has the walkthrough.
 import { createServer } from 'node:http';
 
-const FAIL = Number(process.env.FAIL ?? 2);
+const FAIL = Number(process.env.FAIL ?? 3);
 const PORT = Number(process.env.PORT ?? 54321);
 let aiFillCalls = 0;
 

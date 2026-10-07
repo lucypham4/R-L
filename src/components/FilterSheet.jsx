@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { tokenMs } from '../lib/motion';
 import CloseIcon from './CloseIcon';
 import FilterSelect from './FilterSelect';
 import './Bubbles.css';
@@ -19,11 +20,28 @@ export default function FilterSheet({
   onClose,
 }) {
   const closeRef = useRef(null);
+  const [closing, setClosing] = useState(false);
+  const exitTimer = useRef(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  // Every way out (the close button, the backdrop, Escape) goes through
+  // here: the sheet plays its exit and is taken off the page once that has
+  // run. How long that takes is the tokens' say, not copied here, so reduced
+  // motion, which shortens them, shortens the wait with them.
+  const requestClose = useCallback(() => {
+    if (exitTimer.current !== null) return;
+    setClosing(true);
+    const exitMs = Math.max(tokenMs('--dur-move'), tokenMs('--dur-color'));
+    exitTimer.current = setTimeout(() => onCloseRef.current(), exitMs);
+  }, []);
+
+  useEffect(() => () => clearTimeout(exitTimer.current), []);
 
   useEffect(() => {
     closeRef.current?.focus();
     function onKeyDown(e) {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') requestClose();
     }
     document.addEventListener('keydown', onKeyDown);
     document.body.style.overflow = 'hidden';
@@ -31,11 +49,14 @@ export default function FilterSheet({
       document.removeEventListener('keydown', onKeyDown);
       document.body.style.overflow = '';
     };
-  }, [onClose]);
+  }, [requestClose]);
 
   return (
-    <div className="filter-sheet-overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="filter-sheet" role="dialog" aria-modal="true" aria-label="Filters">
+    <div
+      className={`filter-sheet-overlay ${closing ? 'filter-sheet-overlay-closing' : ''}`}
+      onMouseDown={(e) => e.target === e.currentTarget && requestClose()}
+    >
+      <div className={`filter-sheet ${closing ? 'filter-sheet-closing' : ''}`} role="dialog" aria-modal="true" aria-label="Filters">
         <div className="filter-sheet-header">
           <h2 className="filter-sheet-title">Filters</h2>
           <div className="filter-sheet-header-actions">
@@ -44,7 +65,7 @@ export default function FilterSheet({
                 Clear all
               </button>
             )}
-            <button ref={closeRef} type="button" className="filter-sheet-close" onClick={onClose} aria-label="Close">
+            <button ref={closeRef} type="button" className="filter-sheet-close" onClick={requestClose} aria-label="Close">
               <CloseIcon size={16} />
             </button>
           </div>

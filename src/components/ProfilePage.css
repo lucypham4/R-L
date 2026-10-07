@@ -46,6 +46,7 @@
 }
 
 .profile-back {
+  padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -88,6 +89,7 @@
 }
 
 .profile-icon-btn {
+  padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;

@@ -120,19 +120,21 @@ export default function Gallery({
       )}
 
       <div className="gallery-search-row">
-        <div className="gallery-search-field">
-          <SearchIcon />
-          <input
-            type="search"
-            className="gallery-search-input"
-            placeholder="Search meals…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            aria-label="Search meals"
-          />
+        <div className="gallery-search">
+          <div className="gallery-search-field">
+            <SearchIcon />
+            <input
+              type="search"
+              className="gallery-search-input"
+              placeholder="Search meals…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              aria-label="Search meals"
+            />
+          </div>
           <button
             type="button"
-            className={`gallery-filter-btn ${hasActiveFilters ? 'gallery-filter-btn-active' : ''}`}
+            className="gallery-filter-btn"
             onClick={() => setShowFilters(true)}
             aria-label="Open filters"
           >
@@ -247,12 +249,16 @@ function SearchIcon() {
   );
 }
 
+// Two parallel lines, each with a round node on it: the lines stop at the
+// node's edge on either side rather than running through it, so the node
+// reads as a control sitting on its track.
 function FilterIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 6h16" />
-      <path d="M7 12h10" />
-      <path d="M10 18h4" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 8h2.5M11.5 8H20" />
+      <circle cx="9" cy="8" r="2.5" />
+      <path d="M4 16h8.5M17.5 16H20" />
+      <circle cx="15" cy="16" r="2.5" />
     </svg>
   );
 }

@@ -47,10 +47,16 @@ function upstreamStatusOf(message) {
 }
 
 // Gemini is briefly overloaded (503) or rate-limited (429) far more often
-// than it's actually down, and a second try a moment later usually lands.
-// Anything else (a bad key, a missing model) won't change in two seconds.
+// than it's actually down, and a try a moment later usually lands. Anything
+// else (a bad key, a missing model) won't change in a few seconds.
+//
+// One retry after two seconds was not enough: an overload lasts longer than
+// that, so the chef saw the failure notice and only got a fill by pressing
+// Try again, which was really just a longer wait. So it is up to three tries
+// in all, the pause growing as it goes (1.5s, then 3s: about 4.5s of waiting
+// in the worst case), and the 30-second limit still covers the lot.
 const RETRYABLE_UPSTREAM_STATUSES = new Set([503, 429]);
-const RETRY_DELAY_MS = 2000;
+const RETRY_DELAYS_MS = [1500, 3000];
 
 /**
  * True when a failed generateMealDetails() was the model being busy (503,
@@ -93,11 +99,12 @@ function blobToBase64(blob) {
  * Asks the ai-fill Edge Function to infer a full meal's details from a photo
  * and the chef's own freeform (unlimited-length) notes about the dish.
  *
- * An overloaded or rate-limited model (503, 429) is tried once more after a
- * short wait before this gives up; any other failure throws straight away.
- * `onRetry`, if given, is called as that wait begins, so a caller can tell
- * the chef it's trying again rather than still on the first go. The whole
- * fill, retry included, gives up after AI_FILL_TIMEOUT_MS.
+ * An overloaded or rate-limited model (503, 429) is tried again, up to three
+ * tries in all with a growing pause between them, before this gives up; any
+ * other failure throws straight away. `onRetry`, if given, is called as each
+ * wait begins, so a caller can tell the chef it's trying again rather than
+ * still on the first go. The whole fill, retries included, gives up after
+ * AI_FILL_TIMEOUT_MS.
  */
 export async function generateMealDetails({ notes, photoBlob, photoMediaType, onRetry }) {
   if (!isAiConfigured) {
@@ -113,19 +120,22 @@ export async function generateMealDetails({ notes, photoBlob, photoMediaType, on
     image: { data: imageData, mediaType: photoMediaType || 'image/png' },
   };
 
-  // The limit is for the whole fill, retry included, so a retry gets what the
-  // first try left over rather than a fresh 30 seconds.
+  // The limit is for the whole fill, retries included, so each try gets what
+  // the ones before it (and the pauses between) have left over rather than a
+  // fresh 30 seconds.
   const deadline = Date.now() + AI_FILL_TIMEOUT_MS;
   let data;
-  try {
-    data = await invokeAiFill(body, AI_FILL_TIMEOUT_MS);
-  } catch (failure) {
-    if (!RETRYABLE_UPSTREAM_STATUSES.has(failure.upstreamStatus)) throw failure;
-    const remaining = deadline - Date.now() - RETRY_DELAY_MS;
-    if (remaining <= 0) throw failure;
-    onRetry?.();
-    await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
-    data = await invokeAiFill(body, remaining);
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      data = await invokeAiFill(body, Math.max(deadline - Date.now(), 1));
+      break;
+    } catch (failure) {
+      const pause = RETRY_DELAYS_MS[attempt];
+      if (!RETRYABLE_UPSTREAM_STATUSES.has(failure.upstreamStatus) || pause === undefined) throw failure;
+      if (deadline - Date.now() - pause <= 0) throw failure;
+      onRetry?.();
+      await new Promise((resolve) => setTimeout(resolve, pause));
+    }
   }
   if (!data || typeof data !== 'object') throw new Error('Got an unexpected response.');
 

@@ -36,6 +36,42 @@
   }
 }
 
+/* Leaving is the entrance run backwards. The sheet drops back down, and the
+   overlay it sits in fades out, so the sheet fades as it goes and the
+   backdrop (scrim and blur) clears with it. The overlay takes no taps
+   meanwhile, so a second one can't land on whatever is under the fading
+   scrim. */
+.filter-sheet-overlay-closing {
+  pointer-events: none;
+  animation: filter-sheet-scrim-out var(--dur-color) var(--ease) forwards;
+}
+
+.filter-sheet-closing {
+  animation: filter-sheet-drop var(--dur-move) var(--ease) forwards;
+}
+
+@keyframes filter-sheet-scrim-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes filter-sheet-drop {
+  to {
+    transform: translateY(100%);
+  }
+}
+
+/* Reduced motion flattens --dur-move to nothing, which would leave the sheet
+   gone at once under a scrim that is still fading. So the slide is dropped
+   and the sheet just fades with the scrim, over --dur-color, which survives
+   (motion.md: substitute, don't flatten). */
+@media (prefers-reduced-motion: reduce) {
+  .filter-sheet-closing {
+    animation: none;
+  }
+}
+
 .filter-sheet-header {
   display: flex;
   align-items: center;
@@ -66,6 +102,7 @@
 }
 
 .filter-sheet-close {
+  padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;

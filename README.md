@@ -209,7 +209,9 @@ with no billing required:
 2. `supabase secrets set GEMINI_API_KEY=...` on the same project (a free
    key from [Google AI Studio](https://aistudio.google.com/apikey), shared
    by both functions; an optional `GEMINI_MODEL` secret overrides the
-   default model, currently `gemini-3.6-flash`).
+   default model, currently `gemini-3.6-flash`). An optional
+   `GEMINI_FALLBACK_MODEL` secret names a second model for `ai-fill` to try
+   when the first answers 503 or 429 (see "If AI fill fails" below).
 3. Reload the app. **Next** on step 2 now fills the card, and **Clean up**
    shows under Description once there is a description to work from.
 
@@ -238,9 +240,12 @@ nothing about the cause. The wizard now opens step 3 straight away and,
 when the fill fails, stops the shimmer, carries the notes over as the
 description, and says "The AI couldn't fill this in", with a **Try again**
 button that re-runs the fill for the same photo and notes and fills only
-what the chef hasn't edited since. A 503 or 429 from the model is retried
-once, after about two seconds, before the notice shows at all; nothing else
-is retried (the card keeps shimmering through that retry). If Try again
+what the chef hasn't edited since. A 503 or 429 from the model is tried up
+to three times, with a pause that doubles (1.5 seconds, then 3) before the
+notice shows at all; nothing else is retried (the card keeps shimmering
+through the retries, and the whole fill still ends at 30 seconds). If
+`GEMINI_FALLBACK_MODEL` is set, each of those tries also asks that model,
+straight away, when the first one is busy. If Try again
 fails too, a line under the button says why it's worth another go or not:
 "Still busy. Try again in a minute." for a 503 or 429, "That didn't work.
 You can fill it in below." for anything else. It goes when the chef presses
@@ -254,14 +259,14 @@ thrown away: it's logged with `console.error` and sits under the notice's
 | --- | --- |
 | `GEMINI_API_KEY is not configured on this project.` | `supabase secrets set GEMINI_API_KEY=...` |
 | `AI request failed (404): ...` | The model in `GEMINI_MODEL` doesn't exist for your key; set it to one that does |
-| `AI request failed (429): ...` | Free-tier rate limit; it was already retried once, so wait a bit longer and press Try again |
-| `AI request failed (503): ...` | The model is overloaded ("high demand"); it was already retried once, so press Try again in a minute |
+| `AI request failed (429): ...` | Free-tier rate limit; it was already tried three times, so wait a bit longer and press Try again |
+| `AI request failed (503): ...` | The model is overloaded ("high demand"); it was already tried three times (and the fallback model, if set), so press Try again in a minute |
 | `Couldn't reach the AI just now.` | No response body from our handler, so the function isn't deployed or the request never reached it |
 | `The AI took too long to answer.` | Nothing came back within 30 seconds; try again, or check the function's logs |
 
 ### Testing AI failures
 
-To see the automatic retry, the Try again button and the notice without
+To see the automatic retries, the Try again button and the notice without
 waiting for the model to really be busy, `scripts/ai-stub.mjs` stands in
 for Supabase and answers `ai-fill` the way the real Edge Function does when
 Gemini is overloaded: HTTP 502 with `AI request failed (503): ...` in the
@@ -269,7 +274,7 @@ body. Two terminals:
 
 ```bash
 # 1: the stub
-FAIL=2 node scripts/ai-stub.mjs
+FAIL=3 node scripts/ai-stub.mjs
 
 # 2: the app, pointed at it
 VITE_SUPABASE_URL=http://localhost:54321 VITE_SUPABASE_ANON_KEY=stub npm run dev
@@ -281,8 +286,8 @@ succeeding:
 
 | `FAIL` | What you should see |
 | --- | --- |
-| `2` (default) | You land on step 3 as soon as you press Next, its fields shimmering. The stub logs two 503s about 2 seconds apart (the shimmer carries on through the second try; a screen reader is told "Trying again…"), then the shimmer stops and the card says "The AI couldn't fill this in". Try again says "Trying again…", then fills the card and dismisses the notice. |
-| `1` | The automatic retry rescues it, so there is no notice. |
+| `3` (default) | You land on step 3 as soon as you press Next, its fields shimmering. The stub logs three 503s, the second 1.5 seconds after the first and the third 3 seconds after that (the shimmer carries on through the retries; a screen reader is told "Trying again…"), then the shimmer stops and the card says "The AI couldn't fill this in". Try again says "Trying again…", then fills the card and dismisses the notice. |
+| `1` or `2` | The automatic retries rescue it, so there is no notice. |
 | `99` | Every request fails. Try again returns to "Try again" with "Still busy. Try again in a minute." under it, and Details shows the raw 503 text. |
 
 To see the other line, "That didn't work. You can fill it in below.", reach
