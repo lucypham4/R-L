@@ -14,7 +14,7 @@ create table if not exists public.meals (
   cuisine text not null default '',
   category text not null default '',
   date date not null,
-  serves integer not null default 2,
+  serves integer,
   description text not null default '',
   ingredients text[] not null default '{}',
   method text[] not null default '{}',
