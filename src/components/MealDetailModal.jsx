@@ -4,6 +4,8 @@ import { normaliseServes, summaryOf } from '../lib/meal';
 import { onReducedMotionChange, prefersReducedMotion, scrollElementTo, token, tokenMs } from '../lib/motion';
 import { applyDishSheetFrame, dishSheetFrame, measureDishSheet } from '../lib/dishSheet';
 import { AXIS_BIAS, AXIS_SLOP, releaseVelocity, rubberBand, shouldCommit } from '../lib/dishSwipe';
+import { boxOf, cardPhotoOf, flyPhoto, isOnScreen, settledBoxOf } from '../lib/dishFlight';
+import { openedFromGallery } from '../lib/dishHistory';
 import './Bubbles.css';
 import './MealDetailModal.css';
 
@@ -116,7 +118,10 @@ function Chevron({ direction }) {
   );
 }
 
-export default function MealDetailModal({ meal, index, total, onClose, onStep, prevMeal, nextMeal }) {
+// `exiting` is the dish on its way out: the parent has let go of it and it
+// is playing its exit, after which it calls `onExited` and is taken off the
+// page.
+export default function MealDetailModal({ meal, index, total, onClose, onStep, prevMeal, nextMeal, exiting = false, onExited }) {
   const { els, bind } = useElements();
   const shareCardRef = useRef(null);
   const [shareStatus, setShareStatus] = useState('idle'); // idle | working | done | error
@@ -209,6 +214,85 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep, p
     measure();
   }, [measure, meal?.id]);
 
+  // The photo's flights (lib/dishFlight.js). Opening a dish lifts its photo
+  // off its card in the gallery and sets it down in the view; closing
+  // carries it back. One at a time: a dish closed before its photo has
+  // landed carries on from wherever the photo has got to.
+  const flight = useRef(null);
+
+  // In. Only from a card that was tapped, and is on screen: a dish opened
+  // from a link arrives with the rest of the view instead.
+  useLayoutEffect(() => {
+    const { photo, root } = els;
+    const card = cardPhotoOf(meal?.id);
+    if (reduced.current || !openedFromGallery() || !card || photo?.tagName !== 'IMG') return;
+    const from = boxOf(card);
+    if (from.top >= window.innerHeight || from.top + from.height <= 0) return;
+    // The view's photo has usually not loaded yet, though the card's has:
+    // it has no size, so nowhere to land, until it does. The copy waits on
+    // the card for that, for no longer than a move.
+    const loaded =
+      photo.complete && photo.naturalWidth > 0
+        ? true
+        : Promise.race([
+            (photo.decode ? photo.decode() : Promise.reject()).then(() => true, () => false),
+            new Promise((resolve) => setTimeout(resolve, tokenMs('--dur-move'), false)),
+          ]);
+    flight.current = flyPhoto({
+      src: photo.currentSrc || photo.src,
+      from,
+      ready: loaded,
+      // Where the photo comes to rest, in the screen's coordinates. The
+      // view's own entrance is still moving it a few pixels, so this is
+      // read from the layout rather than from where the photo is now.
+      to: () => {
+        measure();
+        const { photo: at } = geometry.current;
+        return at.w > 0 && at.h > 0 ? { left: root.offsetLeft + at.x, top: root.offsetTop + at.y, width: at.w, height: at.h } : null;
+      },
+      hide: [card, photo],
+      onDone: () => {
+        flight.current = null;
+      },
+    });
+    return () => {
+      flight.current?.cancel();
+      flight.current = null;
+    };
+  }, []);
+
+  // Out. The view leaves around the photo, which flies home to its card: the
+  // card of whichever dish is open, which after stepping along the shelf is
+  // not the one that was tapped. A photo with no card to go to (filtered out
+  // of the gallery, or off the screen), and reduced motion, which doesn't fly
+  // anything, leave with the view instead.
+  useLayoutEffect(() => {
+    if (!exiting) return;
+    const { photo } = els;
+    const card = cardPhotoOf(meal?.id);
+    const to = card && settledBoxOf(card);
+    if (!reduced.current && to && isOnScreen(to) && photo?.tagName === 'IMG' && photo.naturalWidth > 0) {
+      const live = flight.current;
+      const from = boxOf(live ? live.el : photo);
+      live?.cancel([photo, card]);
+      flight.current = flyPhoto({
+        src: photo.currentSrc || photo.src,
+        from,
+        to,
+        hide: [photo, card],
+        onDone: onExited,
+      });
+      return () => {
+        flight.current?.cancel();
+        flight.current = null;
+      };
+    }
+    flight.current?.cancel();
+    flight.current = null;
+    const timer = setTimeout(onExited, tokenMs(reduced.current ? '--dur-color' : '--dur-move'));
+    return () => clearTimeout(timer);
+  }, [exiting]);
+
   // The second half of a step: the incoming photo slides in from where its
   // neighbour's drag had it, as the outgoing one (now the ghost) leaves.
   // Before paint, so the frame between the two halves is never seen.
@@ -272,6 +356,9 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep, p
   }, [els]);
 
   useEffect(() => {
+    // Going out, the dish takes no more input: a second Back would go back
+    // a second time.
+    if (exiting) return;
     function onKeyDown(e) {
       if (e.key === 'Escape') onClose();
       if (!canStep) return;
@@ -280,7 +367,7 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep, p
     }
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [onClose, canStep]);
+  }, [onClose, canStep, exiting]);
 
   // The neighbours' photos, fetched ahead so a step never waits on the
   // network half-way through its slide.
@@ -581,7 +668,12 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep, p
   }
 
   return (
-    <div className="modal-overlay dish-overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div
+      className={`modal-overlay dish-overlay ${exiting ? 'dish-overlay-exiting' : ''}`}
+      // React 18 only passes `inert` through as a string attribute.
+      {...(exiting ? { inert: '' } : {})}
+      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+    >
       <div
         ref={bind('root')}
         className="dish"

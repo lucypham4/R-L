@@ -7,6 +7,7 @@ import { fetchChefBySlug, DEFAULT_PAGE_THEME } from '../lib/chefsApi';
 import { fetchMeals } from '../lib/mealsApi';
 import { leaveDish, pushDish, replaceDish } from '../lib/dishHistory';
 import { stepOnShelf } from '../lib/shelf';
+import { useLingering } from '../lib/useLingering';
 import { measureChefHeader, chefHeaderFrame, applyChefHeaderFrame } from '../lib/chefHeader';
 import { prefersReducedMotion, onReducedMotionChange, tokenMs } from '../lib/motion';
 import './PublicChefPage.css';
@@ -170,8 +171,12 @@ export default function PublicChefPage({ slug }) {
   );
   const openIndex = sortedMeals.findIndex((m) => String(m.id) === String(openMealId));
   const openMeal = openIndex >= 0 ? sortedMeals[openIndex] : null;
-  const prevMeal = stepOnShelf(sortedMeals, openIndex, -1);
-  const nextMeal = stepOnShelf(sortedMeals, openIndex, 1);
+  // The dish stays on the page while its photo flies back to its card; see
+  // App.jsx.
+  const { shown, leaving, key: shownKey, done: dishGone } = useLingering(openMeal);
+  const shownIndex = shown ? sortedMeals.findIndex((m) => m.id === shown.id) : -1;
+  const prevMeal = stepOnShelf(sortedMeals, shownIndex, -1);
+  const nextMeal = stepOnShelf(sortedMeals, shownIndex, 1);
 
   function handleOpenMeal(meal) {
     pushDish(meal.id);
@@ -249,11 +254,14 @@ export default function PublicChefPage({ slug }) {
       <div ref={bind('snapCollapsed')} className="public-chef-snap-area" aria-hidden="true" />
       <div className="public-chef-snap-end" aria-hidden="true" />
 
-      {openMeal && (
+      {shown && (
         <MealDetailModal
-          meal={openMeal}
-          index={sortedMeals.length - openIndex}
+          key={shownKey}
+          meal={shown}
+          index={shownIndex >= 0 ? sortedMeals.length - shownIndex : sortedMeals.length}
           total={sortedMeals.length}
+          exiting={leaving}
+          onExited={dishGone}
           onClose={closeMeal}
           onStep={handleStepMeal}
           prevMeal={prevMeal}

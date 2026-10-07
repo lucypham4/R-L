@@ -625,6 +625,68 @@
   }
 }
 
+/* ---- The photo's flight ----------------------------------------------- */
+
+/* The copy of the photo that travels between a card in the gallery and the
+   dish view (lib/dishFlight.js). It's on the page itself, above the view,
+   so the view can fade in and out around it. Its box is animated, and
+   `object-fit: cover` is what opens the card's square crop out into the
+   whole photo as it goes; the corner and the hairline are the same as the
+   card's and the view's, and stay so. */
+.dish-flyer {
+  position: fixed;
+  z-index: 101;
+  margin: 0;
+  max-width: none;
+  object-fit: cover;
+  border-radius: var(--radius-media);
+  outline: 1px solid var(--color-line);
+  outline-offset: -1px;
+  pointer-events: none;
+}
+
+/* ---- The way out ----------------------------------------------------- */
+
+/* The view fades away around the photo as it flies home, over --dur-move,
+   so the gallery behind it, coming back into focus over the same time, is
+   there for the photo to land on. The sheet drops the way it arrived. It
+   takes no input meanwhile. */
+.modal-overlay.dish-overlay-exiting {
+  animation: dish-leave var(--dur-move) var(--ease) forwards;
+  pointer-events: none;
+}
+
+.dish-overlay-exiting .dish-sheet,
+.dish-overlay-exiting .dish-frame {
+  animation: dish-sheet-leave var(--dur-move) var(--ease) forwards;
+}
+
+@keyframes dish-leave {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes dish-sheet-leave {
+  to {
+    translate: 0 calc(var(--dish-peek) + var(--dish-peek-inset-b));
+  }
+}
+
+/* With --dur-move at zero the fade would be over at once, and the sheet
+   would be gone before anything had faded. So the fade takes a colour's
+   time instead, and the sheet stays where it is. */
+@media (prefers-reduced-motion: reduce) {
+  .modal-overlay.dish-overlay-exiting {
+    animation-duration: var(--dur-color);
+  }
+
+  .dish-overlay-exiting .dish-sheet,
+  .dish-overlay-exiting .dish-frame {
+    animation: none;
+  }
+}
+
 /* ---- Shared with the share card -------------------------------------- */
 
 .modal-method {

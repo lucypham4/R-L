@@ -21,6 +21,7 @@ import { loadLocalMeals, saveLocalMeals, createLocalMeal } from './lib/localMeal
 import { scrollToTop } from './lib/motion';
 import { leaveDish, pushDish, replaceDish } from './lib/dishHistory';
 import { stepOnShelf } from './lib/shelf';
+import { useLingering } from './lib/useLingering';
 import { needsSummary } from './lib/meal';
 import { summarizeDish, isAiConfigured } from './lib/aiFill';
 import { loadTheme, saveTheme, nextTheme, applyTheme } from './lib/theme';
@@ -183,9 +184,14 @@ function AdminApp() {
 
   const openIndex = sortedMeals.findIndex((m) => String(m.id) === String(openMealId));
   const openMeal = openIndex >= 0 ? sortedMeals[openIndex] : null;
+  // Closing a dish clears openMeal at once, but the dish stays on the page
+  // until its photo has flown back to its card: `shown` is what the modal
+  // draws, and `leaving` is what tells it to go.
+  const { shown, leaving, key: shownKey, done: dishGone } = useLingering(openMeal);
+  const shownIndex = shown ? sortedMeals.findIndex((m) => m.id === shown.id) : -1;
   // The dishes either side, in the modal's numbering: see handleStepMeal.
-  const prevMeal = stepOnShelf(sortedMeals, openIndex, -1);
-  const nextMeal = stepOnShelf(sortedMeals, openIndex, 1);
+  const prevMeal = stepOnShelf(sortedMeals, shownIndex, -1);
+  const nextMeal = stepOnShelf(sortedMeals, shownIndex, 1);
 
   function handleOpenMeal(meal) {
     pushDish(meal.id);
@@ -424,11 +430,14 @@ function AdminApp() {
         />
       </div>
 
-      {openMeal && (
+      {shown && (
         <MealDetailModal
-          meal={openMeal}
-          index={sortedMeals.length - openIndex}
+          key={shownKey}
+          meal={shown}
+          index={shownIndex >= 0 ? sortedMeals.length - shownIndex : sortedMeals.length}
           total={sortedMeals.length}
+          exiting={leaving}
+          onExited={dishGone}
           onClose={closeMeal}
           onStep={handleStepMeal}
           prevMeal={prevMeal}

@@ -39,3 +39,13 @@ export function leaveDish() {
     window.history.replaceState(window.history.state, '', urlWith(null));
   }
 }
+
+/**
+ * Whether the open dish was opened from the gallery on this page, as
+ * opposed to reached by a link. The first leaves a card behind for the
+ * dish's photo to fly out of and back to (lib/dishFlight.js); the second has
+ * no such card to speak of: nobody tapped it.
+ */
+export function openedFromGallery() {
+  return Boolean(window.history.state?.dish);
+}

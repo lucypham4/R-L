@@ -60,7 +60,9 @@ export default function MealCard({ meal, onOpen, onLongPress, editMode, onDelete
         onPointerLeave={cancelPress}
         onPointerCancel={cancelPress}
       >
-        <span className="meal-card-image">
+        {/* data-meal-photo is what the dish's photo flies to and from
+            (lib/dishFlight.js). */}
+        <span className="meal-card-image" data-meal-photo={meal.id}>
           {thumbSrc ? (
             <img src={thumbSrc} alt={`${meal.name}, ${meal.cuisine} ${meal.category}`} className="meal-card-photo" />
           ) : (

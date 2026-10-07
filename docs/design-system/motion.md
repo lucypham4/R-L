@@ -53,7 +53,7 @@ and sheen over a field the AI is writing.
 
 Component-specific keyframes stay in that component's stylesheet
 (`filter-sheet-rise`, `filter-sheet-drop`, `filter-sheet-scrim-out`,
-`filter-dot-pop`, `dish-sheet-enter`).
+`filter-dot-pop`, `dish-sheet-enter`, `dish-leave`, `dish-sheet-leave`).
 
 A keyframe used by two components belongs in `global.css`. `modal-rise`
 previously lived in `MealDetailModal.css` while `MealActionSheet.css` also
@@ -183,6 +183,70 @@ streak and the keyframe are shared.
 
 **Progress** (add-meal wizard). `scaleX` on a fixed-width track, not an
 animated `width`, so growth is composited instead of triggering layout.
+
+**Opening and closing a dish** (`MealDetailModal`, `src/lib/dishFlight.js`,
+`src/lib/useLingering.js`). The dish's photo is the thing that connects the
+gallery to the dish view, so it is the thing that travels: tap a card and its
+photo lifts off the page and settles where the dish keeps it, while the view
+arrives around it; press Back and it goes home to its card while the view
+fades. The motion answers "where did this come from, and where does it go",
+which is the test this document sets.
+
+- *A copy flies, not the photo.* `.dish-flyer` is a lone `<img>` on the page,
+  above the view. The real photo belongs to the dish sheet, which places it
+  with transforms of its own, and sits inside a view that is itself fading;
+  a copy has neither to contend with. The card's photo and the view's are
+  kept out of sight for as long as it is in the air, and the copy takes over
+  in the frame it can first be painted, so there is never a frame with none
+  of them (and never two).
+- *It animates its box*, `left`, `top`, `width` and `height`, with
+  `object-fit: cover`, over `--dur-enter` on `--ease`. A card shows a square
+  crop of the photo and the view shows all of it, and animating the box is
+  what lets the crop open out as it travels, with the corner and the
+  hairline the same size throughout. It is the one place in the app where
+  layout properties animate, on one fixed element with nothing around it to
+  lay out. `--ease` rather than `--ease-out`: the photo is already on screen
+  changing place and size, and `--ease-out` spends nearly all of its travel
+  in the first third.
+- *In* leaves from the card's box as the tap found it (so, a touch smaller if
+  it was still pressed) and lands on the photo's box as the layout will have
+  it, not as the view's own entrance has it a few pixels lower at that moment.
+  The title rises and the sheet comes up from below as they already did. Only
+  from a card that was tapped: a dish reached by a link arrives with the view,
+  since nobody tapped anything (`openedFromGallery`). The view's own photo has
+  usually not loaded yet when the view mounts, though the card's has, and a
+  photo with no size has nowhere to land: the copy waits on the card for it,
+  for no longer than a move, and if it hasn't come by then the flight is
+  dropped and the photo arrives with the view.
+- *Out* starts from wherever the photo is. Pulled up to a thumbnail, that is
+  where it leaves from. The view fades over `--dur-move` and the sheet drops
+  the way it arrived (`dish-sheet-leave`), and the gallery behind comes back
+  into focus over the same time, so there is a gallery for the photo to land
+  on. It lands on the card as the card will be once the gallery has stopped
+  receding: the depth of field scales the gallery by `--dof-scale`, so
+  aiming at where the card is *now* would stop a few pixels short.
+- *It goes to the card of the dish that is open*, which after stepping along
+  the shelf is not the one that was tapped. If that card is off the screen
+  (the gallery has not moved, and a long way of steps can leave it well
+  below the fold), a dish with no card in the gallery (filtered out of it)
+  or no photo, the photo has nowhere to be seen landing, and the dish leaves
+  with the view.
+- *The dish stays on the page while it goes.* Closing clears the open dish
+  at once, so `useLingering` holds on to it until its exit has played and it
+  says so. It takes no input meanwhile (`inert`): a second Back would go back
+  a second time.
+- *Flights hand over.* Back before the photo has landed carries on from where
+  it has got to rather than from its resting place; a dish tapped while the
+  last is still leaving replaces it (the hook's `key` remounts the view, so
+  it is not mistaken for a step along the shelf).
+
+Under reduced motion nothing flies. The view fades in as it does everywhere
+and out over `--dur-color`, and the sheet stays where it is (`--dur-move` is
+zero, which would leave the fade over before the sheet had gone: the same
+substitution as the filter sheet's).
+
+`tests/dish-flight.spec.js` reads the copy's box at the start, middle and end
+of its animation and compares it with the two boxes it joins.
 
 **Stepping between dishes** (`MealDetailModal`). The one place the app
 spends real time on a transition, because it's the one place where the
@@ -384,7 +448,8 @@ then fades.
 dims and scales back a hair. It does the work a heavy scrim would, without
 draining the colour out of the food photography behind it. Applied once on
 open — never per scroll frame, which is what makes a filter this size
-affordable.
+affordable. It comes back the moment the dish starts to leave, not when it
+has gone, so the photo flying home has a gallery in focus to land on.
 
 ## Adding motion
 
