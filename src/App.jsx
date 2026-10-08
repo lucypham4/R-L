@@ -27,6 +27,7 @@ import { loadLocalMeals, saveLocalMeals, createLocalMeal } from './lib/localMeal
 import { scrollToTop } from './lib/motion';
 import { leaveDish, pushDish, replaceDish } from './lib/dishHistory';
 import { shelfOf, stepOnShelf } from './lib/shelf';
+import { useLingering } from './lib/useLingering';
 import { needsSummary, normaliseServes } from './lib/meal';
 import { summarizeDish, isAiConfigured } from './lib/aiFill';
 import { loadTheme, saveTheme, nextTheme, applyTheme } from './lib/theme';
@@ -203,9 +204,14 @@ function AdminApp() {
   useEffect(() => {
     if (!openMeal) setEditingMealId(null);
   }, [openMeal]);
+  // Closing a dish clears openMeal at once, but the dish stays on the page
+  // until its photo has flown back to its card: `shown` is what the modal
+  // draws, and `leaving` is what tells it to go.
+  const { shown, leaving, key: shownKey, done: dishGone } = useLingering(openMeal);
+  const shownIndex = shown ? shelf.findIndex((m) => m.id === shown.id) : -1;
   // The dishes either side, in the modal's numbering: see handleStepMeal.
-  const prevMeal = stepOnShelf(shelf, openIndex, -1);
-  const nextMeal = stepOnShelf(shelf, openIndex, 1);
+  const prevMeal = stepOnShelf(shelf, shownIndex, -1);
+  const nextMeal = stepOnShelf(shelf, shownIndex, 1);
 
   function handleOpenMeal(meal) {
     pushDish(meal.id);
@@ -490,14 +496,17 @@ function AdminApp() {
         />
       </div>
 
-      {openMeal && (
+      {shown && (
         <MealDetailModal
-          meal={openMeal}
-          index={openIndex + 1}
+          key={shownKey}
+          meal={shown}
+          index={shownIndex >= 0 ? shownIndex + 1 : shelf.length}
           total={shelf.length}
+          exiting={leaving}
+          onExited={dishGone}
           onClose={closeMeal}
           onStep={handleStepMeal}
-          onEdit={() => setEditingMealId(openMeal.id)}
+          onEdit={() => setEditingMealId(shown.id)}
           paused={Boolean(editingMeal)}
           prevMeal={prevMeal}
           nextMeal={nextMeal}

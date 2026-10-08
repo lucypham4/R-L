@@ -7,6 +7,7 @@ import { fetchChefBySlug, DEFAULT_PAGE_THEME } from '../lib/chefsApi';
 import { fetchMeals } from '../lib/mealsApi';
 import { leaveDish, pushDish, replaceDish } from '../lib/dishHistory';
 import { shelfOf, stepOnShelf } from '../lib/shelf';
+import { useLingering } from '../lib/useLingering';
 import { measureChefHeader, chefHeaderFrame, applyChefHeaderFrame, applyChefHeaderLayout, resultsScroll } from '../lib/chefHeader';
 import { prefersReducedMotion, onReducedMotionChange, tokenMs } from '../lib/motion';
 import './PublicChefPage.css';
@@ -215,8 +216,12 @@ export default function PublicChefPage({ slug }) {
   const shelf = useMemo(() => shelfOf(meals, sort, chef?.dishOrder), [meals, sort, chef]);
   const openIndex = shelf.findIndex((m) => String(m.id) === String(openMealId));
   const openMeal = openIndex >= 0 ? shelf[openIndex] : null;
-  const prevMeal = stepOnShelf(shelf, openIndex, -1);
-  const nextMeal = stepOnShelf(shelf, openIndex, 1);
+  // The dish stays on the page while its photo flies back to its card; see
+  // App.jsx.
+  const { shown, leaving, key: shownKey, done: dishGone } = useLingering(openMeal);
+  const shownIndex = shown ? shelf.findIndex((m) => m.id === shown.id) : -1;
+  const prevMeal = stepOnShelf(shelf, shownIndex, -1);
+  const nextMeal = stepOnShelf(shelf, shownIndex, 1);
 
   function handleOpenMeal(meal) {
     pushDish(meal.id);
@@ -304,11 +309,14 @@ export default function PublicChefPage({ slug }) {
       <div ref={bind('snapCollapsed')} className="public-chef-snap-area" aria-hidden="true" />
       <div className="public-chef-snap-end" aria-hidden="true" />
 
-      {openMeal && (
+      {shown && (
         <MealDetailModal
-          meal={openMeal}
-          index={openIndex + 1}
+          key={shownKey}
+          meal={shown}
+          index={shownIndex >= 0 ? shownIndex + 1 : shelf.length}
           total={shelf.length}
+          exiting={leaving}
+          onExited={dishGone}
           onClose={closeMeal}
           onStep={handleStepMeal}
           prevMeal={prevMeal}

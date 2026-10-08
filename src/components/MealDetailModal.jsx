@@ -4,6 +4,8 @@ import { normaliseServes, summaryOf } from '../lib/meal';
 import { onReducedMotionChange, prefersReducedMotion, scrollElementTo, token, tokenMs } from '../lib/motion';
 import { applyDishSheetFrame, dishSheetFrame, measureDishSheet } from '../lib/dishSheet';
 import { AXIS_BIAS, AXIS_SLOP, releaseVelocity, rubberBand, shouldCommit } from '../lib/dishSwipe';
+import { boxOf, cardPhotoOf, flyPhoto, isOnScreen, settledBoxOf } from '../lib/dishFlight';
+import { openedFromGallery } from '../lib/dishHistory';
 import './Bubbles.css';
 import './MealDetailModal.css';
 
@@ -121,8 +123,22 @@ function Chevron({ direction }) {
 // Share. `paused` is for while something sits on top of the dish, the edit
 // form: the dish stays open underneath, but must not answer the keys typed
 // into the form above it (Escape would close it, and the arrows would step
-// away from the dish being edited).
-export default function MealDetailModal({ meal, index, total, onClose, onStep, onEdit, paused = false, prevMeal, nextMeal }) {
+// away from the dish being edited). `exiting` is the dish on its way out:
+// the parent has let go of it and it is playing its exit, after which it
+// calls `onExited` and is taken off the page.
+export default function MealDetailModal({
+  meal,
+  index,
+  total,
+  onClose,
+  onStep,
+  onEdit,
+  paused = false,
+  prevMeal,
+  nextMeal,
+  exiting = false,
+  onExited,
+}) {
   const { els, bind } = useElements();
   const shareCardRef = useRef(null);
   const [shareStatus, setShareStatus] = useState('idle'); // idle | working | done | error
@@ -217,6 +233,85 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep, o
     measure();
   }, [measure, meal?.id]);
 
+  // The photo's flights (lib/dishFlight.js). Opening a dish lifts its photo
+  // off its card in the gallery and sets it down in the view; closing
+  // carries it back. One at a time: a dish closed before its photo has
+  // landed carries on from wherever the photo has got to.
+  const flight = useRef(null);
+
+  // In. Only from a card that was tapped, and is on screen: a dish opened
+  // from a link arrives with the rest of the view instead.
+  useLayoutEffect(() => {
+    const { photo, root } = els;
+    const card = cardPhotoOf(meal?.id);
+    if (reduced.current || !openedFromGallery() || !card || photo?.tagName !== 'IMG') return;
+    const from = boxOf(card);
+    if (from.top >= window.innerHeight || from.top + from.height <= 0) return;
+    // The view's photo has usually not loaded yet, though the card's has:
+    // it has no size, so nowhere to land, until it does. The copy waits on
+    // the card for that, for no longer than a move.
+    const loaded =
+      photo.complete && photo.naturalWidth > 0
+        ? true
+        : Promise.race([
+            (photo.decode ? photo.decode() : Promise.reject()).then(() => true, () => false),
+            new Promise((resolve) => setTimeout(resolve, tokenMs('--dur-move'), false)),
+          ]);
+    flight.current = flyPhoto({
+      src: photo.currentSrc || photo.src,
+      from,
+      ready: loaded,
+      // Where the photo comes to rest, in the screen's coordinates. The
+      // view's own entrance is still moving it a few pixels, so this is
+      // read from the layout rather than from where the photo is now.
+      to: () => {
+        measure();
+        const { photo: at } = geometry.current;
+        return at.w > 0 && at.h > 0 ? { left: root.offsetLeft + at.x, top: root.offsetTop + at.y, width: at.w, height: at.h } : null;
+      },
+      hide: [card, photo],
+      onDone: () => {
+        flight.current = null;
+      },
+    });
+    return () => {
+      flight.current?.cancel();
+      flight.current = null;
+    };
+  }, []);
+
+  // Out. The view leaves around the photo, which flies home to its card: the
+  // card of whichever dish is open, which after stepping along the shelf is
+  // not the one that was tapped. A photo with no card to go to (filtered out
+  // of the gallery, or off the screen), and reduced motion, which doesn't fly
+  // anything, leave with the view instead.
+  useLayoutEffect(() => {
+    if (!exiting) return;
+    const { photo } = els;
+    const card = cardPhotoOf(meal?.id);
+    const to = card && settledBoxOf(card);
+    if (!reduced.current && to && isOnScreen(to) && photo?.tagName === 'IMG' && photo.naturalWidth > 0) {
+      const live = flight.current;
+      const from = boxOf(live ? live.el : photo);
+      live?.cancel([photo, card]);
+      flight.current = flyPhoto({
+        src: photo.currentSrc || photo.src,
+        from,
+        to,
+        hide: [photo, card],
+        onDone: onExited,
+      });
+      return () => {
+        flight.current?.cancel();
+        flight.current = null;
+      };
+    }
+    flight.current?.cancel();
+    flight.current = null;
+    const timer = setTimeout(onExited, tokenMs(reduced.current ? '--dur-color' : '--dur-move'));
+    return () => clearTimeout(timer);
+  }, [exiting]);
+
   // The second half of a step: the incoming photo slides in from where its
   // neighbour's drag had it, as the outgoing one (now the ghost) leaves.
   // Before paint, so the frame between the two halves is never seen.
@@ -279,8 +374,15 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep, o
     };
   }, [els]);
 
+  // Going out, the dish takes no more input: a second Back would go back a
+  // second time. `inert` (below) does it where it is supported, which is not
+  // iOS before 15.5; this is for the rest.
+  const close = () => {
+    if (!exiting) onClose();
+  };
+
   useEffect(() => {
-    if (paused) return;
+    if (exiting || paused) return;
     function onKeyDown(e) {
       if (e.key === 'Escape') onClose();
       if (!canStep) return;
@@ -289,7 +391,7 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep, o
     }
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [onClose, canStep, paused]);
+  }, [onClose, canStep, paused, exiting]);
 
   // Closing the edit form hands focus back to the button that opened it,
   // rather than letting it fall to the page behind.
@@ -597,7 +699,12 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep, o
   }
 
   return (
-    <div className="modal-overlay dish-overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div
+      className={`modal-overlay dish-overlay ${exiting ? 'dish-overlay-exiting' : ''}`}
+      // React 18 only passes `inert` through as a string attribute.
+      {...(exiting ? { inert: '' } : {})}
+      onMouseDown={(e) => e.target === e.currentTarget && close()}
+    >
       <div
         ref={bind('root')}
         className="dish"
@@ -703,7 +810,7 @@ export default function MealDetailModal({ meal, index, total, onClose, onStep, o
           <div ref={bind('backdrop')} className="dish-backdrop" />
 
           <div className="dish-bar">
-            <button type="button" className="dish-back" onClick={onClose} aria-label="Back">
+            <button type="button" className="dish-back" onClick={close} aria-label="Back">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M19 12H5M11 5l-7 7 7 7" />
               </svg>

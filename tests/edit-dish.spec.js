@@ -288,7 +288,9 @@ test.describe('editing a dish', () => {
     await page.getByRole('button', { name: 'Cancel' }).click();
     expect(await page.evaluate(() => document.body.style.overflow)).toBe('hidden');
     await page.getByRole('button', { name: 'Back' }).click();
-    expect(await page.evaluate(() => document.body.style.overflow)).toBe('');
+    // The page is let go once the dish has gone, which is once its photo has
+    // flown home (dish-flight.spec.js), not the instant Back is pressed.
+    await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe('');
   });
 
   test('the browser’s back button takes the form and the dish with it', async ({ page }) => {
