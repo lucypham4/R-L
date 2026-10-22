@@ -1,0 +1,42 @@
+/* PROTOTYPE, not production. Deliberately unlike the app: high-contrast,
+   fixed sizes, its own font, so it never reads as part of either variant.
+   On a phone it sits above the nav pill. */
+.prototype-switcher {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  z-index: 10000;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: #0b57d0;
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  font: 600 13px/1 ui-monospace, Menlo, monospace;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.prototype-switcher span {
+  padding: 0 6px;
+}
+
+.prototype-switcher button {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font: 600 18px/1 ui-monospace, Menlo, monospace;
+}
+
+@media (max-width: 640px) {
+  .prototype-switcher {
+    bottom: calc(max(16px, env(safe-area-inset-bottom)) + 64px);
+  }
+}

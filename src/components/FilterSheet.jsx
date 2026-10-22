@@ -4,6 +4,7 @@ import CloseIcon from './CloseIcon';
 import FilterSelect from './FilterSelect';
 import SegmentedToggle from './SegmentedToggle';
 import { SORTS } from '../lib/dishOrder';
+import { useSpringSheet } from '../lib/useSpringSheet.prototype';
 import './Bubbles.css';
 import './FilterSheet.css';
 
@@ -42,10 +43,15 @@ export default function FilterSheet({
 
   useEffect(() => () => clearTimeout(exitTimer.current), []);
 
+  // PROTOTYPE (?variant=apple): a sheet on a spring that can be dragged
+  // down to dismiss. Null under today's variant, which keeps the above.
+  const spring = useSpringSheet(onClose);
+  const close = spring.requestClose ?? requestClose;
+
   useEffect(() => {
     closeRef.current?.focus();
     function onKeyDown(e) {
-      if (e.key === 'Escape') requestClose();
+      if (e.key === 'Escape') close();
     }
     document.addEventListener('keydown', onKeyDown);
     document.body.style.overflow = 'hidden';
@@ -53,15 +59,23 @@ export default function FilterSheet({
       document.removeEventListener('keydown', onKeyDown);
       document.body.style.overflow = '';
     };
-  }, [requestClose]);
+  }, [close]);
 
   return (
     <div
+      {...spring.overlayProps}
       className={`filter-sheet-overlay ${closing ? 'filter-sheet-overlay-closing' : ''}`}
-      onMouseDown={(e) => e.target === e.currentTarget && requestClose()}
+      onMouseDown={(e) => e.target === e.currentTarget && close()}
     >
-      <div className={`filter-sheet ${closing ? 'filter-sheet-closing' : ''}`} role="dialog" aria-modal="true" aria-label="Filters">
-        <div className="filter-sheet-header">
+      <div
+        ref={spring.sheetRef}
+        className={`filter-sheet ${closing ? 'filter-sheet-closing' : ''}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Filters"
+      >
+        <div className={`filter-sheet-header ${spring.active ? 'sheet-drag-zone' : ''}`} {...spring.zoneProps}>
+          {spring.active && <div className="sheet-grabber" aria-hidden="true" />}
           <h2 className="filter-sheet-title">Filters</h2>
           <div className="filter-sheet-header-actions">
             {hasActiveFilters && (
@@ -69,7 +83,7 @@ export default function FilterSheet({
                 Clear all
               </button>
             )}
-            <button ref={closeRef} type="button" className="filter-sheet-close" onClick={requestClose} aria-label="Close">
+            <button ref={closeRef} type="button" className="filter-sheet-close" onClick={close} aria-label="Close">
               <CloseIcon size={16} />
             </button>
           </div>

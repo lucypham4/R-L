@@ -6,6 +6,8 @@ import { applyDishSheetFrame, dishSheetFrame, measureDishSheet } from '../lib/di
 import { AXIS_BIAS, AXIS_SLOP, releaseVelocity, rubberBand, shouldCommit } from '../lib/dishSwipe';
 import { boxOf, cardPhotoOf, flyPhoto, isOnScreen, settledBoxOf } from '../lib/dishFlight';
 import { openedFromGallery } from '../lib/dishHistory';
+import { appleMotion } from '../lib/variant.prototype';
+import { project, springTo } from '../lib/spring.prototype';
 import './Bubbles.css';
 import './MealDetailModal.css';
 
@@ -154,6 +156,10 @@ export default function MealDetailModal({
   const drag = useRef(null);
   const pendingSlide = useRef(null);
   const stepRef = useRef(null);
+  // PROTOTYPE (?variant=apple): the photos' spring, while one is running,
+  // so a finger can catch it.
+  const swipeSpring = useRef(null);
+  useEffect(() => () => swipeSpring.current?.handle.stop(), []);
 
   // The sheet. Geometry is re-measured on layout changes; everything else
   // is recomputed from scrollTop on every scroll event, outside React.
@@ -333,6 +339,8 @@ export default function MealDetailModal({
     if (!slide) hideGhost();
     if (!photo || !changed) return;
     photo.getAnimations().forEach((a) => a.cancel());
+    swipeSpring.current?.handle.stop();
+    swipeSpring.current = null;
     const blur = `blur(${token('--blur-defocus')})`;
     const duration = tokenMs('--dur-move');
     const easing = token('--ease-out');
@@ -347,6 +355,14 @@ export default function MealDetailModal({
     );
     if (!slide) return;
     const { delta, fromX, travel: T, soft } = slide;
+    // PROTOTYPE (?variant=apple): the two photos carry on at the finger's
+    // speed, on a spring, rather than starting over on a fixed curve.
+    if (appleMotion()) {
+      const withGhost = Boolean(ghost && !ghost.hidden);
+      if (withGhost) ghost.style.filter = blur;
+      runSwipeSpring({ from: fromX + delta * T, velocity: slide.velocity ?? 0, ghostOffset: withGhost ? -delta * T : null, travel: T });
+      return;
+    }
     photo.animate([{ translate: `${fromX + delta * T}px 0` }, { translate: '0px 0' }], { duration, easing });
     if (ghost && !ghost.hidden) {
       const away = ghost.animate(
@@ -502,10 +518,64 @@ export default function MealDetailModal({
     ghost.style.transition = '';
   }
 
+  // PROTOTYPE (?variant=apple). One spring drives both photos: the photo's
+  // offset along the shelf, with the ghost a whole `travel` to one side of
+  // it. It always heads for 0 (the photo centred), whether that is the dish
+  // you were on settling back or the next one arriving. Bounce only when
+  // the release carried momentum.
+  function runSwipeSpring({ from, velocity, ghostOffset, travel: T }) {
+    const { photo, ghost } = els;
+    swipeSpring.current?.handle.stop();
+    const run = { ghostOffset, travel: T };
+    run.handle = springTo({
+      from,
+      to: 0,
+      velocity,
+      damping: Math.abs(velocity) > 600 ? 0.85 : 1,
+      response: 0.35,
+      onUpdate: (x) => {
+        const q = Math.min(1, Math.abs(x) / T);
+        photo.style.translate = `${x}px 0`;
+        photo.style.opacity = String(1 - 0.35 * q);
+        if (ghost && ghostOffset !== null && !ghost.hidden) {
+          ghost.style.translate = `${x + ghostOffset}px 0`;
+          ghost.style.opacity = String(0.65 + 0.35 * q);
+        }
+      },
+      onDone: () => {
+        swipeSpring.current = null;
+        photo.style.translate = '';
+        photo.style.opacity = '';
+        if (ghostOffset !== null) hideGhost();
+      },
+    });
+    swipeSpring.current = run;
+  }
+
+  // A caught spring let go without a swipe carries on from where it is.
+  function resumeCaught(d) {
+    const c = d?.caught;
+    if (c) runSwipeSpring({ from: c.handle.value, velocity: 0, ghostOffset: c.ghostOffset, travel: c.travel });
+  }
+
   function handlePointerDown(e) {
     swiped.current = false;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
-    drag.current = { id: e.pointerId, x0: e.clientX, y0: e.clientY, mode: 'pending', x: 0, samples: [{ x: e.clientX, t: e.timeStamp }] };
+    // PROTOTYPE (?variant=apple): a finger on a moving photo stops it where
+    // it is, and a drag from there starts from there.
+    const caught = appleMotion() ? swipeSpring.current : null;
+    caught?.handle.stop();
+    const base = caught ? caught.handle.value : 0;
+    drag.current = {
+      id: e.pointerId,
+      x0: e.clientX,
+      y0: e.clientY,
+      mode: 'pending',
+      x: base,
+      base,
+      caught,
+      samples: [{ x: e.clientX, t: e.timeStamp }],
+    };
   }
 
   function handlePointerMove(e) {
@@ -518,6 +588,7 @@ export default function MealDetailModal({
       // Mostly vertical: that's the sheet's scroll, and it keeps it.
       if (Math.abs(dx) < Math.abs(dy) * AXIS_BIAS) {
         drag.current = null;
+        resumeCaught(d);
         return;
       }
       d.mode = 'swipe';
@@ -533,9 +604,10 @@ export default function MealDetailModal({
     d.samples.push({ x: e.clientX, t: e.timeStamp });
     if (d.samples.length > 12) d.samples.shift();
 
-    const dir = dx < 0 ? 1 : -1; // +1: the next dish, arriving from the right
+    const offset = d.base + dx;
+    const dir = offset < 0 ? 1 : -1; // +1: the next dish, arriving from the right
     const has = hasNeighbour(dir);
-    d.x = has ? dx : rubberBand(dx, d.travel * 0.25);
+    d.x = has ? offset : rubberBand(offset, d.travel * 0.25);
     if (!d.movesPhoto) return;
     const q = Math.min(1, Math.abs(d.x) / d.travel);
     els.photo.style.translate = `${d.x}px 0`;
@@ -551,10 +623,25 @@ export default function MealDetailModal({
   function handlePointerUp(e) {
     const d = drag.current;
     drag.current = null;
+    if (d?.mode === 'pending') resumeCaught(d);
     if (!d || d.mode !== 'swipe' || e.pointerId !== d.id) return;
     // A mouse drag ends in a click on whatever it was released over;
     // don't let that click also open the sheet.
     swiped.current = true;
+    // PROTOTYPE (?variant=apple): where the photo lands is where the throw
+    // would carry it, projected forward from the finger's speed, and the
+    // nearest dish to that wins. So a drag released gently short of half-way
+    // goes back, a flick goes on however short it was, and a flick back the
+    // way it came goes back however far it had been dragged.
+    if (appleMotion()) {
+      const velocity = releaseVelocity(d.samples, e.timeStamp) * 1000;
+      const landing = d.x + project(velocity);
+      const half = d.travel / 2;
+      const delta = canStep && landing <= -half ? 1 : canStep && landing >= half ? -1 : 0;
+      if (delta) slideTo(delta, d.x, velocity);
+      else settleBack(d, velocity);
+      return;
+    }
     const dir = d.x < 0 ? 1 : -1;
     const commit = shouldCommit({
       dx: d.x,
@@ -570,11 +657,24 @@ export default function MealDetailModal({
     const d = drag.current;
     drag.current = null;
     if (d?.mode === 'swipe') settleBack(d);
+    else resumeCaught(d);
   }
 
-  function settleBack(d) {
+  function settleBack(d, velocity = 0) {
     const duration = tokenMs('--dur-move');
     const { photo, ghost } = els;
+    // PROTOTYPE (?variant=apple): back on a spring, at the finger's speed,
+    // without the overshoot today's curve adds to every settle.
+    if (appleMotion()) {
+      if (photo && d.movesPhoto) {
+        const withGhost = Boolean(ghost && !ghost.hidden);
+        runSwipeSpring({ from: d.x, velocity, ghostOffset: withGhost ? (d.x < 0 ? 1 : -1) * d.travel : null, travel: d.travel });
+      } else {
+        hideGhost();
+      }
+      setDefocused(false);
+      return;
+    }
     if (photo && d.movesPhoto) {
       photo.animate(
         [
@@ -601,7 +701,7 @@ export default function MealDetailModal({
   // an arrow). The outgoing photo is handed to the ghost, which carries it
   // off the side; the photo element takes the incoming dish and slides in
   // behind it once it has rendered (the layout effect below).
-  function slideTo(delta, fromX = 0) {
+  function slideTo(delta, fromX = 0, velocity = 0) {
     if (!hasNeighbour(delta)) return;
     const { photo } = els;
     if (photoMoves()) {
@@ -610,7 +710,7 @@ export default function MealDetailModal({
       if (els.ghost) els.ghost.style.opacity = photo.style.opacity || '1';
       // Whether a drag had already taken the photo out of focus: the ghost
       // leaves from there rather than snapping sharp first.
-      pendingSlide.current = { delta, fromX, travel: travel(), soft: Boolean(photo.style.filter) };
+      pendingSlide.current = { delta, fromX, travel: travel(), soft: Boolean(photo.style.filter), velocity };
     }
     if (photo) {
       photo.style.translate = '';

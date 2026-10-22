@@ -1,0 +1,65 @@
+/* PROTOTYPE, not production: the apple-design skill's variant of Staj
+   (?variant=apple). See src/lib/variant.prototype.js. Nothing here applies
+   under ?variant=today. */
+
+:root[data-variant='apple'] {
+  /* Press release without the overshoot. The skill keeps bounce for a
+     release that carried momentum (a flick, a throw); a tap has none, so
+     the button settles straight back, critically damped. */
+  --ease-spring: cubic-bezier(0.25, 1, 0.5, 1);
+
+  /* Reading text and the small labels in the system face, San Francisco on
+     an iPhone, which tracks and sizes itself optically. The serif display
+     type (dish names, the wordmark) stays: the skill says to override the
+     system face only with a reason, and Staj's identity is that reason. */
+  --font-sans: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}
+
+/* A sheet on a spring (useSpringSheet). The script moves the sheet and
+   sets --sheet-scrim from where it is, so the keyframes are off, and the
+   scrim moves to a layer of its own that fades with the sheet rather than
+   taking the sheet with it. */
+[data-spring].filter-sheet-overlay,
+[data-spring].action-sheet-overlay {
+  background: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  animation: none;
+}
+
+[data-spring].filter-sheet-overlay::before,
+[data-spring].action-sheet-overlay::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: var(--scrim-bg);
+  backdrop-filter: blur(20px) saturate(1.1);
+  -webkit-backdrop-filter: blur(20px) saturate(1.1);
+  opacity: var(--sheet-scrim, 0);
+}
+
+[data-spring] .filter-sheet,
+[data-spring] .action-sheet {
+  position: relative;
+  animation: none;
+  will-change: transform;
+}
+
+/* What can be dragged: the filter sheet's grabber and header, and the
+   whole of the action sheet, which doesn't scroll. The browser mustn't
+   take the touch for a pan. */
+.sheet-drag-zone {
+  touch-action: none;
+}
+
+.sheet-grabber {
+  position: absolute;
+  top: var(--space-sm);
+  left: 50%;
+  width: 36px;
+  height: 5px;
+  margin-left: -18px;
+  border-radius: var(--radius-pill);
+  background: var(--color-line-strong);
+}
